@@ -1,0 +1,16 @@
+Backend Dependencies:
+express
+mongoose
+cors
+dotenv
+bcryptjs
+jsonwebtoken
+nodemailer
+nodemon (dev)
+
+Frontend Dependencies:
+react
+react-dom
+react-router-dom
+axios
+vite
