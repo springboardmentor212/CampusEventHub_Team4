@@ -1,16 +1,20 @@
-Backend Dependencies:
+Backend:
 express
 mongoose
 cors
 dotenv
 bcryptjs
 jsonwebtoken
-nodemailer
-nodemon (dev)
+nodemon
 
-Frontend Dependencies:
+Frontend:
 react
-react-dom
 react-router-dom
 axios
 vite
+
+Infrastructure:
+docker
+docker-compose
+mongodb
+nginx

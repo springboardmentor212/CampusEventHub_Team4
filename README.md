@@ -1,184 +1,167 @@
-\# CampusEventHub – Inter-College Event Management Platform
+# 🎓 CampusEventHub
 
-
-
-CampusEventHub is a MERN stack web application that enables colleges to host and manage events such as hackathons, sports competitions, cultural fests, and workshops. Students can browse and register for events across colleges.
-
-
+### Inter-College Event Management Platform
 
 ---
 
+## 📌 Overview
 
+CampusEventHub is a full-stack MERN application designed to manage inter-college events efficiently.
 
-\## 🛠 Tech Stack
+The platform enables:
 
+* Students to browse and register for events
+* College admins to create and manage events
+* Real-time registration tracking
+* Feedback and interaction system
 
-
-\- MongoDB (Database)
-
-\- Express.js (Backend Framework)
-
-\- React (Frontend - Vite)
-
-\- Node.js (Runtime)
-
-\- Docker (Containerization)
-
-
+The system follows a role-based architecture to ensure secure and structured access control.
 
 ---
 
+## 🏗 Architecture
 
+Frontend → React (Vite)
+Backend → Node.js + Express
+Database → MongoDB
+Containerization → Docker
 
-\## 📁 Project Structure
+---
 
+## 📁 Repository Structure
 
-
-CampusEventHub\_Team4/
-
+```
+CampusEventHub_Team4/
 │
-
-├── frontend/       → React application
-
-├── backend/        → Express server \& API
-
-├── docs/           → Project documentation
-
+├── frontend/
+├── backend/
+├── docs/
 ├── docker-compose.yml
-
-├── requirements.txt (documentation only)
-
+├── .gitignore
 └── README.md
+```
 
-
-
----
-
-
-
-\## 🚀 Local Setup (Without Docker)
-
-
-
-\### 1️⃣ Backend
-
-
-
-cd backend  
-
-npm install  
-
-npm run dev  
-
-
-
-Server runs on:  
-
-http://localhost:5000  
-
-
+Each folder contains its own detailed README.
 
 ---
 
+## 🌿 Branching Strategy (Strict Policy)
 
+main
 
-\### 2️⃣ Frontend
+* Production branch
+* Never push directly
 
+dev
 
+* Root development branch
+* All feature branches merge here
 
-cd frontend  
+feature/*
 
-npm install  
-
-npm run dev  
-
-
-
-App runs on:  
-
-http://localhost:5173  
-
-
+* Individual feature branches
+* Example: feature/auth-module
 
 ---
 
+## 🚦 Development Workflow
 
+1. Always start from dev:
 
-\## 🐳 Run With Docker (Recommended)
+```
+git checkout dev
+git pull origin dev
+```
 
+2. Create your feature branch:
 
+```
+git checkout -b feature/your-feature-name
+```
 
-Make sure Docker Desktop is running.
+3. Work and commit cleanly.
 
+4. Push branch:
 
+```
+git push origin feature/your-feature-name
+```
+
+5. Raise Pull Request → merge into dev.
+
+Never commit directly to main.
+
+---
+
+## 🧾 Commit Message Standard
+
+Use structured commit format:
+
+```
+feat(auth): implement login controller
+fix(events): resolve date validation bug
+docs(readme): update setup instructions
+refactor(user): optimize password hashing
+chore(docker): update container config
+```
+
+Avoid vague messages like:
+
+* update
+* final
+* changes
+* done
+
+---
+
+## 🐳 Running with Docker (Recommended)
 
 From project root:
 
+```
+docker compose up --build
+```
 
+Access:
 
-docker-compose up --build
-
-
-
-Services:
-
-\- Frontend → http://localhost:5173
-
-\- Backend → http://localhost:5000
-
-\- MongoDB → localhost:27017
-
-
+Frontend → [http://localhost:3000](http://localhost:3000)
+Backend → [http://localhost:5000](http://localhost:5000)
 
 ---
 
+## 💻 Running Without Docker
 
+Backend:
 
-\## 🔁 Git Workflow
+```
+cd backend
+npm install
+npm run dev
+```
 
+Frontend:
 
-
-\- Do NOT push to main branch.
-
-\- All development happens in dev branch.
-
-\- Create feature branches for major features.
-
-\- Raise Pull Requests → Merge into dev.
-
-
-
-Example:
-
-
-
-git checkout dev  
-
-git pull  
-
-git checkout -b feature/auth  
-
-git commit -m "feat(auth): add login API"  
-
-git push origin feature/auth  
-
-
+```
+cd frontend
+npm install
+npm run dev
+```
 
 ---
 
+## 🔐 Security Guidelines
 
+* Do NOT commit environment files
+* Do NOT expose database credentials
+* Do NOT hardcode secrets
+* Use environment variables only
+* Review PR before merging
 
-\## 👥 Team Guidelines
+---
 
+## 📅 Project Milestones
 
-
-\- Write clean commit messages.
-
-\- Keep dev branch stable.
-
-\- Do not push secrets.
-
-\- Docker must always run successfully.
-
-
-
+Milestone 1 → Authentication & Role System
+Milestone 2 → Event Creation & Listing
+Milestone 3 → Registration & Slot Management
+Milestone 4 → Feedback & Admin Analytics
