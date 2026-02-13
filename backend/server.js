@@ -2,6 +2,8 @@ import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
 import dotenv from "dotenv";
+import authRoutes from "./routes/auth.js";
+import collegeRoutes from "./routes/colleges.js";
 
 /*
   Environment configuration
@@ -24,6 +26,23 @@ app.use(cors());
 app.use(express.json());
 
 /*
+  Routes
+*/
+app.use("/api/auth", authRoutes);
+app.use("/api/colleges", collegeRoutes);
+
+/*
+  Basic Health Route
+*/
+app.get("/", (req, res) => {
+  res.status(200).json({
+    status: "Backend running",
+    message: "CampusEventHub API is ready",
+    version: "1.0.0",
+  });
+});
+
+/*
   MongoDB Connection
   Uses MONGO_URI from environment variables
 */
@@ -38,15 +57,6 @@ mongoose
     console.error("MongoDB connection error:", err.message);
     process.exit(1);
   });
-
-/*
-  Basic Health Route
-*/
-app.get("/", (req, res) => {
-  res.status(200).json({
-    status: "Backend running",
-  });
-});
 
 /*
   Start Server
