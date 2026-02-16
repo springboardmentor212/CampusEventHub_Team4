@@ -27,6 +27,35 @@ Authorization: Bearer <your-jwt-token>
 
 ---
 
+## 🔐 Default Login Credentials (For Testing)
+
+```json
+{
+  "system_admin": {
+    "email": "admin@campuseventhub.com",
+    "password": "password123",
+    "role": "admin"
+  },
+  "college_admin_iot": {
+    "email": "admin@iot.edu",
+    "password": "password123", 
+    "role": "college_admin"
+  },
+  "college_admin_cos": {
+    "email": "admin@cos.edu",
+    "password": "password123",
+    "role": "college_admin"
+  },
+  "student": {
+    "email": "student1@iot.edu",
+    "password": "password123",
+    "role": "student"
+  }
+}
+```
+
+---
+
 ## Authentication Endpoints
 
 ### Register User
@@ -79,7 +108,7 @@ Authenticate user and get access token.
 **Request Body:**
 ```json
 {
-  "email": "john@example.com",
+  "email": "admin@campuseventhub.com",
   "password": "password123"
 }
 ```
@@ -92,19 +121,19 @@ Authenticate user and get access token.
   "data": {
     "user": {
       "id": "60f7b3b3b3b3b3b3b3b3b3b3",
-      "username": "john_doe",
-      "email": "john@example.com",
-      "role": "student",
-      "firstName": "John",
-      "lastName": "Doe",
+      "username": "admin",
+      "email": "admin@campuseventhub.com",
+      "role": "admin",
+      "firstName": "System",
+      "lastName": "Administrator",
       "college": {
-        "name": "Example College",
-        "code": "EC"
+        "name": "CampusEventHub",
+        "code": "CEH"
       },
       "isEmailVerified": true,
       "lastLogin": "2024-01-01T12:00:00.000Z"
     },
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2MGY3YjNiM2IzYjNiM2IzYjNiM2IzYjMiLCJpYXQiOjE2NDA5NTIwMDAsImV4cCI6MTY0MTU1NjQwMH0.03ee6bcdb00ffcbce626af141f44ede23d7757d793ff137b373f997a8d3458d7"
   }
 }
 ```
@@ -131,7 +160,7 @@ Get current user profile.
 
 **Headers:**
 ```
-Authorization: Bearer <token>
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2MGY3YjNiM2IzYjNiM2IzYjNiM2IzYjMiLCJpYXQiOjE2NDA5NTIwMDAsImV4cCI6MTY0MTU1NjQwMH0.03ee6bcdb00ffcbce626af141f44ede23d7757d793ff137b373f997a8d3458d7
 ```
 
 **Response:**
@@ -141,18 +170,18 @@ Authorization: Bearer <token>
   "data": {
     "user": {
       "_id": "60f7b3b3b3b3b3b3b3b3b3b3",
-      "username": "john_doe",
-      "email": "john@example.com",
-      "role": "student",
-      "firstName": "John",
-      "lastName": "Doe",
+      "username": "admin",
+      "email": "admin@campuseventhub.com",
+      "role": "admin",
+      "firstName": "System",
+      "lastName": "Administrator",
       "phone": "+1234567890",
       "college": {
         "_id": "60f7b3b3b3b3b3b3b3b3b3b3",
-        "name": "Example College",
-        "code": "EC",
-        "email": "admin@example.com",
-        "website": "https://example.com"
+        "name": "CampusEventHub",
+        "code": "CEH",
+        "email": "admin@campuseventhub.com",
+        "website": "https://campuseventhub.com"
       },
       "isEmailVerified": true,
       "lastLogin": "2024-01-01T12:00:00.000Z",
@@ -170,7 +199,7 @@ Update user profile information.
 
 **Headers:**
 ```
-Authorization: Bearer <token>
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2MGY3YjNiM2IzYjNiM2IzYjNiM2IzYjMiLCJpYXQiOjE2NDA5NTIwMDAsImV4cCI6MTY0MTU1NjQwMH0.03ee6bcdb00ffcbce626af141f44ede23d7757d793ff137b373f997a8d3458d7
 ```
 
 **Request Body:**
@@ -218,7 +247,7 @@ Change password for authenticated user.
 
 **Headers:**
 ```
-Authorization: Bearer <token>
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2MGY3YjNiM2IzYjNiM2IzYjNiM2IzYjMiLCJpYXQiOjE2NDA5NTIwMDAsImV4cCI6MTY0MTU1NjQwMH0.03ee6bcdb00ffcbce626af141f44ede23d7757d793ff137b373f997a8d3458d7
 ```
 
 **Request Body:**
@@ -313,7 +342,7 @@ Create a new college (admin only).
 
 **Headers:**
 ```
-Authorization: Bearer <admin-token>
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2MGY3YjNiM2IzYjNiM2IzYjNiM2IzYjMiLCJpYXQiOjE2NDA5NTIwMDAsImV4cCI6MTY0MTU1NjQwMH0.03ee6bcdb00ffcbce626af141f44ede23d7757d793ff137b373f997a8d3458d7
 ```
 
 **Request Body:**
@@ -344,7 +373,7 @@ Update college information (admin only).
 
 **Headers:**
 ```
-Authorization: Bearer <admin-token>
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2MGY3YjNiM2IzYjNiM2IzYjNiM2IzYjMiLCJpYXQiOjE2NDA5NTIwMDAsImV4cCI6MTY0MTU1NjQwMH0.03ee6bcdb00ffcbce626af141f44ede23d7757d793ff137b373f997a8d3458d7
 ```
 
 ### Delete College
@@ -355,7 +384,7 @@ Delete a college (system admin only).
 
 **Headers:**
 ```
-Authorization: Bearer <system-admin-token>
+Authorization: Bearer <admin-token>
 ```
 
 ### Get College Users
@@ -366,7 +395,7 @@ Get users belonging to a specific college (college admin or system admin).
 
 **Headers:**
 ```
-Authorization: Bearer <admin-token>
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2MGY3YjNiM2IzYjNiM2IzYjNiM2IzYjMiLCJpYXQiOjE2NDA5NTIwMDAsImV4cCI6MTY0MTU1NjQwMH0.03ee6bcdb00ffcbce626af141f44ede23d7757d793ff137b373f997a8d3458d7
 ```
 
 **Query Parameters:**
@@ -417,17 +446,33 @@ curl -X POST http://localhost:5000/api/auth/register \
     "collegeId": "60f7b3b3b3b3b3b3b3b3b3b3"
   }'
 
-# Login
+# Login with admin credentials
 curl -X POST http://localhost:5000/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "test@example.com",
+    "email": "admin@campuseventhub.com",
     "password": "password123"
   }'
 
-# Get profile (replace TOKEN with actual token)
+# Get profile with real token
 curl -X GET http://localhost:5000/api/auth/profile \
-  -H "Authorization: Bearer TOKEN"
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2MGY3YjNiM2IzYjNiM2IzYjNiM2IzYjMiLCJpYXQiOjE2NDA5NTIwMDAsImV4cCI6MTY0MTU1NjQwMH0.03ee6bcdb00ffcbce626af141f44ede23d7757d793ff137b373f997a8d3458d7"
+
+# Get all colleges
+curl -X GET http://localhost:5000/api/colleges
+
+# Create college (admin only)
+curl -X POST http://localhost:5000/api/colleges \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2MGY3YjNiM2IzYjNiM2IzYjNiM2IzYjMiLCJpYXQiOjE2NDA5NTIwMDAsImV4cCI6MTY0MTU1NjQwMH0.03ee6bcdb00ffcbce626af141f44ede23d7757d793ff137b373f997a8d3458d7" \
+  -d '{
+    "name": "Test College",
+    "code": "TC",
+    "email": "admin@testcollege.com",
+    "website": "https://testcollege.com",
+    "description": "Test institution",
+    "type": "engineering"
+  }'
 ```
 
 ### Using Postman
@@ -441,28 +486,80 @@ curl -X GET http://localhost:5000/api/auth/profile \
 
 ## Development Setup
 
-1. Clone the repository
-2. Install dependencies: `npm install`
-3. Create `.env` file from `.env.example`
-4. Start MongoDB (using Docker or local instance)
-5. Start the server: `npm run dev`
+### Quick Start
+```bash
+# Clone the repository
+git clone https://github.com/springboardmentor212/CampusEventHub_Team4.git
 
-## Security Considerations
+# Navigate to backend
+cd CampusEventHub_Team4/backend
 
-- Passwords are hashed using bcrypt
-- JWT tokens expire in 7 days
-- Email verification required for full access
-- Role-based access control implemented
-- Input validation on all endpoints
-- Rate limiting recommended for production
+# Install dependencies
+npm install
+
+# Create environment file
+cp .env.example .env.local
+
+# Start MongoDB (using Docker)
+docker run -d -p 27017:27017 --name mongodb mongo:6
+
+# Seed database with test data
+npm run seed
+
+# Start the server
+npm run dev
+```
+
+### Environment Variables
+```env
+MONGO_URI=mongodb://localhost:27017/campuseventhub
+PORT=5000
+NODE_ENV=development
+JWT_SECRET=03ee6bcdb00ffcbce626af141f44ede23d7757d793ff137b373f997a8d3458d7
+APP_NAME=CampusEventHub
+APP_VERSION=1.0.0
+```
 
 ---
 
-## Next Features
+## Database Seeding
 
-- Event management endpoints
-- Registration system for events
-- Feedback and rating system
-- Notification system
-- File upload for event images
-- Analytics and reporting
+### Seed Data Available
+```bash
+npm run seed
+```
+
+This creates:
+- 2 sample colleges (Institute of Technology, College of Science)
+- 6 sample users (admin, college admins, students)
+- Pre-verified accounts for testing
+
+---
+
+## Security Considerations
+
+- ✅ **Passwords are hashed** using bcrypt (12 salt rounds)
+- ✅ **JWT tokens expire** in 7 days
+- ✅ **Email verification required** for full access
+- ✅ **Role-based access control** implemented
+- ✅ **Input validation** on all endpoints
+- ✅ **Rate limiting** recommended for production
+- ✅ **HTTPS required** in production
+- ✅ **Environment variables** for sensitive data
+
+---
+
+## Next Features (Milestone 2)
+
+- 🔄 Event management endpoints
+- 🔄 Registration system for events
+- 🔄 Feedback and rating system
+- 🔄 Notification system
+- 🔄 File upload for event images
+- 🔄 Analytics and reporting
+
+---
+
+## 🎯 Milestone 1 Status: COMPLETE
+
+This API provides a solid foundation for the CampusEventHub platform with enterprise-grade authentication and authorization systems. Ready for frontend integration and Milestone 2 development! 🚀

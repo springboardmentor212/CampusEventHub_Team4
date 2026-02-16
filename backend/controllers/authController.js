@@ -21,7 +21,6 @@ export const register = async (req, res) => {
       username,
       email,
       password,
-      role,
       collegeId,
       firstName,
       lastName,
@@ -74,12 +73,12 @@ export const register = async (req, res) => {
     const emailVerificationToken = generateVerificationToken();
     const emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-    // Create new user
+    // Create new user - public registration defaults to student role only
     const newUser = new User({
       username,
       email,
       password: hashedPassword,
-      role: role || "student",
+      role: "student", // Force student role for public registration
       college: collegeId,
       firstName,
       lastName,
