@@ -1,6 +1,7 @@
 import { useState } from "react";
 import API from "../api/axios";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
+import "../styles/auth.css";
 
 const Register = () => {
   const navigate = useNavigate();
@@ -27,53 +28,33 @@ const Register = () => {
   };
 
   return (
-    <div>
-      <h2>Register</h2>
-      <form onSubmit={handleSubmit}>
-        <input
-          placeholder="Username"
-          onChange={(e) => setForm({ ...form, username: e.target.value })}
-        />
-        <br />
+    <div className="auth-container">
+      <div className="auth-card">
+        <div className="auth-logo">🎓</div>
 
-        <input
-          placeholder="First Name"
-          onChange={(e) => setForm({ ...form, firstName: e.target.value })}
-        />
-        <br />
+        <h2 className="auth-title">Create Account</h2>
+        <p className="auth-subtitle">
+          Join the CampusEventHub community today.
+        </p>
 
-        <input
-          placeholder="Last Name"
-          onChange={(e) => setForm({ ...form, lastName: e.target.value })}
-        />
-        <br />
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label>Username</label>
+            <div className="input-box">
+              <input
+                type="text"
+                placeholder="Enter username"
+                onChange={(e) =>
+                  setForm({ ...form, username: e.target.value })
+                }
+              />
+            </div>
+          </div>
 
-        <input
-          type="email"
-          placeholder="Email"
-          onChange={(e) => setForm({ ...form, email: e.target.value })}
-        />
-        <br />
-
-        <input
-          type="password"
-          placeholder="Password"
-          onChange={(e) => setForm({ ...form, password: e.target.value })}
-        />
-        <br />
-
-        <select
-          onChange={(e) => setForm({ ...form, role: e.target.value })}
-        >
-          <option value="student">Student</option>
-          <option value="college_admin">College Admin</option>
-        </select>
-        <br />
-
-        <button type="submit">Register</button>
-      </form>
-    </div>
-  );
-};
-
-export default Register;
+          <div className="form-group">
+            <label>First Name</label>
+            <div className="input-box">
+              <input
+                type="text"
+                placeholder="First Name"
+                onChange={(e) =>
