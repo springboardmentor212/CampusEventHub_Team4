@@ -58,3 +58,62 @@ const Register = () => {
                 type="text"
                 placeholder="First Name"
                 onChange={(e) =>
+                  setForm({ ...form, firstName: e.target.value })
+                }
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>Last Name</label>
+            <div className="input-box">
+              <input
+                type="text"
+                placeholder="Last Name"
+                onChange={(e) =>
+                  setForm({ ...form, lastName: e.target.value })
+                }
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>Email Address</label>
+            <div className="input-box">
+              <input
+                type="email"
+                placeholder="Enter email"
+                onChange={(e) =>
+                  setForm({ ...form, email: e.target.value })
+                }
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>Password</label>
+            <div className="input-box">
+              <input
+                type="password"
+                placeholder="Create password"
+                onChange={(e) =>
+                  setForm({ ...form, password: e.target.value })
+                }
+              />
+            </div>
+          </div>
+
+          <button className="auth-btn" type="submit">
+            Sign Up
+          </button>
+        </form>
+
+        <p className="auth-link">
+          Already have an account? <Link to="/login">Login</Link>
+        </p>
+      </div>
+    </div>
+  );
+};
+
+export default Register;

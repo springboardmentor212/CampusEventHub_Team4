@@ -18,3 +18,5 @@ Thumbs.db
 
 # Docker
 mongo-data
+# Environment variables
+.env.*
