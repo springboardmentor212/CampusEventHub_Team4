@@ -21,10 +21,13 @@ The system follows a role-based architecture to ensure secure and structured acc
 
 ## 🏗 Architecture
 
-Frontend → React (Vite)
-Backend → Node.js + Express
-Database → MongoDB
-Containerization → Docker
+**Frontend** → React (Vite)
+
+**Backend** → Node.js + Express
+
+**Database** → MongoDB
+
+**Containerization** → Docker
 
 ---
 
@@ -39,6 +42,7 @@ CampusEventHub_Team4/
 ├── docker-compose.yml
 ├── .gitignore
 └── README.md
+
 ```
 
 Each folder contains its own detailed README.
@@ -47,17 +51,17 @@ Each folder contains its own detailed README.
 
 ## 🌿 Branching Strategy (Strict Policy)
 
-main
+**main**
 
 * Production branch
 * Never push directly
 
-dev
+**dev**
 
 * Root development branch
 * All feature branches merge here
 
-feature/*
+**feature/**
 
 * Individual feature branches
 * Example: feature/auth-module
@@ -71,20 +75,22 @@ feature/*
 ```
 git checkout dev
 git pull origin dev
+
 ```
 
 2. Create your feature branch:
 
 ```
 git checkout -b feature/your-feature-name
+
 ```
 
 3. Work and commit cleanly.
-
 4. Push branch:
 
 ```
 git push origin feature/your-feature-name
+
 ```
 
 5. Raise Pull Request → merge into dev.
@@ -103,6 +109,7 @@ fix(events): resolve date validation bug
 docs(readme): update setup instructions
 refactor(user): optimize password hashing
 chore(docker): update container config
+
 ```
 
 Avoid vague messages like:
@@ -120,31 +127,35 @@ From project root:
 
 ```
 docker compose up --build
+
 ```
 
 Access:
 
-Frontend → [http://localhost:3000](http://localhost:3000)
-Backend → [http://localhost:5000](http://localhost:5000)
+**Frontend** → [http://localhost:3000](https://www.google.com/search?q=http://localhost:3000)
+
+**Backend** → [http://localhost:5000](https://www.google.com/search?q=http://localhost:5000)
 
 ---
 
 ## 💻 Running Without Docker
 
-Backend:
+**Backend:**
 
 ```
 cd backend
 npm install
 npm run dev
+
 ```
 
-Frontend:
+**Frontend:**
 
 ```
 cd frontend
 npm install
 npm run dev
+
 ```
 
 ---
@@ -161,7 +172,10 @@ npm run dev
 
 ## 📅 Project Milestones
 
-Milestone 1 → Authentication & Role System
-Milestone 2 → Event Creation & Listing
-Milestone 3 → Registration & Slot Management
-Milestone 4 → Feedback & Admin Analytics
+**Milestone 1** → Authentication & Role System
+
+**Milestone 2** → Event Creation & Listing
+
+**Milestone 3** → Registration & Slot Management
+
+**Milestone 4** → Feedback & Admin Analytics
