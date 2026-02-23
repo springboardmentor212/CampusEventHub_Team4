@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { User } from "../models/User.js";
 import { College } from "../models/College.js";
+import sendEmail from "../utils/emailService.js";
 
 // Helper function to generate tokens
 const generateToken = (userId, role) => {
@@ -89,10 +90,33 @@ export const register = async (req, res) => {
 
     await newUser.save();
 
+    // Send verification email
+    const verificationUrl = `${process.env.FRONTEND_URL}/verify-email/${emailVerificationToken}`;
+
+    const message = `Welcome to CampusEventHub, ${firstName}! \n\n Please verify your email by clicking the link below: \n\n ${verificationUrl} \n\n If you did not create an account, please ignore this email.`;
+
+    try {
+      await sendEmail({
+        email: newUser.email,
+        subject: "Welcome to CampusEventHub - Verify your email",
+        message,
+        html: `
+          <h1>Email Verification</h1>
+          <p>Hi ${firstName},</p>
+          <p>Welcome to CampusEventHub! Please click the button below to verify your email address:</p>
+          <a href="${verificationUrl}" style="display: inline-block; padding: 10px 20px; background-color: #5048e5; color: white; text-decoration: none; border-radius: 5px;">Verify Email</a>
+          <p>If the button doesn't work, copy and paste this link into your browser:</p>
+          <p>${verificationUrl}</p>
+        `,
+      });
+    } catch (err) {
+      console.error("Error sending verification email:", err);
+      // We still registered the user, so we don't want to fail the whole request
+      // But in a real scenario, you might want to handle this better
+    }
+
     // Generate JWT token
     const token = generateToken(newUser._id, newUser.role);
-
-    // TODO: Send verification email (implement email service later)
 
     res.status(201).json({
       success: true,

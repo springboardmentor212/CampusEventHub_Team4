@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Inter", "sans-serif";
+  --color-primary: #5048e5;
+}
+
+@layer base {
+  body {
+    @apply font-display text-gray-900;
+  }
+}
