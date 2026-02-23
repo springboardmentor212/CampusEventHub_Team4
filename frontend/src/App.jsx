@@ -6,6 +6,9 @@ import Register from "./pages/Register";
 import StudentDashboard from "./pages/StudentDashboard";
 import CollegeAdminDashboard from "./pages/CollegeAdminDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
+import ChangePassword from "./pages/ChangePassword";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
@@ -16,6 +19,16 @@ function App() {
           <Route path="/" element={<Login />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password/:token" element={<ResetPassword />} />
+          <Route
+            path="/change-password"
+            element={
+              <ProtectedRoute>
+                <ChangePassword />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/student"
             element={
