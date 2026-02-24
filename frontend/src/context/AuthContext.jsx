@@ -1,4 +1,3 @@
-
 import { createContext, useState, useEffect } from "react";
 import API from "../api/axios";
 
@@ -6,36 +5,40 @@ export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   const login = async (email, password) => {
     const res = await API.post("/auth/login", { email, password });
-    localStorage.setItem("token", res.data.data.token);
+    // Token is now set in HttpOnly cookie by server
     setUser(res.data.data.user);
   };
 
-  const logout = () => {
-    localStorage.removeItem("token");
-    setUser(null);
+  const logout = async () => {
+    try {
+      await API.get("/auth/logout");
+    } finally {
+      setUser(null);
+    }
   };
 
   const loadUser = async () => {
     try {
       const res = await API.get("/auth/profile");
       setUser(res.data.data.user);
-    } catch {
-      logout();
+    } catch (err) {
+      setUser(null);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (localStorage.getItem("token")) {
-      loadUser();
-    }
+    loadUser();
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
-      {children}
+    <AuthContext.Provider value={{ user, login, logout, loading }}>
+      {!loading && children}
     </AuthContext.Provider>
   );
 };
