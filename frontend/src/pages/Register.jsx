@@ -15,18 +15,24 @@ const Register = () => {
     role: "student",
   });
   const [colleges, setColleges] = useState([]);
+  const [loadingColleges, setLoadingColleges] = useState(true);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     const fetchColleges = async () => {
       try {
+        setLoadingColleges(true);
         const res = await API.get("/colleges");
         if (res.data.success) {
+          console.log("Colleges fetched:", res.data.data.colleges);
           setColleges(res.data.data.colleges);
         }
       } catch (err) {
         console.error("Failed to fetch colleges", err);
+        setError("Failed to load university list. Please refresh.");
+      } finally {
+        setLoadingColleges(false);
       }
     };
     fetchColleges();
@@ -171,7 +177,12 @@ const Register = () => {
                     setForm({ ...form, collegeId: e.target.value })
                   }
                 >
-                  <option value="">Select your university</option>
+                  <option value="">
+                    {loadingColleges ? "Loading universities..." : "Select your university"}
+                  </option>
+                  {!loadingColleges && colleges.length === 0 && (
+                    <option value="" disabled>No universities found</option>
+                  )}
                   {colleges.map((c) => (
                     <option key={c._id} value={c._id}>
                       {c.name}

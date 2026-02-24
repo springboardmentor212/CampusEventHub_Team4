@@ -75,9 +75,8 @@ const collegeSchema = new mongoose.Schema({
 });
 
 // Update the updatedAt field before saving
-collegeSchema.pre("save", function (next) {
+collegeSchema.pre("save", function () {
   this.updatedAt = Date.now();
-  next();
 });
 
 // Virtual for full address

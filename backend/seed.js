@@ -2,12 +2,16 @@ import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import { User } from "./models/User.js";
 import { College } from "./models/College.js";
+import dotenv from "dotenv";
+
+dotenv.config({ path: "./.env.local" });
 
 const seedData = async () => {
   try {
     // Connect to MongoDB
+    console.log("Attempting to connect to:", process.env.MONGO_URI);
     await mongoose.connect(process.env.MONGO_URI);
-    console.log("Connected to MongoDB");
+    console.log("Connected to MongoDB successfully");
 
     // Clear existing data
     await User.deleteMany({});
@@ -15,46 +19,53 @@ const seedData = async () => {
     console.log("Cleared existing data");
 
     // Create sample colleges
-    const colleges = await College.create([
-      {
-        name: "Institute of Technology",
-        code: "IOT",
-        email: "admin@iot.edu",
-        phone: "+1-555-0101",
-        address: {
-          street: "123 Tech Street",
-          city: "Tech City",
-          state: "CA",
-          country: "India",
-          pincode: "123456",
+    let colleges;
+    try {
+      colleges = await College.create([
+        {
+          name: "Institute of Technology",
+          code: "IOT",
+          email: "admin@iot.edu",
+          phone: "+1-555-0101",
+          address: {
+            street: "123 Tech Street",
+            city: "Tech City",
+            state: "CA",
+            country: "India",
+            pincode: "123456",
+          },
+          website: "https://iot.edu",
+          description: "A premier engineering institute",
+          type: "engineering",
+          establishedYear: 2000,
+          isActive: true,
+          isVerified: true,
         },
-        website: "https://iot.edu",
-        description: "A premier engineering institute",
-        type: "engineering",
-        establishedYear: 2000,
-        isActive: true,
-        isVerified: true,
-      },
-      {
-        name: "College of Science",
-        code: "COS",
-        email: "admin@cos.edu",
-        phone: "+1-555-0102",
-        address: {
-          street: "456 Science Avenue",
-          city: "Science City",
-          state: "NY",
-          country: "India",
-          pincode: "654321",
+        {
+          name: "College of Science",
+          code: "COS",
+          email: "admin@cos.edu",
+          phone: "+1-555-0102",
+          address: {
+            street: "456 Science Avenue",
+            city: "Science City",
+            state: "NY",
+            country: "India",
+            pincode: "654321",
+          },
+          website: "https://cos.edu",
+          description: "Leading science and research institution",
+          type: "science",
+          establishedYear: 1995,
+          isActive: true,
+          isVerified: true,
         },
-        website: "https://cos.edu",
-        description: "Leading science and research institution",
-        type: "science",
-        establishedYear: 1995,
-        isActive: true,
-        isVerified: true,
-      },
-    ]);
+      ]);
+    } catch (err) {
+      console.error("COLLEGE CREATE ERROR:");
+      console.error(JSON.stringify(err, null, 2));
+      throw err;
+    }
 
     console.log(`Created ${colleges.length} colleges`);
 
@@ -156,7 +167,8 @@ const seedData = async () => {
     await mongoose.disconnect();
     console.log("\nDisconnected from MongoDB");
   } catch (error) {
-    console.error("Seed error:", error);
+    console.error("Seed error details:");
+    console.error(error);
     process.exit(1);
   }
 };

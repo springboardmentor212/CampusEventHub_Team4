@@ -1,5 +1,5 @@
-import express from "express";
 import mongoose from "mongoose";
+import jwt from "jsonwebtoken";
 
 const userSchema = new mongoose.Schema({
   username: {
@@ -84,15 +84,21 @@ const userSchema = new mongoose.Schema({
 });
 
 // Update the updatedAt field before saving
-userSchema.pre("save", function (next) {
+userSchema.pre("save", function () {
   this.updatedAt = Date.now();
-  next();
 });
 
 // Virtual for full name
 userSchema.virtual("fullName").get(function () {
   return `${this.firstName} ${this.lastName}`;
 });
+
+// Method to generate JWT
+userSchema.methods.generateToken = function () {
+  return jwt.sign({ userId: this._id, role: this.role }, process.env.JWT_SECRET, {
+    expiresIn: "7d",
+  });
+};
 
 // Method to check if user is college admin
 userSchema.methods.isCollegeAdmin = function () {
