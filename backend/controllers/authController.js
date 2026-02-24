@@ -22,6 +22,7 @@ export const register = catchAsync(async (req, res, next) => {
     firstName,
     lastName,
     phone,
+    role,
   } = req.body;
 
   // Check if college exists
@@ -52,7 +53,7 @@ export const register = catchAsync(async (req, res, next) => {
     username,
     email,
     password: hashedPassword,
-    role: "student",
+    role: role || "student",
     college: collegeId,
     firstName,
     lastName,

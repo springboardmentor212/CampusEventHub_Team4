@@ -32,6 +32,7 @@ export const registerSchema = Joi.object({
     firstName: Joi.string().required(),
     lastName: Joi.string().required(),
     phone: Joi.string().allow(""),
+    role: Joi.string().valid("student", "college_admin").default("student"),
 });
 
 export const loginSchema = Joi.object({

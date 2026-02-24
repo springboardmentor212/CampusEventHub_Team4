@@ -72,3 +72,35 @@ export const isAdmin = (req, res, next) => {
   if (!["college_admin", "admin"].includes(req.userRole)) return next(new AppError("Requires admin privileges", 403));
   next();
 };
+
+// Middleware to check if user owns the resource or is admin
+export const isOwnerOrAdmin = (resourceUserIdField = "userId") => {
+  return (req, res, next) => {
+    const resourceUserId = req.params[resourceUserIdField] || req.body[resourceUserIdField];
+
+    if (req.userId.toString() === resourceUserId || ["college_admin", "admin"].includes(req.userRole)) {
+      return next();
+    }
+
+    return next(new AppError("Access denied. You can only access your own resources or need admin privileges.", 403));
+  };
+};
+
+// Middleware to check if user belongs to the same college (for college admins)
+export const sameCollegeOrAdmin = (req, res, next) => {
+  if (req.userRole === "admin") {
+    return next();
+  }
+
+  if (req.userRole === "college_admin") {
+    const targetCollegeId = req.params.collegeId || req.body.collegeId;
+
+    if (req.user.college && req.user.college.toString() === targetCollegeId) {
+      return next();
+    }
+
+    return next(new AppError("Access denied. You can only access resources from your own college.", 403));
+  }
+
+  return next(new AppError("Access denied. Admin privileges required.", 403));
+};

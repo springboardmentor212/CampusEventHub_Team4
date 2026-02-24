@@ -72,7 +72,7 @@ app.get("/", (req, res) => {
 });
 
 // Handling Unhandled Routes
-app.all("*", (req, res, next) => {
+app.use((req, res, next) => {
   next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
 });
 
