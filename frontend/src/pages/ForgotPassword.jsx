@@ -1,25 +1,19 @@
 import { useState } from "react";
 import API from "../api/axios";
 import { Link } from "react-router-dom";
+import toast from "react-hot-toast";
 
 const ForgotPassword = () => {
     const [email, setEmail] = useState("");
-    const [message, setMessage] = useState({ type: "", text: "" });
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setMessage({ type: "", text: "" });
+        const loadingToast = toast.loading("Processing...");
         try {
-            await API.post("/auth/request-password-reset", { email });
-            setMessage({
-                type: "success",
-                text: "Reset link sent! Please check your email.",
-            });
+            const res = await API.post("/auth/request-password-reset", { email });
+            toast.success(res.data.message || "If the email exists, a reset link will be sent.", { id: loadingToast });
         } catch (err) {
-            setMessage({
-                type: "error",
-                text: err.response?.data?.message || "Something went wrong",
-            });
+            toast.error(err.response?.data?.message || "Something went wrong", { id: loadingToast });
         }
     };
 
@@ -33,15 +27,6 @@ const ForgotPassword = () => {
                 <p className="text-sm text-[#6B7280] text-center mt-2">
                     Enter your registered email. We’ll send a password reset link.
                 </p>
-
-                {message.text && (
-                    <p
-                        className={`text-sm mt-4 text-center font-medium ${message.type === "error" ? "text-red-500" : "text-green-500"
-                            }`}
-                    >
-                        {message.text}
-                    </p>
-                )}
 
                 <form onSubmit={handleSubmit} className="mt-8 space-y-6">
                     <div className="space-y-2">

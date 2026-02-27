@@ -1,7 +1,16 @@
 import express from "express";
-import { register, login, getProfile, updateProfile, verifyEmail, logout } from "../controllers/authController.js";
+import {
+    register,
+    login,
+    getProfile,
+    updateProfile,
+    verifyEmail,
+    logout,
+    getPendingUsers,
+    approveUser
+} from "../controllers/authController.js";
 import { requestPasswordReset, resetPassword, changePassword } from "../controllers/passwordController.js";
-import { authenticate } from "../middleware/auth.js";
+import { authenticate, isSuperAdmin } from "../middleware/auth.js";
 import validateRequest, {
     registerSchema,
     loginSchema,
@@ -24,5 +33,9 @@ router.post("/reset-password", validateRequest(resetPasswordSchema), resetPasswo
 router.get("/profile", authenticate, getProfile);
 router.put("/profile", authenticate, updateProfile);
 router.post("/change-password", authenticate, validateRequest(changePasswordSchema), changePassword);
+
+// Admin routes
+router.get("/admin/pending-users", authenticate, isSuperAdmin, getPendingUsers);
+router.patch("/admin/approve-user/:id", authenticate, isSuperAdmin, approveUser);
 
 export default router;

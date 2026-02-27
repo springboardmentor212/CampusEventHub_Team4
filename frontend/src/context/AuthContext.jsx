@@ -10,7 +10,9 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     const res = await API.post("/auth/login", { email, password });
     // Token is now set in HttpOnly cookie by server
-    setUser(res.data.data.user);
+    const userData = res.data.data.user;
+    setUser(userData);
+    return userData;
   };
 
   const logout = async () => {

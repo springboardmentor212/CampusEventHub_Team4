@@ -75,7 +75,7 @@ const collegeSchema = new mongoose.Schema({
 });
 
 // Update the updatedAt field before saving
-collegeSchema.pre("save", function () {
+collegeSchema.pre("save", async function () {
   this.updatedAt = Date.now();
 });
 

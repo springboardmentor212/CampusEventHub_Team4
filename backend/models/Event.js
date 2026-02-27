@@ -62,8 +62,8 @@ const eventSchema = new mongoose.Schema({
     type: Date,
   },
   requirements: {
-    type: String,
-    trim: true,
+    type: [String],
+    default: [],
   },
   isActive: {
     type: Boolean,
@@ -79,18 +79,13 @@ const eventSchema = new mongoose.Schema({
   },
 });
 
-// Update the updatedAt field before saving
-eventSchema.pre("save", function () {
+// Actions to perform before saving the event
+eventSchema.pre("save", async function () {
   this.updatedAt = Date.now();
-});
 
-// Validation to ensure endDate is after startDate
-eventSchema.pre("save", function (next) {
+  // Validation to ensure endDate is after startDate
   if (this.endDate <= this.startDate) {
-    const error = new Error("End date must be after start date");
-    next(error);
-  } else {
-    next();
+    throw new Error("End date must be after start date");
   }
 });
 

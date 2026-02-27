@@ -10,9 +10,13 @@ export const requestPasswordReset = catchAsync(async (req, res, next) => {
   const { email } = req.body;
 
   const user = await User.findOne({ email });
+
+  // Security Best Practice: Don't leak registered emails
   if (!user) {
-    // We don't want to leak if an email exists, but for CEH we stick to current UX which tells the user
-    return next(new AppError("No account found with this email address", 404));
+    return res.status(200).json({
+      success: true,
+      message: "If the email exists, a reset link will be sent.",
+    });
   }
 
   const resetToken = crypto.randomBytes(32).toString("hex");
@@ -35,7 +39,7 @@ export const requestPasswordReset = catchAsync(async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      message: "Password reset link sent to your email",
+      message: "If the email exists, a reset link will be sent.",
     });
   } catch (err) {
     user.passwordResetToken = undefined;

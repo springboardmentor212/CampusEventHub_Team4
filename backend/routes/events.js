@@ -6,24 +6,26 @@ import {
   updateEvent,
   deleteEvent,
   getMyEvents,
+  registerForEvent
 } from "../controllers/eventController.js";
-import { authenticate } from "../middleware/auth.js";
+import { authenticate, isApprovedCollegeAdmin, canManageEvents, isStudent } from "../middleware/auth.js";
+import validateRequest, { createEventSchema, updateEventSchema } from "../middleware/validateMiddleware.js";
 
 const router = express.Router();
 
-// Public routes
-router.get("/", getEvents); // Get all events with filtering
-router.get("/:id", getEvent); // Get single event by ID
+// 1. Browsing Authority (Public)
+router.get("/", getEvents);
+router.get("/:id", getEvent);
 
-// Protected routes (require authentication)
-router.use(authenticate); // All routes below this require authentication
+// 2. Participation Authority (Student-Only)
+router.post("/:id/register", authenticate, isStudent, registerForEvent);
 
-// College Admin routes
-router.post("/create", createEvent); // Create new event (College Admin only)
-router.get("/my/events", getMyEvents); // Get events created by current user (College Admin)
+// 3. Management Authority (Approved College Admin or SuperAdmin)
+router.post("/create", authenticate, isApprovedCollegeAdmin, validateRequest(createEventSchema), createEvent);
+router.get("/my/events", authenticate, isApprovedCollegeAdmin, getMyEvents);
 
-// Event management routes (College Admin who created event or System Admin)
-router.patch("/:id", updateEvent); // Update event
-router.delete("/:id", deleteEvent); // Delete event
+// 4. Owner Authority (Resource Specific)
+router.patch("/:id", authenticate, canManageEvents, validateRequest(updateEventSchema), updateEvent);
+router.delete("/:id", authenticate, canManageEvents, deleteEvent);
 
 export default router;

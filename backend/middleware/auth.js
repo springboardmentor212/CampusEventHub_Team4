@@ -33,6 +33,13 @@ export const authenticate = catchAsync(async (req, res, next) => {
       return next(new AppError("Account deactivated. Please contact support.", 401));
     }
 
+    // 5) Check if college_admin is approved
+    // Allow profile access even if not approved so they can see their status
+    const isProfileRoute = req.originalUrl.endsWith("/profile");
+    if (user.role === "college_admin" && !user.isApproved && !isProfileRoute) {
+      return next(new AppError("Your account is awaiting approval by the SuperAdmin.", 403));
+    }
+
     req.userId = user._id;
     req.userRole = user.role;
     req.user = user;
@@ -52,25 +59,37 @@ export const authorize = (...roles) => {
   };
 };
 
-// Role specific middlewares
+// Role specific middlewares with strict authority
 export const isStudent = (req, res, next) => {
-  if (req.userRole !== "student") return next(new AppError("Requires student role", 403));
+  if (req.userRole !== "student") {
+    return next(new AppError("Authority Denied: Only students can register for events.", 403));
+  }
   next();
 };
 
-export const isCollegeAdmin = (req, res, next) => {
-  if (req.userRole !== "college_admin") return next(new AppError("Requires college admin role", 403));
+export const isApprovedCollegeAdmin = (req, res, next) => {
+  if (req.userRole !== "college_admin") {
+    return next(new AppError("Authority Denied: College Admin role required.", 403));
+  }
+  if (!req.user.isApproved) {
+    return next(new AppError("Access Restricted: Your account is pending SuperAdmin approval.", 403));
+  }
   next();
 };
 
-export const isSystemAdmin = (req, res, next) => {
-  if (req.userRole !== "admin") return next(new AppError("Requires admin role", 403));
+export const isSuperAdmin = (req, res, next) => {
+  if (req.userRole !== "admin") {
+    return next(new AppError("Authority Denied: Only the SuperAdmin can perform this action.", 403));
+  }
   next();
 };
 
-export const isAdmin = (req, res, next) => {
-  if (!["college_admin", "admin"].includes(req.userRole)) return next(new AppError("Requires admin privileges", 403));
-  next();
+export const canManageEvents = (req, res, next) => {
+  // SuperAdmin OR Approved CollegeAdmin can manage events
+  if (req.userRole === "admin" || (req.userRole === "college_admin" && req.user.isApproved)) {
+    return next();
+  }
+  return next(new AppError("Authority Denied: You do not have management permissions.", 403));
 };
 
 // Middleware to check if user owns the resource or is admin

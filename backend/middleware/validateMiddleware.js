@@ -68,4 +68,31 @@ export const changePasswordSchema = Joi.object({
         }),
 });
 
+export const createEventSchema = Joi.object({
+    title: Joi.string().required(),
+    description: Joi.string().required(),
+    category: Joi.string().required(),
+    location: Joi.string().required(),
+    startDate: Joi.date().required(),
+    endDate: Joi.date().required(),
+    maxParticipants: Joi.number().allow(null),
+    registrationDeadline: Joi.date().allow(null),
+    requirements: Joi.array().items(Joi.string()),
+    imageUrl: Joi.string().allow(""),
+});
+
+export const updateEventSchema = Joi.object({
+    title: Joi.string(),
+    description: Joi.string(),
+    category: Joi.string(),
+    location: Joi.string(),
+    startDate: Joi.date(),
+    endDate: Joi.date(),
+    maxParticipants: Joi.number().allow(null),
+    registrationDeadline: Joi.date().allow(null),
+    requirements: Joi.array().items(Joi.string()),
+    imageUrl: Joi.string().allow(""),
+    isActive: Joi.boolean(),
+});
+
 export default validateRequest;

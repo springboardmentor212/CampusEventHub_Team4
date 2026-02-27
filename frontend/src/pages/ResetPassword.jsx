@@ -1,6 +1,7 @@
 import { useState } from "react";
 import API from "../api/axios";
 import { useNavigate, useParams } from "react-router-dom";
+import toast from "react-hot-toast";
 
 const ResetPassword = () => {
     const { token } = useParams();
@@ -9,29 +10,25 @@ const ResetPassword = () => {
         password: "",
         confirmPassword: "",
     });
-    const [message, setMessage] = useState({ type: "", text: "" });
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setMessage({ type: "", text: "" });
 
         if (form.password !== form.confirmPassword) {
-            setMessage({ type: "error", text: "Passwords must match." });
+            toast.error("Passwords do not match");
             return;
         }
 
+        const loadingToast = toast.loading("Updating password...");
         try {
             await API.post("/auth/reset-password", {
                 token: token,
                 newPassword: form.password,
             });
-            alert("Password reset successful!");
+            toast.success("Password reset successful!", { id: loadingToast });
             navigate("/login");
         } catch (err) {
-            setMessage({
-                type: "error",
-                text: err.response?.data?.message || "Reset failed",
-            });
+            toast.error(err.response?.data?.message || "Reset failed", { id: loadingToast });
         }
     };
 
@@ -41,15 +38,6 @@ const ResetPassword = () => {
                 <h2 className="text-xl md:text-2xl font-bold text-center text-[#111827]">
                     Reset Password
                 </h2>
-
-                {message.text && (
-                    <p
-                        className={`text-sm mt-4 text-center font-medium ${message.type === "error" ? "text-red-500" : "text-green-500"
-                            }`}
-                    >
-                        {message.text}
-                    </p>
-                )}
 
                 <form onSubmit={handleSubmit} className="mt-8 space-y-5">
                     <input
@@ -74,13 +62,13 @@ const ResetPassword = () => {
 
                     <button
                         type="submit"
-                        className="w-full py-3.5 md:py-4 bg-[#5048e5] text-white rounded-lg font-semibold shadow-lg shadow-[#5048e5]/20 hover:opacity-90 active:scale-[0.98] transition-all"
+                        className="w-full py-3.5 md:py-4 bg-gradient-to-r from-[#4F46E5] to-[#9333EA] text-white rounded-lg font-semibold shadow-lg shadow-[#5048e5]/20 hover:opacity-90 active:scale-[0.98] transition-all"
                     >
                         Reset Password
                     </button>
 
-                    <p className="text-xs text-center text-red-500 md:text-gray-500">
-                        Passwords must match and cannot be same as old password.
+                    <p className="text-xs text-center text-gray-500">
+                        Passwords must be at least 8 characters with upper, lower, and numbers.
                     </p>
                 </form>
             </div>

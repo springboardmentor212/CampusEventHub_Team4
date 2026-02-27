@@ -11,7 +11,7 @@ import globalErrorHandler from "./middleware/errorMiddleware.js";
 import AppError from "./utils/appError.js";
 
 /*
-  Environment configuration
+  Environment configuration 
 */
 if (process.env.NODE_ENV === "docker") {
   dotenv.config({ path: "./.env" });

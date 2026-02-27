@@ -1,13 +1,27 @@
-
-import { useContext } from "react";
-import { Navigate } from "react-router-dom";
-import { AuthContext } from "../context/AuthContext";
+import { Navigate, useLocation } from "react-router-dom";
+import useAuth from "../hooks/useAuth";
 
 const ProtectedRoute = ({ children, role }) => {
-  const { user } = useContext(AuthContext);
+  const { user } = useAuth();
+  const location = useLocation();
 
   if (!user) return <Navigate to="/login" />;
-  if (role && user.role !== role) return <Navigate to="/login" />;
+
+  // SuperAdmin (role: 'admin') can access everything
+  if (user.role === 'admin') return children;
+
+  // Check specific role requirement
+  if (role && user.role !== role) {
+    return <Navigate to="/login" />;
+  }
+
+  // Handle unapproved College Admins
+  if (user.role === 'college_admin' && !user.isApproved) {
+    // Only allow them to stay on their dashboard
+    if (location.pathname !== '/college-admin') {
+      return <Navigate to="/college-admin" />;
+    }
+  }
 
   return children;
 };

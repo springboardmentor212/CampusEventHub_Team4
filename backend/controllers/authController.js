@@ -40,24 +40,34 @@ export const register = catchAsync(async (req, res, next) => {
     return next(new AppError("User with this email or username already exists", 400));
   }
 
+  // SECURITY: Default to student, only allow college_admin but set as unverified
+  let assignedRole = "student";
+  let approvedStatus = true;
+
+  if (role === "college_admin") {
+    assignedRole = "college_admin";
+    approvedStatus = false;
+  }
+
   // Hash password
   const salt = await bcrypt.genSalt(12);
   const hashedPassword = await bcrypt.hash(password, salt);
 
   // Generate email verification token
   const emailVerificationToken = generateVerificationToken();
-  const emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+  const emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
   // Create new user
   const newUser = new User({
     username,
     email,
     password: hashedPassword,
-    role: role || "student",
+    role: assignedRole,
     college: collegeId,
     firstName,
     lastName,
     phone,
+    isApproved: approvedStatus,
     emailVerificationToken,
     emailVerificationExpires,
   });
@@ -66,8 +76,7 @@ export const register = catchAsync(async (req, res, next) => {
 
   // Send verification email
   const verificationUrl = `${process.env.FRONTEND_URL}/verify-email/${emailVerificationToken}`;
-
-  const message = `Welcome to CampusEventHub, ${firstName}! \n\n Please verify your email by clicking the link below: \n\n ${verificationUrl}`;
+  const message = `Welcome to CampusEventHub, ${firstName}! \n\n Please verify your email: \n\n ${verificationUrl}`;
 
   try {
     await sendEmail({
@@ -87,7 +96,12 @@ export const register = catchAsync(async (req, res, next) => {
 export const login = catchAsync(async (req, res, next) => {
   const { email, password } = req.body;
 
+  if (!email || !password) {
+    return next(new AppError("Please provide email and password", 400));
+  }
+
   const user = await User.findOne({ email }).populate("college", "name code");
+
   if (!user || !(await bcrypt.compare(password, user.password))) {
     return next(new AppError("Invalid email or password", 401));
   }
@@ -170,6 +184,41 @@ export const updateProfile = catchAsync(async (req, res, next) => {
   res.status(200).json({
     success: true,
     message: "Profile updated successfully",
+    data: {
+      user,
+    },
+  });
+});
+
+// Admin: Get all pending approvals (System Admin Only)
+export const getPendingUsers = catchAsync(async (req, res, next) => {
+  const users = await User.find({ isApproved: false, role: "college_admin" })
+    .populate("college", "name code");
+
+  res.status(200).json({
+    success: true,
+    results: users.length,
+    data: {
+      users,
+    },
+  });
+});
+
+// Admin: Approve a user (System Admin Only)
+export const approveUser = catchAsync(async (req, res, next) => {
+  const user = await User.findByIdAndUpdate(
+    req.params.id,
+    { isApproved: true },
+    { new: true, runValidators: true }
+  );
+
+  if (!user) {
+    return next(new AppError("User not found", 404));
+  }
+
+  res.status(200).json({
+    success: true,
+    message: "User approved successfully",
     data: {
       user,
     },
