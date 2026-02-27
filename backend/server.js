@@ -6,6 +6,7 @@ import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
 import authRoutes from "./routes/auth.js";
 import collegeRoutes from "./routes/colleges.js";
+import eventRoutes from "./routes/events.js";
 import globalErrorHandler from "./middleware/errorMiddleware.js";
 import AppError from "./utils/appError.js";
 
@@ -59,6 +60,7 @@ const authLimiter = rateLimit({
 */
 app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/colleges", collegeRoutes);
+app.use("/api/events", eventRoutes);
 
 /*
   Basic Health Route
