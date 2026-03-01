@@ -84,6 +84,7 @@ const seedData = async () => {
         phone: "+1-555-0001",
         isEmailVerified: true,
         isActive: true,
+        isApproved: true,
       },
       {
         username: "college_admin_1",
@@ -96,6 +97,7 @@ const seedData = async () => {
         phone: "+1-555-0101",
         isEmailVerified: true,
         isActive: true,
+        isApproved: true,
       },
       {
         username: "college_admin_2",
@@ -108,6 +110,7 @@ const seedData = async () => {
         phone: "+1-555-0102",
         isEmailVerified: true,
         isActive: true,
+        isApproved: true,
       },
       {
         username: "student_1",
@@ -120,6 +123,7 @@ const seedData = async () => {
         phone: "+1-555-0111",
         isEmailVerified: true,
         isActive: true,
+        isApproved: true,
       },
       {
         username: "student_2",
@@ -132,6 +136,7 @@ const seedData = async () => {
         phone: "+1-555-0112",
         isEmailVerified: true,
         isActive: true,
+        isApproved: true,
       },
       {
         username: "student_3",
@@ -144,6 +149,7 @@ const seedData = async () => {
         phone: "+1-555-0121",
         isEmailVerified: true,
         isActive: true,
+        isApproved: true,
       },
     ]);
 

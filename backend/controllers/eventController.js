@@ -19,31 +19,18 @@ export const createEvent = catchAsync(async (req, res, next) => {
     imageUrl,
   } = req.body;
 
-  // Check if user is college admin
-  if (req.user.role !== "college_admin") {
-    return next(new AppError("Only college admins can create events", 403));
-  }
+  // Check if user is college admin - REMOVED: Managed by middleware
 
   // Get user's college
-  const user = await User.findById(req.user.userId);
-  if (!user) {
-    return next(new AppError("User not found", 404));
-  }
+  const user = req.user;
 
   // Create event
   const event = await Event.create({
-    title,
-    description,
-    category,
-    location,
-    startDate: new Date(startDate),
-    endDate: new Date(endDate),
+    ...req.body,
     college: user.college,
-    createdBy: req.user.userId,
-    maxParticipants: maxParticipants || null,
-    registrationDeadline: registrationDeadline ? new Date(registrationDeadline) : null,
-    requirements,
-    imageUrl: imageUrl || "",
+    createdBy: req.userId,
+    startDate: new Date(req.body.startDate),
+    endDate: new Date(req.body.endDate),
   });
 
   // Populate event details for response
@@ -55,6 +42,43 @@ export const createEvent = catchAsync(async (req, res, next) => {
   res.status(201).json({
     success: true,
     message: "Event created successfully",
+    data: {
+      event,
+    },
+  });
+});
+
+// Register for an event (Student only Authority)
+export const registerForEvent = catchAsync(async (req, res, next) => {
+  const { id } = req.params;
+  const event = await Event.findById(id);
+
+  if (!event) {
+    return next(new AppError("Event not found", 404));
+  }
+
+  // Check if event is full
+  if (event.maxParticipants && event.currentParticipants >= event.maxParticipants) {
+    return next(new AppError("Event is at maximum capacity", 400));
+  }
+
+  // Check if already registered
+  const user = await User.findById(req.userId);
+  if (user.registeredEvents.includes(id)) {
+    return next(new AppError("You are already registered for this event", 400));
+  }
+
+  // Register
+  user.registeredEvents.push(id);
+  event.participants.push(req.userId);
+  event.currentParticipants += 1;
+
+  await user.save();
+  await event.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Successfully registered for event",
     data: {
       event,
     },
@@ -165,13 +189,9 @@ export const updateEvent = catchAsync(async (req, res, next) => {
     return next(new AppError("Event not found", 404));
   }
 
-  // Check permissions
-  const user = await User.findById(req.user.userId);
-  if (
-    req.user.role !== "admin" &&
-    (req.user.role !== "college_admin" || event.createdBy.toString() !== req.user.userId)
-  ) {
-    return next(new AppError("You don't have permission to update this event", 403));
+  // Check permissions (Middleware manages role, we check ownership)
+  if (req.userRole !== "admin" && event.createdBy.toString() !== req.userId.toString()) {
+    return next(new AppError("You can only manage your own events.", 403));
   }
 
   // Update event
@@ -203,11 +223,8 @@ export const deleteEvent = catchAsync(async (req, res, next) => {
   }
 
   // Check permissions
-  if (
-    req.user.role !== "admin" &&
-    (req.user.role !== "college_admin" || event.createdBy.toString() !== req.user.userId)
-  ) {
-    return next(new AppError("You don't have permission to delete this event", 403));
+  if (req.userRole !== "admin" && event.createdBy.toString() !== req.userId.toString()) {
+    return next(new AppError("You can only delete your own events.", 403));
   }
 
   // Soft delete by setting isActive to false
@@ -228,9 +245,9 @@ export const getMyEvents = catchAsync(async (req, res, next) => {
   } = req.query;
 
   // Build filter object
-  const filter = { 
-    createdBy: req.user.userId,
-    isActive: true 
+  const filter = {
+    createdBy: req.userId,
+    isActive: true
   };
 
   if (status) {

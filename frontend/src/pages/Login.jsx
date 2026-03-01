@@ -1,9 +1,10 @@
-import { useState, useContext } from "react";
-import { AuthContext } from "../context/AuthContext";
+import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import toast from "react-hot-toast";
+import useAuth from "../hooks/useAuth";
 
 const Login = () => {
-  const { login } = useContext(AuthContext);
+  const { login, user } = useAuth();
   const navigate = useNavigate();
 
   const [email, setEmail] = useState("");
@@ -12,14 +13,21 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const loadingToast = toast.loading("Signing in...");
     try {
-      await login(email, password);
-      // Determine redirection based on role from AuthContext if needed
-      // Existing code just went to /student
-      navigate("/student");
+      const loggedUser = await login(email, password);
+      toast.success("Welcome back!", { id: loadingToast });
+
+      // Determine redirection based on role
+      if (loggedUser.role === "admin") {
+        navigate("/admin");
+      } else if (loggedUser.role === "college_admin") {
+        navigate("/college-admin");
+      } else {
+        navigate("/student");
+      }
     } catch (err) {
-      console.error("Login Error:", err);
-      alert(err.response?.data?.message || "Invalid credentials");
+      toast.error(err.response?.data?.message || "Invalid credentials", { id: loadingToast });
     }
   };
 

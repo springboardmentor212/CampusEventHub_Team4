@@ -1,7 +1,7 @@
 import express from "express";
 import { College } from "../models/College.js";
 import { User } from "../models/User.js";
-import { authenticate, isAdmin, isSystemAdmin, sameCollegeOrAdmin } from "../middleware/auth.js";
+import { authenticate, canManageEvents, isSuperAdmin, sameCollegeOrAdmin } from "../middleware/auth.js";
 
 const router = express.Router();
 
@@ -9,7 +9,7 @@ const router = express.Router();
 router.get("/", async (req, res) => {
   try {
     const { page = 1, limit = 10, search } = req.query;
-    
+
     const query = { isActive: true };
     if (search) {
       query.$or = [
@@ -50,7 +50,7 @@ router.get("/", async (req, res) => {
 router.get("/:id", async (req, res) => {
   try {
     const college = await College.findById(req.params.id);
-    
+
     if (!college || !college.isActive) {
       return res.status(404).json({
         success: false,
@@ -73,8 +73,8 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// Create new college (admin only)
-router.post("/", authenticate, isAdmin, async (req, res) => {
+// Create new college (SuperAdmin authority)
+router.post("/", authenticate, isSuperAdmin, async (req, res) => {
   try {
     const {
       name,
@@ -138,8 +138,8 @@ router.post("/", authenticate, isAdmin, async (req, res) => {
   }
 });
 
-// Update college (admin only)
-router.put("/:id", authenticate, isAdmin, async (req, res) => {
+// Update college (Management authority)
+router.put("/:id", authenticate, canManageEvents, async (req, res) => {
   try {
     const {
       name,
@@ -195,8 +195,8 @@ router.put("/:id", authenticate, isAdmin, async (req, res) => {
   }
 });
 
-// Delete college (system admin only)
-router.delete("/:id", authenticate, isSystemAdmin, async (req, res) => {
+// Delete college (SuperAdmin authority)
+router.delete("/:id", authenticate, isSuperAdmin, async (req, res) => {
   try {
     const college = await College.findByIdAndDelete(req.params.id);
 
@@ -230,7 +230,7 @@ router.delete("/:id", authenticate, isSystemAdmin, async (req, res) => {
 router.get("/:id/users", authenticate, sameCollegeOrAdmin, async (req, res) => {
   try {
     const { page = 1, limit = 10, role, search } = req.query;
-    
+
     const query = { college: req.params.id };
     if (role) query.role = role;
     if (search) {

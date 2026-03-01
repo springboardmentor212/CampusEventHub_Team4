@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import API from "../api/axios";
 import { useNavigate, Link } from "react-router-dom";
+import toast from "react-hot-toast";
 
 const Register = () => {
   const navigate = useNavigate();
@@ -16,7 +17,6 @@ const Register = () => {
   });
   const [colleges, setColleges] = useState([]);
   const [loadingColleges, setLoadingColleges] = useState(true);
-  const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
@@ -25,12 +25,10 @@ const Register = () => {
         setLoadingColleges(true);
         const res = await API.get("/colleges");
         if (res.data.success) {
-          console.log("Colleges fetched:", res.data.data.colleges);
           setColleges(res.data.data.colleges);
         }
       } catch (err) {
-        console.error("Failed to fetch colleges", err);
-        setError("Failed to load university list. Please refresh.");
+        toast.error("Failed to load university list");
       } finally {
         setLoadingColleges(false);
       }
@@ -40,18 +38,18 @@ const Register = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
 
     if (form.password !== form.confirmPassword) {
-      setError("Passwords do not match");
+      toast.error("Passwords do not match");
       return;
     }
 
     if (!form.collegeId) {
-      setError("Please select a college");
+      toast.error("Please select a college");
       return;
     }
 
+    const loadingToast = toast.loading("Creating account...");
     const nameParts = form.fullName.trim().split(/\s+/);
     const firstName = nameParts[0] || "";
     const lastName = nameParts.slice(1).join(" ") || "";
@@ -68,10 +66,10 @@ const Register = () => {
 
     try {
       await API.post("/auth/register", payload);
-      alert("Registered Successfully!");
+      toast.success("Registered Successfully! Please login.", { id: loadingToast });
       navigate("/login");
     } catch (err) {
-      setError(err.response?.data?.message || "Registration failed");
+      toast.error(err.response?.data?.message || "Registration failed", { id: loadingToast });
     }
   };
 
@@ -91,12 +89,6 @@ const Register = () => {
             Join the CampusEventHub community today.
           </p>
         </div>
-
-        {error && (
-          <div className="px-6 mb-2 text-center text-red-500 text-sm font-medium">
-            {error}
-          </div>
-        )}
 
         <div className="px-6 pb-8 space-y-4">
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -215,6 +207,12 @@ const Register = () => {
                   expand_more
                 </span>
               </div>
+              {form.role === 'college_admin' && (
+                <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mt-1 flex items-center gap-1 leading-tight">
+                  <span className="material-symbols-outlined text-[14px]">info</span>
+                  College Admin accounts require verification by the SuperAdmin.
+                </p>
+              )}
             </div>
 
             <div className="flex flex-col gap-1.5">

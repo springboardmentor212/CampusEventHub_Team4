@@ -60,6 +60,10 @@ const userSchema = new mongoose.Schema({
   emailVerificationExpires: {
     type: Date,
   },
+  isApproved: {
+    type: Boolean,
+    default: true,
+  },
   passwordResetToken: {
     type: String,
   },
@@ -73,6 +77,12 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true,
   },
+  registeredEvents: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Event",
+    },
+  ],
   createdAt: {
     type: Date,
     default: Date.now,
@@ -83,9 +93,14 @@ const userSchema = new mongoose.Schema({
   },
 });
 
-// Update the updatedAt field before saving
-userSchema.pre("save", function () {
+// Update the updatedAt field and ensure admin status before saving
+userSchema.pre("save", async function () {
   this.updatedAt = Date.now();
+
+  if (this.role === "admin") {
+    this.isApproved = true;
+    this.isActive = true;
+  }
 });
 
 // Virtual for full name
