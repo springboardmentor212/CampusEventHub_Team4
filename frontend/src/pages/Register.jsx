@@ -14,6 +14,7 @@ const Register = () => {
     confirmPassword: "",
     collegeId: "",
     role: "student",
+    officialId: "",
   });
   const [colleges, setColleges] = useState([]);
   const [loadingColleges, setLoadingColleges] = useState(true);
@@ -62,6 +63,7 @@ const Register = () => {
       lastName,
       collegeId: form.collegeId,
       role: form.role,
+      officialId: form.officialId,
     };
 
     try {
@@ -155,6 +157,27 @@ const Register = () => {
 
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-[#111827] dark:text-gray-200">
+                Official University ID / Roll Number
+              </label>
+              <div className="relative">
+                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xl">
+                  badge
+                </span>
+                <input
+                  required
+                  className="w-full h-12 pl-10 pr-4 rounded-lg border border-[#E5E7EB] focus:border-[#5048e5] focus:ring-2 focus:ring-[#5048e5]/20 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white transition-all outline-none"
+                  placeholder="ID Card Number"
+                  type="text"
+                  value={form.officialId}
+                  onChange={(e) =>
+                    setForm({ ...form, officialId: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-[#111827] dark:text-gray-200">
                 College / University
               </label>
               <div className="relative">
@@ -207,12 +230,12 @@ const Register = () => {
                   expand_more
                 </span>
               </div>
-              {form.role === 'college_admin' && (
-                <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mt-1 flex items-center gap-1 leading-tight">
-                  <span className="material-symbols-outlined text-[14px]">info</span>
-                  College Admin accounts require verification by the SuperAdmin.
-                </p>
-              )}
+              <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mt-1 flex items-center gap-1 leading-tight">
+                <span className="material-symbols-outlined text-[14px]">info</span>
+                {form.role === 'college_admin'
+                  ? "College Admin accounts require verification by the SuperAdmin."
+                  : "Student accounts require verification by your College Administrator."}
+              </p>
             </div>
 
             <div className="flex flex-col gap-1.5">

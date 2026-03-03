@@ -20,18 +20,18 @@ export const registerSchema = Joi.object({
     username: Joi.string().min(3).max(30).required(),
     email: Joi.string().email().required(),
     password: Joi.string()
-        .min(8)
-        .pattern(new RegExp("^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])"))
+        .min(6)
         .required()
         .messages({
-            "string.pattern.base":
-                "Password must contain at least one uppercase letter, one lowercase letter, and one number.",
-            "string.min": "Password must be at least 8 characters long.",
+            "string.min": "Password must be at least 6 characters long.",
         }),
     collegeId: Joi.string().required(),
     firstName: Joi.string().required(),
     lastName: Joi.string().required(),
     phone: Joi.string().allow(""),
+    officialId: Joi.string().required().messages({
+        "any.required": "Official University ID is required for verification."
+    }),
     role: Joi.string().valid("student", "college_admin").default("student"),
 });
 
@@ -79,6 +79,7 @@ export const createEventSchema = Joi.object({
     registrationDeadline: Joi.date().allow(null),
     requirements: Joi.array().items(Joi.string()),
     imageUrl: Joi.string().allow(""),
+    college: Joi.string().optional(),
 });
 
 export const updateEventSchema = Joi.object({

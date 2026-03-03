@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
 
 const userSchema = new mongoose.Schema({
   username: {
@@ -39,10 +40,13 @@ const userSchema = new mongoose.Schema({
   },
   lastName: {
     type: String,
-    required: true,
     trim: true,
   },
   phone: {
+    type: String,
+    trim: true,
+  },
+  officialId: {
     type: String,
     trim: true,
   },
@@ -94,12 +98,27 @@ const userSchema = new mongoose.Schema({
 });
 
 // Update the updatedAt field and ensure admin status before saving
+// Hash password before saving
 userSchema.pre("save", async function () {
   this.updatedAt = Date.now();
 
+  // Handle admin and student defaults
   if (this.role === "admin") {
     this.isApproved = true;
     this.isActive = true;
+  } else if (this.role === "student") {
+    this.isApproved = true; // Students are auto-approved per user request
+    this.isActive = true;
+  }
+
+  // Only hash password if it's new or modified
+  if (!this.isModified("password")) return;
+
+  try {
+    const salt = await bcrypt.genSalt(12);
+    this.password = await bcrypt.hash(this.password, salt);
+  } catch (err) {
+    throw err;
   }
 });
 
@@ -128,6 +147,11 @@ userSchema.methods.isSystemAdmin = function () {
 // Method to check if user is student
 userSchema.methods.isStudent = function () {
   return this.role === "student";
+};
+
+// Method to verify password
+userSchema.methods.comparePassword = async function (candidatePassword) {
+  return await bcrypt.compare(candidatePassword, this.password);
 };
 
 export const User = mongoose.model("User", userSchema);

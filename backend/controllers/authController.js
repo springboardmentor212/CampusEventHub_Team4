@@ -1,4 +1,3 @@
-import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { User } from "../models/User.js";
 import { College } from "../models/College.js";
@@ -22,6 +21,7 @@ export const register = catchAsync(async (req, res, next) => {
     firstName,
     lastName,
     phone,
+    officialId,
     role,
   } = req.body;
 
@@ -40,18 +40,9 @@ export const register = catchAsync(async (req, res, next) => {
     return next(new AppError("User with this email or username already exists", 400));
   }
 
-  // SECURITY: Default to student, only allow college_admin but set as unverified
-  let assignedRole = "student";
-  let approvedStatus = true;
-
-  if (role === "college_admin") {
-    assignedRole = "college_admin";
-    approvedStatus = false;
-  }
-
-  // Hash password
-  const salt = await bcrypt.genSalt(12);
-  const hashedPassword = await bcrypt.hash(password, salt);
+  // SECURITY: Require approval for college_admin but allow students to login directly
+  let assignedRole = role === "college_admin" ? "college_admin" : "student";
+  let approvedStatus = assignedRole === "student"; // Students auto-approved
 
   // Generate email verification token
   const emailVerificationToken = generateVerificationToken();
@@ -61,48 +52,54 @@ export const register = catchAsync(async (req, res, next) => {
   const newUser = new User({
     username,
     email,
-    password: hashedPassword,
+    password, // Will be hashed by model pre-save hook
     role: assignedRole,
     college: collegeId,
     firstName,
     lastName,
     phone,
+    officialId,
     isApproved: approvedStatus,
-    emailVerificationToken,
-    emailVerificationExpires,
+    isEmailVerified: true, // Auto-verify for now to simplify flow
+    emailVerificationToken: undefined,
+    emailVerificationExpires: undefined,
   });
 
   await newUser.save();
 
-  // Send verification email
-  const verificationUrl = `${process.env.FRONTEND_URL}/verify-email/${emailVerificationToken}`;
-  const message = `Welcome to CampusEventHub, ${firstName}! \n\n Please verify your email: \n\n ${verificationUrl}`;
-
-  try {
-    await sendEmail({
-      email: newUser.email,
-      subject: "Welcome to CampusEventHub - Verify your email",
-      message,
-      html: `<h1>Welcome!</h1><p>Please click <a href="${verificationUrl}">here</a> to verify your email.</p>`,
-    });
-  } catch (err) {
-    console.error("Email failed:", err);
-  }
-
-  sendToken(newUser, 201, res);
+  res.status(201).json({
+    success: true,
+    message: assignedRole === "admin" ? "User created successfully" : (assignedRole === "student" ? "Successfully registered!" : "Registration pending approval"),
+    data: {
+      user: newUser,
+    },
+  });
 });
 
 // Login user
 export const login = catchAsync(async (req, res, next) => {
   const { email, password } = req.body;
+  const sanitizedEmail = email?.trim().toLowerCase();
+
+  console.log(`[LOGIN_DEBUG] Attempting login for: ${sanitizedEmail}`);
 
   if (!email || !password) {
     return next(new AppError("Please provide email and password", 400));
   }
 
-  const user = await User.findOne({ email }).populate("college", "name code");
+  const user = await User.findOne({ email: sanitizedEmail }).populate("college", "name code");
 
-  if (!user || !(await bcrypt.compare(password, user.password))) {
+  if (!user) {
+    console.log(`[LOGIN_DEBUG] User NOT found in DB: ${sanitizedEmail}`);
+    return next(new AppError("Invalid email or password", 401));
+  }
+
+  console.log(`[LOGIN_DEBUG] User found. Hashed password in DB: ${user.password.substring(0, 10)}...`);
+
+  const isMatch = await user.comparePassword(password);
+  console.log(`[LOGIN_DEBUG] Password match result: ${isMatch}`);
+
+  if (!isMatch) {
     return next(new AppError("Invalid email or password", 401));
   }
 
@@ -204,16 +201,35 @@ export const getPendingUsers = catchAsync(async (req, res, next) => {
   });
 });
 
-// Admin: Approve a user (System Admin Only)
+// Admin: Approve a user (SuperAdmin approves CollegeAdmin, CollegeAdmin approves Student)
 export const approveUser = catchAsync(async (req, res, next) => {
-  const user = await User.findByIdAndUpdate(
-    req.params.id,
-    { isApproved: true },
-    { new: true, runValidators: true }
-  );
+  const user = await User.findById(req.params.id);
 
   if (!user) {
     return next(new AppError("User not found", 404));
+  }
+
+  // Permission check: College Admin can only approve students from their college
+  if (req.userRole === "college_admin") {
+    if (user.role !== "student" || user.college.toString() !== req.user.college.toString()) {
+      return next(new AppError("You only have permission to approve students from your own college.", 403));
+    }
+  }
+
+  user.isApproved = true;
+  await user.save();
+
+  // Send approval email
+  const message = `Congratulations, ${user.firstName}! Your account on CampusEventHub has been approved. You can now log in and access all features.`;
+  try {
+    await sendEmail({
+      email: user.email,
+      subject: "Account Approved - CampusEventHub",
+      message,
+      html: `<h1>Account Approved!</h1><p>Congratulations, <strong>${user.firstName}</strong>!</p><p>Your account on CampusEventHub has been approved by the administrator. You can now log in and participate in campus activities.</p><p><a href="${process.env.FRONTEND_URL}/login">Login Now</a></p>`,
+    });
+  } catch (err) {
+    console.error("Approval email failed:", err);
   }
 
   res.status(200).json({
@@ -222,5 +238,78 @@ export const approveUser = catchAsync(async (req, res, next) => {
     data: {
       user,
     },
+  });
+});
+
+// Admin: Reject/Delete a user
+export const rejectUser = catchAsync(async (req, res, next) => {
+  const user = await User.findById(req.params.id);
+
+  if (!user) {
+    return next(new AppError("User not found", 404));
+  }
+
+  // Permission check: College Admin can only reject students from their college
+  if (req.userRole === "college_admin") {
+    if (user.role !== "student" || user.college.toString() !== req.user.college.toString()) {
+      return next(new AppError("You only have permission to reject students from your own college.", 403));
+    }
+  }
+
+  // Send rejection email before deleting
+  const message = `Hello ${user.firstName}, we regret to inform you that your registration request on CampusEventHub has been rejected. Please contact your college administrator for details.`;
+  try {
+    await sendEmail({
+      email: user.email,
+      subject: "Registration Update - CampusEventHub",
+      message,
+      html: `<h1>Registration Update</h1><p>Hello ${user.firstName},</p><p>We regret to inform you that your registration request on <strong>CampusEventHub</strong> has been rejected by the administrator.</p><p>If you believe this is a mistake, please contact your college office.</p>`,
+    });
+  } catch (err) {
+    console.error("Rejection email failed:", err);
+  }
+
+  await User.findByIdAndDelete(req.params.id);
+
+  res.status(200).json({
+    success: true,
+    message: "User registration rejected and account deleted",
+  });
+});
+
+// College Admin: Get pending students for their college
+export const getPendingStudents = catchAsync(async (req, res, next) => {
+  const users = await User.find({
+    role: "student",
+    isApproved: false,
+    college: req.user.college,
+  });
+
+  res.status(200).json({
+    success: true,
+    results: users.length,
+    data: {
+      users,
+    },
+  });
+});
+
+// Admin: Get all users
+export const getAllUsers = catchAsync(async (req, res, next) => {
+  const users = await User.find().populate("college", "name code");
+  res.status(200).json({
+    success: true,
+    results: users.length,
+    data: { users }
+  });
+});
+
+// Admin: Get all colleges
+export const getAllColleges = catchAsync(async (req, res, next) => {
+  const colleges = await College.find();
+  res.status(200).json({
+    success: true,
+    results: colleges.length,
+    data: { colleges }
   });
 });

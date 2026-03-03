@@ -7,7 +7,11 @@ import {
     verifyEmail,
     logout,
     getPendingUsers,
-    approveUser
+    approveUser,
+    rejectUser,
+    getPendingStudents,
+    getAllUsers,
+    getAllColleges,
 } from "../controllers/authController.js";
 import { requestPasswordReset, resetPassword, changePassword } from "../controllers/passwordController.js";
 import { authenticate, isSuperAdmin } from "../middleware/auth.js";
@@ -35,7 +39,12 @@ router.put("/profile", authenticate, updateProfile);
 router.post("/change-password", authenticate, validateRequest(changePasswordSchema), changePassword);
 
 // Admin routes
+// Shared Admin/College Admin routes
 router.get("/admin/pending-users", authenticate, isSuperAdmin, getPendingUsers);
-router.patch("/admin/approve-user/:id", authenticate, isSuperAdmin, approveUser);
+router.get("/admin/all-users", authenticate, isSuperAdmin, getAllUsers);
+router.get("/admin/all-colleges", authenticate, isSuperAdmin, getAllColleges);
+router.get("/college/pending-students", authenticate, getPendingStudents);
+router.patch("/admin/approve-user/:id", authenticate, approveUser); // Middlewares inside controller check permissions
+router.delete("/admin/reject-user/:id", authenticate, rejectUser);
 
 export default router;

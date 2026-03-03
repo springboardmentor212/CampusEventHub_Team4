@@ -3,6 +3,7 @@ import { User } from "../models/User.js";
 import { College } from "../models/College.js";
 import AppError from "../utils/appError.js";
 import catchAsync from "../utils/catchAsync.js";
+import sendEmail from "../utils/emailService.js";
 
 // Create a new event (College Admin only)
 export const createEvent = catchAsync(async (req, res, next) => {
@@ -21,16 +22,18 @@ export const createEvent = catchAsync(async (req, res, next) => {
 
   // Check if user is college admin - REMOVED: Managed by middleware
 
-  // Get user's college
+  // Get user's college or body college if admin
   const user = req.user;
+  const collegeId = (req.userRole === 'admin' && req.body.college) ? req.body.college : user.college;
 
-  // Create event
+  // Create event (Auto-approved for both Admin and College Admin)
   const event = await Event.create({
     ...req.body,
-    college: user.college,
+    college: collegeId,
     createdBy: req.userId,
     startDate: new Date(req.body.startDate),
     endDate: new Date(req.body.endDate),
+    isApproved: true, // Everyone with creation rights is now auto-approved
   });
 
   // Populate event details for response
@@ -41,7 +44,40 @@ export const createEvent = catchAsync(async (req, res, next) => {
 
   res.status(201).json({
     success: true,
-    message: "Event created successfully",
+    message: "Event created successfully and is now live!",
+    data: {
+      event,
+    },
+  });
+});
+
+// Approve an event (SuperAdmin only)
+export const approveEvent = catchAsync(async (req, res, next) => {
+  const { id } = req.params;
+  const event = await Event.findById(id).populate("createdBy", "firstName lastName email");
+
+  if (!event) {
+    return next(new AppError("Event not found", 404));
+  }
+
+  event.isApproved = true;
+  await event.save();
+
+  // Send notification to college admin
+  try {
+    await sendEmail({
+      email: event.createdBy.email,
+      subject: `Event Approved: ${event.title}`,
+      message: `Your event "${event.title}" has been approved by the SuperAdmin. It's now live!`,
+      html: `<p>Your event "<strong>${event.title}</strong>" has been approved by the SuperAdmin. It's now live on the platform!</p>`,
+    });
+  } catch (err) {
+    console.error("CollegeAdmin notification failed:", err);
+  }
+
+  res.status(200).json({
+    success: true,
+    message: "Event approved successfully",
     data: {
       event,
     },
@@ -94,12 +130,12 @@ export const getEvents = catchAsync(async (req, res, next) => {
     college,
     startDate,
     endDate,
-    status = "upcoming",
+    status,
     search,
   } = req.query;
 
   // Build filter object
-  const filter = { isActive: true };
+  const filter = { isActive: true, isApproved: true };
 
   if (category) {
     filter.category = category;
@@ -109,9 +145,13 @@ export const getEvents = catchAsync(async (req, res, next) => {
     filter.college = college;
   }
 
-  if (status) {
+  if (status && status !== "all") {
     filter.status = status;
+  } else if (!status) {
+    // Default: Show upcoming and ongoing events for students
+    filter.status = { $in: ["upcoming", "ongoing"] };
   }
+  // if status is "all", we don't add status filter
 
   // Date range filter
   if (startDate || endDate) {
@@ -275,6 +315,21 @@ export const getMyEvents = catchAsync(async (req, res, next) => {
     total,
     page: pageNum,
     pages: Math.ceil(total / limitNum),
+    data: {
+      events,
+    },
+  });
+});
+
+// Get all pending events (SuperAdmin only)
+export const getPendingEvents = catchAsync(async (req, res, next) => {
+  const events = await Event.find({ isApproved: false, isActive: true })
+    .populate("college", "name code")
+    .populate("createdBy", "firstName lastName email");
+
+  res.status(200).json({
+    success: true,
+    results: events.length,
     data: {
       events,
     },

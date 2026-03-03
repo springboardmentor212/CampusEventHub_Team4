@@ -25,6 +25,7 @@ router.get("/", async (req, res) => {
       .sort({ name: 1 });
 
     const total = await College.countDocuments(query);
+    console.log(`[DEBUG] Fetched ${colleges.length} colleges (Total: ${total})`);
 
     res.status(200).json({
       success: true,
