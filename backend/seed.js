@@ -4,7 +4,10 @@ import { College } from "./models/College.js";
 import { Event } from "./models/Event.js";
 import dotenv from "dotenv";
 
-dotenv.config({ path: "./.env.local" });
+dotenv.config();
+if (!process.env.MONGO_URI) {
+  dotenv.config({ path: "./.env.local" });
+}
 
 const seedData = async () => {
   try {

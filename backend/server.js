@@ -13,9 +13,8 @@ import AppError from "./utils/appError.js";
 /*
   Environment configuration 
 */
-if (process.env.NODE_ENV === "docker") {
-  dotenv.config({ path: "./.env" });
-} else {
+dotenv.config(); // Loads .env by default
+if (!process.env.MONGO_URI) {
   dotenv.config({ path: "./.env.local" });
 }
 
