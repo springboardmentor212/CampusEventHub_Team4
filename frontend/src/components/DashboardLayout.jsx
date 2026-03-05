@@ -8,16 +8,23 @@ const DashboardLayout = ({ children }) => {
 
     const menuItems = [
         {
-            label: "Dashboard",
-            path: user?.role === 'admin' ? '/admin' : (user?.role === 'college_admin' ? '/college-admin' : '/student'),
+            label: "Control Panel",
+            path: '/admin',
+            roles: ['admin']
+        },
+        {
+            label: "My Dashboard",
+            path: '/college-admin',
+            roles: ['college_admin']
+        },
+        {
+            label: "Home / Feed",
+            path: '/student',
             roles: ['student', 'college_admin', 'admin']
         },
         { label: "Create Event", path: "/create-event", roles: ['college_admin', 'admin'], requiresApproved: true },
         { label: "Manage Events", path: "/manage-events", roles: ['college_admin', 'admin'], requiresApproved: true },
     ].filter(item => {
-        // Students only get Dashboard (Browse Events)
-        if (user?.role === 'student' && item.label !== 'Dashboard') return false;
-
         const hasRole = item.roles.includes(user?.role);
         const isApproved = user?.role !== 'college_admin' || user?.isApproved;
         return hasRole && (!item.requiresApproved || isApproved);

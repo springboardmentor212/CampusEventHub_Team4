@@ -1,5 +1,4 @@
 import crypto from "crypto";
-import bcrypt from "bcryptjs";
 import { User } from "../models/User.js";
 import sendEmail from "../utils/emailService.js";
 import catchAsync from "../utils/catchAsync.js";
@@ -62,8 +61,7 @@ export const resetPassword = catchAsync(async (req, res, next) => {
     return next(new AppError("Invalid or expired reset token", 400));
   }
 
-  const salt = await bcrypt.genSalt(12);
-  user.password = await bcrypt.hash(newPassword, salt);
+  user.password = newPassword;
   user.passwordResetToken = undefined;
   user.passwordResetExpires = undefined;
   await user.save();
@@ -80,12 +78,11 @@ export const changePassword = catchAsync(async (req, res, next) => {
   const userId = req.userId;
 
   const user = await User.findById(userId);
-  if (!user || !(await bcrypt.compare(currentPassword, user.password))) {
+  if (!user || !(await user.comparePassword(currentPassword))) {
     return next(new AppError("Current password is incorrect", 400));
   }
 
-  const salt = await bcrypt.genSalt(12);
-  user.password = await bcrypt.hash(newPassword, salt);
+  user.password = newPassword;
   await user.save();
 
   res.status(200).json({

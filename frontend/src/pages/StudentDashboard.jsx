@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
 import DashboardLayout from "../components/DashboardLayout";
+import useAuth from "../hooks/useAuth";
 import API from "../api/axios";
 import toast from "react-hot-toast";
 
 const StudentDashboard = () => {
+  const { user } = useAuth();
   const [events, setEvents] = useState([]);
   const [colleges, setColleges] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -36,22 +38,45 @@ const StudentDashboard = () => {
   };
 
   useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      fetchData();
-    }, 300);
-    return () => clearTimeout(delayDebounceFn);
-  }, [category, search, selectedCollege]);
+    if (user?.isApproved) {
+      const delayDebounceFn = setTimeout(() => {
+        fetchData();
+      }, 300);
+      return () => clearTimeout(delayDebounceFn);
+    } else {
+      setLoading(false);
+    }
+  }, [category, search, selectedCollege, user]);
 
   const handleRegister = async (eventId) => {
     try {
       const res = await API.post(`/events/${eventId}/register`);
       toast.success(res.data.message || "Registered successfully!");
-      // Optionally refresh data to update participant count
       fetchData();
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to register");
     }
   };
+
+  if (!user?.isApproved && user?.role === "student") {
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[30px] shadow-xl border border-gray-100 max-w-2xl mx-auto mt-10">
+          <div className="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 mb-6">
+            <i className="fas fa-user-clock text-4xl"></i>
+          </div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-4 tracking-tight">Account Pending Verification</h1>
+          <p className="text-gray-500 text-center px-10 leading-relaxed">
+            Welcome to CampusEventHub! Your student account for <strong>{user?.college?.name}</strong> has been created and is currently awaiting verification by your college administrator.
+            You will be able to browse and register for events once your account is activated.
+          </p>
+          <div className="mt-8 px-6 py-2 bg-indigo-50 text-indigo-700 rounded-full text-[10px] font-bold uppercase tracking-widest border border-indigo-200">
+            Current Status: Pending College Approval
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>

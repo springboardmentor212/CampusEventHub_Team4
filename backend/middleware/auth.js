@@ -33,11 +33,11 @@ export const authenticate = catchAsync(async (req, res, next) => {
       return next(new AppError("Account deactivated. Please contact support.", 401));
     }
 
-    // 5) Check if college_admin is approved
-    // Allow profile access even if not approved so they can see their status
+    // 5) Check if user is approved (excluding SuperAdmin and Profile route)
     const isProfileRoute = req.originalUrl.endsWith("/profile");
-    if (user.role === "college_admin" && !user.isApproved && !isProfileRoute) {
-      return next(new AppError("Your account is awaiting approval by the SuperAdmin.", 403));
+    if (user.role !== "admin" && !user.isApproved && !isProfileRoute) {
+      const reviewer = user.role === "college_admin" ? "SuperAdmin" : "College Administrator";
+      return next(new AppError(`Your account is awaiting approval by the ${reviewer}.`, 403));
     }
 
     req.userId = user._id;

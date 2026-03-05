@@ -13,9 +13,8 @@ import AppError from "./utils/appError.js";
 /*
   Environment configuration 
 */
-if (process.env.NODE_ENV === "docker") {
-  dotenv.config({ path: "./.env" });
-} else {
+dotenv.config(); // Loads .env by default
+if (!process.env.MONGO_URI) {
   dotenv.config({ path: "./.env.local" });
 }
 
@@ -35,7 +34,7 @@ const app = express();
 // CORS Hardening
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    origin: ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175"],
     credentials: true,
   })
 );
