@@ -1,7 +1,9 @@
 import crypto from "crypto";
 import { User } from "../models/User.js";
 import { College } from "../models/College.js";
-import sendEmail from "../utils/emailService.js";
+import { Event } from "../models/Event.js";
+import { Registration } from "../models/Registration.js";
+import sendEmail, { EmailTemplates } from "../utils/emailService.js";
 import catchAsync from "../utils/catchAsync.js";
 import AppError from "../utils/appError.js";
 import sendToken from "../utils/sendToken.js";
@@ -13,66 +15,79 @@ const generateVerificationToken = () => {
 
 // Register a new user
 export const register = catchAsync(async (req, res, next) => {
-  const {
-    username,
-    email,
-    password,
-    collegeId,
-    firstName,
-    lastName,
-    phone,
-    officialId,
-    role,
-  } = req.body;
+  const { username, email, password, collegeId, firstName, lastName, phone, officialId, role } = req.body;
 
-  // Check if college exists
+  // Validate college exists
   const college = await College.findById(collegeId);
-  if (!college) {
-    return next(new AppError("College not found", 400));
+  if (!college) return next(new AppError("College not found", 400));
+
+  // Restrict email domains to institutional emails (.edu or .ac.*) - now allowing gmail for testing
+  const isInstitutionalEmail = /\.(edu([a-z\.]+)?|ac\.[a-z]{2,})$/i.test(email) || email.toLowerCase().endsWith("@gmail.com");
+  if (!isInstitutionalEmail) {
+    return next(new AppError("Only institutional emails (.edu, .ac.in, etc.) or @gmail.com (for testing) are allowed.", 403));
   }
 
-  // Check if user already exists
-  const existingUser = await User.findOne({
-    $or: [{ email }, { username }],
-  });
-
+  // Prevent duplicate registrations
+  const existingUser = await User.findOne({ $or: [{ email }, { username }] });
   if (existingUser) {
+    // Give a specific message if the account is already pending verification
+    if (existingUser.accountStatus === "pending") {
+      return next(new AppError(
+        "An account with this email is pending verification. Please check your inbox or request a new verification link.",
+        400
+      ));
+    }
     return next(new AppError("User with this email or username already exists", 400));
   }
 
-  // SECURITY: Require approval for college_admin but allow students to login directly
-  let assignedRole = role === "college_admin" ? "college_admin" : "student";
-  let approvedStatus = assignedRole === "student"; // Students auto-approved
+  // Role safety: public registration only allows student or college_admin
+  const assignedRole = role === "college_admin" ? "college_admin" : "student";
 
-  // Generate email verification token
-  const emailVerificationToken = generateVerificationToken();
-  const emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  // Generate verification token
+  const token = crypto.randomBytes(32).toString("hex");
+  const tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-  // Create new user
+  // Create user in PENDING state
   const newUser = new User({
     username,
     email,
-    password, // Will be hashed by model pre-save hook
+    password,
     role: assignedRole,
     college: collegeId,
     firstName,
     lastName,
     phone,
     officialId,
-    isApproved: approvedStatus,
-    isEmailVerified: true, // Auto-verify for now to simplify flow
-    emailVerificationToken: undefined,
-    emailVerificationExpires: undefined,
+    isEmailVerified: false,
+    isApproved: false,
+    isActive: false,
+    accountStatus: "pending",
+    emailVerificationToken: token,
+    emailVerificationExpires: tokenExpiry,
   });
 
   await newUser.save();
 
+  // Build verification URLs
+  const baseUrl = process.env.FRONTEND_URL?.split(",")[0] || "http://localhost:5173";
+  const verifyUrl = `${baseUrl}/verify-email/${token}`;
+  const deleteUrl = `${baseUrl}/delete-account/${token}`;
+
+  // Send onboarding email
+  try {
+    const tpl = EmailTemplates.onboarding(firstName, verifyUrl, deleteUrl);
+    await sendEmail({ email: newUser.email, ...tpl });
+  } catch (e) {
+    // If email fails, delete the user so they can retry
+    await User.findByIdAndDelete(newUser._id);
+    console.error("Onboarding email failed:", e.message);
+    return next(new AppError("Could not send verification email. Please try again later.", 500));
+  }
+
   res.status(201).json({
     success: true,
-    message: assignedRole === "admin" ? "User created successfully" : (assignedRole === "student" ? "Successfully registered!" : "Registration pending approval"),
-    data: {
-      user: newUser,
-    },
+    message: "Account created! Please check your email to verify your account.",
+    data: { email: newUser.email },
   });
 });
 
@@ -81,8 +96,6 @@ export const login = catchAsync(async (req, res, next) => {
   const { email, password } = req.body;
   const sanitizedEmail = email?.trim().toLowerCase();
 
-  console.log(`[LOGIN_DEBUG] Attempting login for: ${sanitizedEmail}`);
-
   if (!email || !password) {
     return next(new AppError("Please provide email and password", 400));
   }
@@ -90,19 +103,36 @@ export const login = catchAsync(async (req, res, next) => {
   const user = await User.findOne({ email: sanitizedEmail }).populate("college", "name code");
 
   if (!user) {
-    console.log(`[LOGIN_DEBUG] User NOT found in DB: ${sanitizedEmail}`);
     return next(new AppError("Invalid email or password", 401));
   }
 
-  console.log(`[LOGIN_DEBUG] User found. Hashed password in DB: ${user.password.substring(0, 10)}...`);
-
   const isMatch = await user.comparePassword(password);
-  console.log(`[LOGIN_DEBUG] Password match result: ${isMatch}`);
-
   if (!isMatch) {
     return next(new AppError("Invalid email or password", 401));
   }
 
+  // Block unverified / pending accounts
+  if (user.accountStatus === "pending") {
+    return next(new AppError(
+      "Your email is not verified yet. Please check your inbox and click the verification link. Need a new link? Use \"Resend Verification\" on the login page.",
+      403
+    ));
+  }
+
+  // Block deleted accounts
+  if (user.accountStatus === "deleted") {
+    return next(new AppError("This account has been removed.", 403));
+  }
+
+  // Block unapproved college admins with a specific pending approval message
+  if (user.role === "college_admin" && !user.isApproved) {
+    return next(new AppError(
+      "Your account is pending Super Admin approval. You will receive an email once it is verified.",
+      403
+    ));
+  }
+
+  // Block deactivated accounts
   if (!user.isActive) {
     return next(new AppError("Account deactivated. Contact support.", 401));
   }
@@ -122,7 +152,7 @@ export const logout = (req, res) => {
   res.status(200).json({ success: true, message: "Logged out successfully" });
 };
 
-// Verify email
+// Verify email — activates account
 export const verifyEmail = catchAsync(async (req, res, next) => {
   const { token } = req.params;
 
@@ -132,27 +162,150 @@ export const verifyEmail = catchAsync(async (req, res, next) => {
   });
 
   if (!user) {
-    return next(new AppError("Invalid or expired verification token", 400));
+    // Check if token exists but is just expired
+    const expiredUser = await User.findOne({ emailVerificationToken: token });
+    if (expiredUser) {
+      return next(new AppError("Verification link has expired. Please request a new one.", 400));
+    }
+    return next(new AppError("Invalid verification link. It may have already been used.", 400));
   }
 
+  if (user.accountStatus === "active") {
+    return next(new AppError("Account is already verified. You can log in.", 400));
+  }
+
+  // Activate the account
   user.isEmailVerified = true;
+  user.isApproved = user.role === "student"; // Students auto-approved; college_admin waits for SuperAdmin
+  user.isActive = user.role === "student";
+  user.accountStatus = "active";
   user.emailVerificationToken = undefined;
   user.emailVerificationExpires = undefined;
   await user.save();
 
+  // If new college admin, notify all super admins
+  if (user.role === "college_admin") {
+    try {
+      const fullUser = await User.findById(user._id).populate("college", "name");
+      const superAdmins = await User.find({ role: "admin" }).select("email");
+
+      const emailPromises = superAdmins.map(admin => {
+        const tpl = EmailTemplates.newCollegeAdminPending(fullUser.firstName, fullUser.college.name);
+        return sendEmail({ email: admin.email, ...tpl });
+      });
+      await Promise.allSettled(emailPromises);
+    } catch (err) {
+      console.error("Failed to notify super admins about new college admin:", err);
+    }
+  }
+
   res.status(200).json({
     success: true,
-    message: "Email verified successfully",
+    message: user.role === "student"
+      ? "Email verified! Your account is now active. You can log in."
+      : "Email verified! Your account is pending approval by the Super Admin.",
   });
 });
 
-// Get current user profile
+// Delete account via token (clicked \"I Didn't Sign Up\")
+export const deleteAccountByToken = catchAsync(async (req, res, next) => {
+  const { token } = req.params;
+
+  const user = await User.findOne({ emailVerificationToken: token });
+
+  if (!user) {
+    return next(new AppError("Invalid or already used link.", 400));
+  }
+
+  if (user.accountStatus === "active") {
+    return next(new AppError(
+      "This account is already active. If someone is using your email without permission, please contact support.",
+      400
+    ));
+  }
+
+  await User.findByIdAndDelete(user._id);
+
+  res.status(200).json({
+    success: true,
+    message: "Account removed successfully. Your email address is now free to use.",
+  });
+});
+
+// Resend verification email
+export const resendVerification = catchAsync(async (req, res, next) => {
+  const { email } = req.body;
+  if (!email) return next(new AppError("Please provide your email address.", 400));
+
+  const user = await User.findOne({ email: email.trim().toLowerCase() });
+
+  // Rate-limit: don't leak user existence
+  const genericOk = { success: true, message: "If a pending account exists, a new verification email has been sent." };
+
+  if (!user) return res.status(200).json(genericOk);
+
+  if (user.accountStatus === "active") {
+    return next(new AppError("This account is already verified. Please log in.", 400));
+  }
+
+  if (user.accountStatus === "deleted") return res.status(200).json(genericOk);
+
+  // Generate new token
+  const token = crypto.randomBytes(32).toString("hex");
+  user.emailVerificationToken = token;
+  user.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  await user.save();
+
+  const baseUrl = process.env.FRONTEND_URL?.split(",")[0] || "http://localhost:5173";
+  const verifyUrl = `${baseUrl}/verify-email/${token}`;
+
+  try {
+    const tpl = EmailTemplates.resendVerification(user.firstName, verifyUrl);
+    await sendEmail({ email: user.email, ...tpl });
+  } catch (e) {
+    console.error("Resend verification email failed:", e.message);
+  }
+
+  res.status(200).json(genericOk);
+});
+
+// Get current user profile with dashboard stats
 export const getProfile = catchAsync(async (req, res, next) => {
   const user = await User.findById(req.userId)
-    .populate("college", "name code email website");
+    .populate("college", "name code email website")
+    .lean(); // Use lean to easily attach properties
 
   if (!user) {
     return next(new AppError("User not found", 404));
+  }
+
+  // Attach role-specific stats directly to the profile response
+  if (user.role === "student") {
+    // Get all registrations for this student
+    const registrations = await Registration.find({ user: user._id })
+      .populate({
+        path: "event",
+        select: "title startDate endDate status category location"
+      });
+
+    const now = new Date();
+
+    user.participatedEvents = registrations.filter(r =>
+      r.status === "approved" && new Date(r.event.endDate) < now
+    ).map(r => r.event);
+
+    user.futureEvents = registrations.filter(r =>
+      r.status === "approved" && new Date(r.event.startDate) >= now
+    ).map(r => r.event);
+
+    user.pendingRegistrations = registrations.filter(r => r.status === "pending").map(r => r.event);
+
+  } else if (user.role === "college_admin") {
+    // Get events created by this admin
+    const createdEvents = await Event.find({ createdBy: user._id })
+      .select("title startDate status isApproved currentParticipants maxParticipants");
+
+    user.createdEvents = createdEvents;
   }
 
   res.status(200).json({
@@ -168,11 +321,18 @@ export const updateProfile = catchAsync(async (req, res, next) => {
   const { firstName, lastName, phone, avatar } = req.body;
   const userId = req.userId;
 
+  // SECURITY: Only allow whitelisted fields to be updated — prevent role/approval escalation
+  const allowedUpdates = {};
+  if (firstName !== undefined) allowedUpdates.firstName = firstName;
+  if (lastName !== undefined) allowedUpdates.lastName = lastName;
+  if (phone !== undefined) allowedUpdates.phone = phone;
+  if (avatar !== undefined) allowedUpdates.avatar = avatar;
+
   const user = await User.findByIdAndUpdate(
     userId,
-    { firstName, lastName, phone, avatar },
+    allowedUpdates,
     { new: true, runValidators: true }
-  );
+  ).populate("college", "name code");
 
   if (!user) {
     return next(new AppError("User not found", 404));
@@ -189,8 +349,11 @@ export const updateProfile = catchAsync(async (req, res, next) => {
 
 // Admin: Get all pending approvals (System Admin Only)
 export const getPendingUsers = catchAsync(async (req, res, next) => {
-  const users = await User.find({ isApproved: false, role: "college_admin" })
-    .populate("college", "name code");
+  const users = await User.find({
+    isApproved: false,
+    role: "college_admin",
+    accountStatus: "active", // Only show email-verified college admins
+  }).populate("college", "name code");
 
   res.status(200).json({
     success: true,
@@ -209,6 +372,16 @@ export const approveUser = catchAsync(async (req, res, next) => {
     return next(new AppError("User not found", 404));
   }
 
+  // Prevent approving SuperAdmin accounts or yourself
+  if (user.role === "admin") {
+    return next(new AppError("Cannot modify SuperAdmin accounts.", 403));
+  }
+
+  // Prevent already-approved users from being approved again
+  if (user.isApproved) {
+    return next(new AppError("User is already approved.", 400));
+  }
+
   // Permission check: College Admin can only approve students from their college
   if (req.userRole === "college_admin") {
     if (user.role !== "student" || user.college.toString() !== req.user.college.toString()) {
@@ -217,19 +390,26 @@ export const approveUser = catchAsync(async (req, res, next) => {
   }
 
   user.isApproved = true;
+  user.isActive = true;
   await user.save();
 
-  // Send approval email
-  const message = `Congratulations, ${user.firstName}! Your account on CampusEventHub has been approved. You can now log in and access all features.`;
+  // Send approval email non-blocking
   try {
-    await sendEmail({
-      email: user.email,
-      subject: "Account Approved - CampusEventHub",
-      message,
-      html: `<h1>Account Approved!</h1><p>Congratulations, <strong>${user.firstName}</strong>!</p><p>Your account on CampusEventHub has been approved by the administrator. You can now log in and participate in campus activities.</p><p><a href="${process.env.FRONTEND_URL}/login">Login Now</a></p>`,
-    });
+    if (user.role === "college_admin") {
+      const tpl = EmailTemplates.collegeAdminApproved(user.firstName);
+      sendEmail({ email: user.email, ...tpl }).catch(err => console.error(err));
+    } else {
+      const message = `Congratulations, ${user.firstName}! Your account on CampusEventHub has been approved. You can now log in and access all features.`;
+      const baseUrl = process.env.FRONTEND_URL?.split(",")[0] || "http://localhost:5173";
+      sendEmail({
+        email: user.email,
+        subject: "Account Approved - CampusEventHub",
+        message,
+        html: `<h1>Account Approved!</h1><p>Congratulations, <strong>${user.firstName}</strong>!</p><p>Your account on CampusEventHub has been approved by the administrator. You can now log in and participate in campus activities.</p><p><a href="${baseUrl}/login">Login Now</a></p>`,
+      }).catch(err => console.error(err));
+    }
   } catch (err) {
-    console.error("Approval email failed:", err);
+    console.error("Approval email setup failed:", err);
   }
 
   res.status(200).json({
@@ -256,17 +436,22 @@ export const rejectUser = catchAsync(async (req, res, next) => {
     }
   }
 
-  // Send rejection email before deleting
-  const message = `Hello ${user.firstName}, we regret to inform you that your registration request on CampusEventHub has been rejected. Please contact your college administrator for details.`;
+  // Send rejection email non-blocking before deleting
   try {
-    await sendEmail({
-      email: user.email,
-      subject: "Registration Update - CampusEventHub",
-      message,
-      html: `<h1>Registration Update</h1><p>Hello ${user.firstName},</p><p>We regret to inform you that your registration request on <strong>CampusEventHub</strong> has been rejected by the administrator.</p><p>If you believe this is a mistake, please contact your college office.</p>`,
-    });
+    if (user.role === "college_admin") {
+      const tpl = EmailTemplates.collegeAdminRejected(user.firstName);
+      sendEmail({ email: user.email, ...tpl }).catch(err => console.error(err));
+    } else {
+      const message = `Hello ${user.firstName}, we regret to inform you that your registration request on CampusEventHub has been rejected. Please contact your college administrator for details.`;
+      sendEmail({
+        email: user.email,
+        subject: "Registration Update - CampusEventHub",
+        message,
+        html: `<h1>Registration Update</h1><p>Hello ${user.firstName},</p><p>We regret to inform you that your registration request on <strong>CampusEventHub</strong> has been rejected by the administrator.</p><p>If you believe this is a mistake, please contact your college office.</p>`,
+      }).catch(err => console.error(err));
+    }
   } catch (err) {
-    console.error("Rejection email failed:", err);
+    console.error("Rejection email setup failed:", err);
   }
 
   await User.findByIdAndDelete(req.params.id);

@@ -71,29 +71,42 @@ export const changePasswordSchema = Joi.object({
 export const createEventSchema = Joi.object({
     title: Joi.string().required(),
     description: Joi.string().required(),
-    category: Joi.string().required(),
+    category: Joi.string().valid("sports", "hackathon", "cultural", "workshop", "seminar", "technical", "other").required(),
     location: Joi.string().required(),
     startDate: Joi.date().required(),
-    endDate: Joi.date().required(),
-    maxParticipants: Joi.number().allow(null),
-    registrationDeadline: Joi.date().allow(null),
+    endDate: Joi.date().greater(Joi.ref('startDate')).required(),
+    maxParticipants: Joi.number().min(1).allow(null),
+    registrationDeadline: Joi.date().less(Joi.ref('startDate')).allow(null),
     requirements: Joi.array().items(Joi.string()),
+    dosAndDonts: Joi.array().items(Joi.string()),
+    participationRequirements: Joi.array().items(Joi.object({
+        label: Joi.string().required(),
+        fieldType: Joi.string().valid("text", "file", "number", "email").default("text"),
+        isRequired: Joi.boolean().default(true),
+    })),
     imageUrl: Joi.string().allow(""),
+    bannerImage: Joi.string().allow(""),
     college: Joi.string().optional(),
 });
 
 export const updateEventSchema = Joi.object({
     title: Joi.string(),
     description: Joi.string(),
-    category: Joi.string(),
+    category: Joi.string().valid("sports", "hackathon", "cultural", "workshop", "seminar", "technical", "other"),
     location: Joi.string(),
     startDate: Joi.date(),
-    endDate: Joi.date(),
-    maxParticipants: Joi.number().allow(null),
+    endDate: Joi.date().greater(Joi.ref('startDate')),
+    maxParticipants: Joi.number().min(1).allow(null),
     registrationDeadline: Joi.date().allow(null),
     requirements: Joi.array().items(Joi.string()),
+    dosAndDonts: Joi.array().items(Joi.string()),
+    participationRequirements: Joi.array().items(Joi.object({
+        label: Joi.string().required(),
+        fieldType: Joi.string().valid("text", "file", "number", "email"),
+        isRequired: Joi.boolean(),
+    })),
     imageUrl: Joi.string().allow(""),
-    isActive: Joi.boolean(),
+    bannerImage: Joi.string().allow(""),
 });
 
 export default validateRequest;

@@ -68,6 +68,11 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true,
   },
+  accountStatus: {
+    type: String,
+    enum: ["pending", "active", "deleted"],
+    default: "pending", // All new accounts start as pending until email verified
+  },
   passwordResetToken: {
     type: String,
   },
@@ -102,13 +107,17 @@ const userSchema = new mongoose.Schema({
 userSchema.pre("save", async function () {
   this.updatedAt = Date.now();
 
-  // Handle admin and student defaults
-  if (this.role === "admin") {
-    this.isApproved = true;
-    this.isActive = true;
-  } else if (this.role === "student") {
-    this.isApproved = true; // Students are auto-approved per user request
-    this.isActive = true;
+  // Handle role-based defaults only on creation
+  if (this.isNew) {
+    if (this.role === "admin") {
+      this.isApproved = true;
+      this.isActive = true;
+      this.accountStatus = "active"; // Seeded admins are always active
+    } else if (this.role === "college_admin") {
+      // College admins need SuperAdmin approval but email verification first
+      this.isApproved = false;
+      this.isActive = false;
+    }
   }
 
   // Only hash password if it's new or modified
