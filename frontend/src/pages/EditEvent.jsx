@@ -15,6 +15,7 @@ const EditEvent = () => {
         location: "",
         startDate: "",
         endDate: "",
+        registrationDeadline: "",
         maxParticipants: "",
         requirements: ""
     });
@@ -38,6 +39,7 @@ const EditEvent = () => {
                     location: event.location,
                     startDate: formatForInput(event.startDate),
                     endDate: formatForInput(event.endDate),
+                    registrationDeadline: event.registrationDeadline ? formatForInput(event.registrationDeadline) : "",
                     maxParticipants: event.maxParticipants || "",
                     requirements: event.requirements ? event.requirements.join(", ") : ""
                 });
@@ -214,19 +216,36 @@ const EditEvent = () => {
                         </div>
                     </div>
 
-                    {/* Field: Max Participants */}
-                    <div className="space-y-2">
-                        <label className="block text-gray-800 text-base" htmlFor="maxParticipants">
-                            Max Participants..
-                        </label>
-                        <input
-                            className="metallic-input w-full rounded-2xl py-3 px-5 text-gray-800 shadow-sm"
-                            id="maxParticipants"
-                            type="number"
-                            placeholder="Unlimited if empty"
-                            value={form.maxParticipants}
-                            onChange={(e) => setForm({ ...form, maxParticipants: e.target.value })}
-                        />
+                    {/* Additional Options */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {/* Field: Registration Deadline */}
+                        <div className="space-y-2">
+                            <label className="block text-gray-800 text-base" htmlFor="registrationDeadline">
+                                Registration Deadline (Optional)..
+                            </label>
+                            <input
+                                className="metallic-input w-full rounded-2xl py-3 px-5 text-gray-800 shadow-sm"
+                                id="registrationDeadline"
+                                type="datetime-local"
+                                value={form.registrationDeadline}
+                                onChange={(e) => setForm({ ...form, registrationDeadline: e.target.value })}
+                            />
+                        </div>
+
+                        {/* Field: Max Participants */}
+                        <div className="space-y-2">
+                            <label className="block text-gray-800 text-base" htmlFor="maxParticipants">
+                                Max Participants (Optional)..
+                            </label>
+                            <input
+                                className="metallic-input w-full rounded-2xl py-3 px-5 text-gray-800 shadow-sm"
+                                id="maxParticipants"
+                                type="number"
+                                placeholder="Unlimited if empty"
+                                value={form.maxParticipants}
+                                onChange={(e) => setForm({ ...form, maxParticipants: e.target.value })}
+                            />
+                        </div>
                     </div>
 
                     {/* Action Button */}

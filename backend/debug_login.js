@@ -3,7 +3,8 @@ import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
 import { User } from './models/User.js';
 
-dotenv.config({ path: './.env.local' });
+dotenv.config({ path: ".env.local" });
+dotenv.config();
 
 async function test() {
     await mongoose.connect(process.env.MONGO_URI);

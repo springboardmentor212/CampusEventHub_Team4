@@ -12,6 +12,10 @@ import ChangePassword from "./pages/ChangePassword";
 import CreateEvent from "./pages/CreateEvent";
 import EditEvent from "./pages/EditEvent";
 import ManageEvents from "./pages/ManageEvents";
+import EventRegistrations from "./pages/EventRegistrations";
+import VerifyEmail from "./pages/VerifyEmail";
+import DeleteAccount from "./pages/DeleteAccount";
+import ResendVerification from "./pages/ResendVerification";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
@@ -25,6 +29,9 @@ function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} />
+          <Route path="/verify-email/:token" element={<VerifyEmail />} />
+          <Route path="/delete-account/:token" element={<DeleteAccount />} />
+          <Route path="/resend-verification" element={<ResendVerification />} />
           <Route
             path="/change-password"
             element={
@@ -46,6 +53,14 @@ function App() {
             element={
               <ProtectedRoute role="college_admin">
                 <ManageEvents />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/event-registrations/:id"
+            element={
+              <ProtectedRoute role="college_admin">
+                <EventRegistrations />
               </ProtectedRoute>
             }
           />

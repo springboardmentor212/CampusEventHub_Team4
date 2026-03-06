@@ -3,10 +3,24 @@ import DashboardLayout from "../components/DashboardLayout";
 import API from "../api/axios";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
+import {
+    Search,
+    Edit2,
+    Trash2,
+    FileDown,
+    Users,
+    Calendar,
+    AlertCircle,
+    ChevronRight,
+    Ban,
+    ExternalLink,
+    Filter
+} from "lucide-react";
 
 const ManageEvents = () => {
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState("");
     const navigate = useNavigate();
 
     const fetchMyEvents = async () => {
@@ -26,90 +40,193 @@ const ManageEvents = () => {
     }, []);
 
     const handleDelete = async (id) => {
-        if (!window.confirm("Are you sure you want to delete this event?")) return;
+        if (!window.confirm("Permanently delete this event? This will remove all registration records.")) return;
         try {
             await API.delete(`/events/${id}`);
-            toast.success("Event deleted successfully");
+            toast.success("Event purged from system");
             setEvents(events.filter(e => e._id !== id));
         } catch (err) {
-            toast.error("Failed to delete event");
+            toast.error("Deletion failed");
         }
     };
 
+    const handleCancelEvent = async (id) => {
+        if (!window.confirm("Cancel this event? Registrants will be automatically notified via email.")) return;
+        try {
+            await API.patch(`/events/${id}/cancel`);
+            toast.success("Event cancelled and notifications sent");
+            fetchMyEvents();
+        } catch (err) {
+            toast.error("Cancellation failed");
+        }
+    };
+
+    const handleExportCSV = async (eventId, title) => {
+        try {
+            const res = await API.get(`/registrations/event/${eventId}/export`, {
+                responseType: 'blob'
+            });
+            const url = window.URL.createObjectURL(new Blob([res.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `registrations-${title.toLowerCase().replace(/\s+/g, '-')}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            toast.success("CSV Export successful");
+        } catch (err) {
+            toast.error("Failed to export registrations");
+        }
+    };
+
+    const filteredEvents = events.filter(e =>
+        e.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        e.category.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
     return (
         <DashboardLayout>
-            <div className="w-full max-w-[1000px] mx-auto">
-                <header className="flex justify-between items-start mb-8 w-full">
-                    <div className="flex flex-col">
-                        <h1 className="text-[32px] font-bold text-gray-900 leading-tight">Manage Events</h1>
-                        <p className="text-[16px] text-gray-500 mt-1">View, edit, and manage all your events</p>
+            <div className="max-w-6xl mx-auto animate-fade-in">
+                <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6">
+                    <div>
+                        <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">Manage Catalog</h1>
+                        <p className="text-slate-500 font-medium mt-1">Control your event lifecycle and student engagement</p>
                     </div>
-                    <div className="bg-gray-700 text-white text-[14px] px-4 py-1.5 rounded-full font-medium">
-                        {events.length} events
+                    <div className="flex items-center gap-3">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                            <input
+                                type="text"
+                                placeholder="Filter catalog..."
+                                className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/10 outline-none w-64"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+                        <button onClick={() => navigate("/create-event")} className="metallic-btn">New Event</button>
                     </div>
                 </header>
 
-                <main className="bg-white rounded-[24px] p-10 shadow-lg">
-                    <div className="mb-6">
-                        <h2 className="text-[24px] font-bold text-gray-900">All Events</h2>
-                        <p className="text-[16px] text-gray-500 mt-1">Complete overview of all campus events</p>
-                    </div>
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-slate-50 border-b border-slate-100">
+                                    <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Event Detail</th>
+                                    <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Engagement</th>
+                                    <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Lifecycle</th>
+                                    <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                                {loading ? (
+                                    <tr>
+                                        <td colSpan="4" className="px-6 py-20 text-center text-slate-400">
+                                            <div className="flex flex-col items-center gap-3">
+                                                <div className="w-8 h-8 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin"></div>
+                                                <p className="text-xs font-bold uppercase tracking-widest">Syncing Catalog...</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ) : filteredEvents.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="4" className="px-6 py-20 text-center text-slate-400">
+                                            <p className="text-sm font-medium italic">No events found in your stable.</p>
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    filteredEvents.map(event => {
+                                        const isPast = new Date(event.endDate) < new Date();
+                                        const isCancelled = event.status === 'cancelled';
 
-                    <div className="mb-8 relative">
-                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                            <i className="fas fa-search text-gray-400"></i>
-                        </div>
-                        <input
-                            className="w-full bg-gray-100 text-gray-900 placeholder-gray-500 rounded-lg py-3 pl-12 pr-4 border-none focus:ring-2 focus:ring-gray-300 transition duration-200"
-                            placeholder="Search"
-                            type="text"
-                        />
+                                        return (
+                                            <tr key={event._id} className={`hover:bg-slate-50/50 transition-colors ${isCancelled ? 'opacity-60 grayscale' : ''}`}>
+                                                <td className="px-6 py-5">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[9px] font-extrabold text-indigo-600 uppercase tracking-widest mb-1">{event.category}</span>
+                                                        <h4 className="font-bold text-slate-900">{event.title}</h4>
+                                                        <div className="flex items-center gap-3 mt-2 text-slate-400">
+                                                            <div className="flex items-center gap-1.5 text-[10px] font-bold">
+                                                                <Calendar className="w-3 h-3" />
+                                                                {new Date(event.startDate).toLocaleDateString()}
+                                                            </div>
+                                                            <div className="flex items-center gap-1.5 text-[10px] font-bold">
+                                                                <Users className="w-3 h-3" />
+                                                                {event.currentParticipants}/{event.maxParticipants}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-5">
+                                                    <div className="w-32 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                                        <div
+                                                            className={`h-full rounded-full transition-all duration-500 ${event.currentParticipants / event.maxParticipants > 0.8 ? 'bg-rose-500' : 'bg-indigo-600'}`}
+                                                            style={{ width: `${Math.min(100, (event.currentParticipants / event.maxParticipants) * 100)}%` }}
+                                                        ></div>
+                                                    </div>
+                                                    <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mt-2">
+                                                        {Math.round((event.currentParticipants / event.maxParticipants) * 100)}% Occupancy
+                                                    </p>
+                                                </td>
+                                                <td className="px-6 py-5">
+                                                    <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-tighter ${isCancelled ? 'bg-rose-100 text-rose-700' :
+                                                            !event.isApproved ? 'bg-amber-100 text-amber-700' :
+                                                                isPast ? 'bg-slate-200 text-slate-600' : 'bg-emerald-100 text-emerald-700'
+                                                        }`}>
+                                                        {isCancelled ? 'Cancelled' :
+                                                            !event.isApproved ? 'Awaiting Approval' :
+                                                                isPast ? 'Completed' : 'Live & Active'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-5">
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            onClick={() => navigate(`/event-registrations/${event._id}`)}
+                                                            className="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-600 hover:text-white transition-all active:scale-95"
+                                                            title="View Registrations"
+                                                        >
+                                                            <Users className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleExportCSV(event._id, event.title)}
+                                                            className="p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-600 hover:text-white transition-all active:scale-95"
+                                                            title="Export CSV"
+                                                        >
+                                                            <FileDown className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => navigate(`/edit-event/${event._id}`)}
+                                                            className="p-2 bg-slate-50 text-slate-600 rounded-lg hover:bg-slate-600 hover:text-white transition-all active:scale-95"
+                                                            title="Edit Details"
+                                                        >
+                                                            <Edit2 className="w-4 h-4" />
+                                                        </button>
+                                                        {!isCancelled && !isPast && (
+                                                            <button
+                                                                onClick={() => handleCancelEvent(event._id)}
+                                                                className="p-2 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-600 hover:text-white transition-all active:scale-95"
+                                                                title="Cancel Event"
+                                                            >
+                                                                <Ban className="w-4 h-4" />
+                                                            </button>
+                                                        )}
+                                                        <button
+                                                            onClick={() => handleDelete(event._id)}
+                                                            className="p-2 bg-slate-50 text-slate-400 rounded-lg hover:bg-rose-600 hover:text-white transition-all active:scale-95"
+                                                            title="Delete Permanently"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                )}
+                            </tbody>
+                        </table>
                     </div>
-
-                    <div className="hidden md:grid grid-cols-[2.5fr_1.5fr_1.2fr_1fr_1fr_0.5fr] gap-4 mb-3 px-6 text-[14px] font-medium text-gray-500 capitalize">
-                        <div>Events</div>
-                        <div>College</div>
-                        <div>Date</div>
-                        <div>Status</div>
-                        <div>Participants</div>
-                        <div></div>
-                    </div>
-
-                    <div className="space-y-4">
-                        {loading ? (
-                            <div className="flex justify-center py-10">
-                                <div className="w-10 h-10 border-4 border-gray-200 border-t-gray-600 rounded-full animate-spin"></div>
-                            </div>
-                        ) : events.length === 0 ? (
-                            <div className="text-center py-10 text-gray-500">No events found.</div>
-                        ) : (
-                            events.map((event) => (
-                                <article key={event._id} className="grid grid-cols-1 md:grid-cols-[2.5fr_1.5fr_1.2fr_1fr_1fr_0.5fr] gap-4 bg-gray-100 rounded-xl p-6 py-4 items-center">
-                                    <div className="flex flex-col items-start justify-center">
-                                        <h3 className="text-[16px] font-medium text-gray-900">{event.title}</h3>
-                                        <div className="mt-1 bg-gray-200 text-gray-700 text-[12px] px-2.5 py-1 rounded-full inline-block">
-                                            {event.category}
-                                        </div>
-                                    </div>
-                                    <div className="text-[14px] text-gray-600 truncate">{event.college?.name || 'N/A'}</div>
-                                    <div className="text-[14px] text-gray-600">{new Date(event.startDate).toLocaleDateString()}</div>
-                                    <div className="text-[14px] text-gray-600 capitalize">
-                                        {new Date(event.startDate) > new Date() ? 'Upcoming' : 'Past'}
-                                    </div>
-                                    <div className="text-[14px] text-gray-600">Max: {event.maxParticipants}</div>
-                                    <div className="flex justify-end gap-2">
-                                        <button className="text-gray-500 hover:text-gray-900 p-1" onClick={() => navigate(`/edit-event/${event._id}`)}>
-                                            <i className="fas fa-ellipsis-v"></i>
-                                        </button>
-                                        <button className="text-red-500 hover:text-red-700 p-1" onClick={() => handleDelete(event._id)}>
-                                            <i className="fas fa-trash"></i>
-                                        </button>
-                                    </div>
-                                </article>
-                            ))
-                        )}
-                    </div>
-                </main>
+                </div>
             </div>
         </DashboardLayout>
     );

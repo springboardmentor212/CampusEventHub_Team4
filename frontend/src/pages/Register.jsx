@@ -2,6 +2,22 @@ import { useState, useEffect } from "react";
 import API from "../api/axios";
 import { useNavigate, Link } from "react-router-dom";
 import toast from "react-hot-toast";
+import {
+  User,
+  Mail,
+  Lock,
+  Badge,
+  School,
+  Users,
+  Eye,
+  EyeOff,
+  ArrowRight,
+  ShieldCheck,
+  CheckCircle2,
+  MailCheck,
+  AlertTriangle,
+  ChevronDown
+} from "lucide-react";
 
 const Register = () => {
   const navigate = useNavigate();
@@ -19,17 +35,16 @@ const Register = () => {
   const [colleges, setColleges] = useState([]);
   const [loadingColleges, setLoadingColleges] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState(null);
 
   useEffect(() => {
     const fetchColleges = async () => {
       try {
         setLoadingColleges(true);
         const res = await API.get("/colleges");
-        if (res.data.success) {
-          setColleges(res.data.data.colleges);
-        }
+        if (res.data.success) setColleges(res.data.data.colleges);
       } catch (err) {
-        toast.error("Failed to load university list");
+        toast.error("Failed to sync university database");
       } finally {
         setLoadingColleges(false);
       }
@@ -39,18 +54,16 @@ const Register = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     if (form.password !== form.confirmPassword) {
-      toast.error("Passwords do not match");
+      toast.error("Security secrets do not match");
       return;
     }
-
     if (!form.collegeId) {
-      toast.error("Please select a college");
+      toast.error("Institution selection required");
       return;
     }
 
-    const loadingToast = toast.loading("Creating account...");
+    const loadingToast = toast.loading("Establishing secure profile...");
     const nameParts = form.fullName.trim().split(/\s+/);
     const firstName = nameParts[0] || "";
     const lastName = nameParts.slice(1).join(" ") || "";
@@ -67,262 +80,223 @@ const Register = () => {
     };
 
     try {
-      await API.post("/auth/register", payload);
-      toast.success("Registered Successfully! Please login.", { id: loadingToast });
-      navigate("/login");
+      const res = await API.post("/auth/register", payload);
+      toast.success("Profile initialized", { id: loadingToast });
+      setRegisteredEmail(res.data.data?.email || form.email);
     } catch (err) {
-      toast.error(err.response?.data?.message || "Registration failed", { id: loadingToast });
+      toast.error(err.response?.data?.message || "Initialization failed", { id: loadingToast });
     }
   };
 
-  return (
-    <div className="bg-gradient-to-br from-[#EEF2FF] to-[#F5F3FF] dark:from-gray-950 dark:to-gray-950 min-h-screen font-display text-[#111827] flex flex-col items-center justify-center px-4 py-8 relative">
-      <div className="w-full max-w-md bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-[#E5E7EB] dark:border-white/10 overflow-hidden">
-        <div className="px-6 pt-8 pb-4 text-center">
-          <div className="flex justify-center mb-4">
-            <div className="w-12 h-12 rounded-lg bg-[#5048e5] flex items-center justify-center text-white">
-              <span className="material-symbols-outlined text-3xl">school</span>
+  if (registeredEmail) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+        <div className="bg-white rounded-[3rem] border border-slate-200 shadow-2xl p-12 max-w-lg w-full text-center animate-fade-in">
+          <div className="w-24 h-24 rounded-3xl bg-emerald-50 flex items-center justify-center text-emerald-500 mx-auto mb-8 border border-emerald-100 shadow-lg shadow-emerald-50/50">
+            <MailCheck className="w-12 h-12" />
+          </div>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-4">Transmission Sent</h1>
+          <p className="text-slate-500 font-medium mb-2">We've dispatched a verification link to:</p>
+          <p className="font-black text-indigo-600 mb-8 break-all">{registeredEmail}</p>
+
+          <div className="bg-slate-50 rounded-3xl p-6 text-left mb-8 border border-slate-100 space-y-4">
+            <div className="flex gap-4 items-start">
+              <div className="w-5 h-5 bg-white rounded-full flex items-center justify-center shadow-sm border border-slate-100 mt-0.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" />
+              </div>
+              <p className="text-xs text-slate-600 font-bold uppercase tracking-wide leading-relaxed">Activate via "Verify Account" link</p>
+            </div>
+            <div className="flex gap-4 items-start">
+              <div className="w-5 h-5 bg-white rounded-full flex items-center justify-center shadow-sm border border-slate-100 mt-0.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
+              </div>
+              <p className="text-xs text-slate-600 font-bold uppercase tracking-wide leading-relaxed">Expires after 24 hours of inactivity</p>
             </div>
           </div>
-          <h1 className="text-[28px] font-bold text-[#111827] dark:text-white leading-tight">
-            Create Account
-          </h1>
-          <p className="text-[#6B7280] dark:text-gray-400 mt-2">
-            Join the CampusEventHub community today.
-          </p>
+
+          <div className="space-y-4">
+            <Link to="/resend-verification" className="block text-[10px] font-extrabold text-indigo-600 uppercase tracking-[0.2em] hover:opacity-80 transition-all">Request New Link</Link>
+            <Link to="/login" className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em] hover:opacity-80 transition-all pt-4 border-t border-slate-100">Back to Login</Link>
+          </div>
         </div>
+      </div>
+    );
+  }
 
-        <div className="px-6 pb-8 space-y-4">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-[#111827] dark:text-gray-200">
-                Username
-              </label>
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xl">
-                  account_circle
-                </span>
-                <input
-                  required
-                  className="w-full h-12 pl-10 pr-4 rounded-lg border border-[#E5E7EB] focus:border-[#5048e5] focus:ring-2 focus:ring-[#5048e5]/20 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white transition-all outline-none"
-                  placeholder="johndoe123"
-                  type="text"
-                  value={form.username}
-                  onChange={(e) =>
-                    setForm({ ...form, username: e.target.value })
-                  }
-                />
+  return (
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 relative overflow-hidden">
+      {/* Visual background decorations */}
+      <div className="absolute top-0 right-0 w-full h-full pointer-events-none">
+        <div className="absolute top-[-20%] right-[-10%] w-[50%] h-[50%] bg-indigo-500/5 rounded-full blur-[150px]"></div>
+        <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-500/5 rounded-full blur-[120px]"></div>
+      </div>
+
+      <div className="w-full max-w-2xl animate-fade-in z-10 my-10">
+        <div className="bg-white rounded-[3rem] border border-slate-200 shadow-2xl shadow-indigo-100/50 overflow-hidden">
+          <div className="p-10 pb-6 text-center border-b border-slate-50">
+            <h1 className="text-4xl font-black text-slate-900 tracking-tight">Establish Profile</h1>
+            <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px] mt-3">CampusEventHub Identity Registration</p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="p-10 pt-8 space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Username */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em] ml-1">Network Alias</label>
+                <div className="relative group">
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-indigo-600 transition-colors" />
+                  <input
+                    required
+                    placeholder="johndoe_hub"
+                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:bg-white focus:border-indigo-500 transition-all text-sm font-bold"
+                    value={form.username}
+                    onChange={(e) => setForm({ ...form, username: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              {/* Full Name */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em] ml-1">Legal Identity</label>
+                <div className="relative group">
+                  <Badge className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-indigo-600 transition-colors" />
+                  <input
+                    required
+                    placeholder="Johnathon Doe"
+                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:bg-white focus:border-indigo-500 transition-all text-sm font-bold"
+                    value={form.fullName}
+                    onChange={(e) => setForm({ ...form, fullName: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              {/* Email */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em] ml-1">Institutional Email</label>
+                <div className="relative group">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-indigo-600 transition-colors" />
+                  <input
+                    required
+                    type="email"
+                    placeholder="j.doe@university.edu"
+                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:bg-white focus:border-indigo-500 transition-all text-sm font-bold"
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              {/* Official ID */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em] ml-1">University Roll / ID</label>
+                <div className="relative group">
+                  <Badge className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-indigo-600 transition-colors" />
+                  <input
+                    required
+                    placeholder="ID-99283-X"
+                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:bg-white focus:border-indigo-500 transition-all text-sm font-bold"
+                    value={form.officialId}
+                    onChange={(e) => setForm({ ...form, officialId: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              {/* College Selection */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em] ml-1">Parent Institution</label>
+                <div className="relative group">
+                  <School className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-indigo-600 transition-colors" />
+                  <select
+                    required
+                    className="w-full pl-12 pr-10 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:bg-white focus:border-indigo-500 transition-all text-sm font-bold appearance-none cursor-pointer"
+                    value={form.collegeId}
+                    onChange={(e) => setForm({ ...form, collegeId: e.target.value })}
+                  >
+                    <option value="">{loadingColleges ? "Syncing..." : "Select Affiliation"}</option>
+                    {colleges.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}
+                  </select>
+                  <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Role Selection */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em] ml-1">Operational Role</label>
+                <div className="relative group">
+                  <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-indigo-600 transition-colors" />
+                  <select
+                    className="w-full pl-12 pr-10 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:bg-white focus:border-indigo-500 transition-all text-sm font-bold appearance-none cursor-pointer"
+                    value={form.role}
+                    onChange={(e) => setForm({ ...form, role: e.target.value })}
+                  >
+                    <option value="student">Student Investigator</option>
+                    <option value="college_admin">Campus Administrator</option>
+                  </select>
+                  <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 pointer-events-none" />
+                </div>
               </div>
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-[#111827] dark:text-gray-200">
-                Full Name
-              </label>
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xl">
-                  person
-                </span>
-                <input
-                  required
-                  className="w-full h-12 pl-10 pr-4 rounded-lg border border-[#E5E7EB] focus:border-[#5048e5] focus:ring-2 focus:ring-[#5048e5]/20 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white transition-all outline-none"
-                  placeholder="John Doe"
-                  type="text"
-                  value={form.fullName}
-                  onChange={(e) =>
-                    setForm({ ...form, fullName: e.target.value })
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-[#111827] dark:text-gray-200">
-                Email Address
-              </label>
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xl">
-                  mail
-                </span>
-                <input
-                  required
-                  className="w-full h-12 pl-10 pr-4 rounded-lg border border-[#E5E7EB] focus:border-[#5048e5] focus:ring-2 focus:ring-[#5048e5]/20 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white transition-all outline-none"
-                  placeholder="name@university.edu"
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-[#111827] dark:text-gray-200">
-                Official University ID / Roll Number
-              </label>
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xl">
-                  badge
-                </span>
-                <input
-                  required
-                  className="w-full h-12 pl-10 pr-4 rounded-lg border border-[#E5E7EB] focus:border-[#5048e5] focus:ring-2 focus:ring-[#5048e5]/20 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white transition-all outline-none"
-                  placeholder="ID Card Number"
-                  type="text"
-                  value={form.officialId}
-                  onChange={(e) =>
-                    setForm({ ...form, officialId: e.target.value })
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-[#111827] dark:text-gray-200">
-                College / University
-              </label>
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xl">
-                  account_balance
-                </span>
-                <select
-                  required
-                  className="w-full h-12 pl-10 pr-10 rounded-lg border border-[#E5E7EB] focus:border-[#5048e5] focus:ring-2 focus:ring-[#5048e5]/20 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white appearance-none transition-all outline-none"
-                  value={form.collegeId}
-                  onChange={(e) =>
-                    setForm({ ...form, collegeId: e.target.value })
-                  }
-                >
-                  <option value="">
-                    {loadingColleges ? "Loading universities..." : "Select your university"}
-                  </option>
-                  {!loadingColleges && colleges.length === 0 && (
-                    <option value="" disabled>No universities found</option>
-                  )}
-                  {colleges.map((c) => (
-                    <option key={c._id} value={c._id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-                <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
-                  expand_more
-                </span>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-[#111827] dark:text-gray-200">
-                Role
-              </label>
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xl">
-                  group
-                </span>
-                <select
-                  className="w-full h-12 pl-10 pr-10 rounded-lg border border-[#E5E7EB] focus:border-[#5048e5] focus:ring-2 focus:ring-[#5048e5]/20 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white appearance-none transition-all outline-none"
-                  value={form.role}
-                  onChange={(e) => setForm({ ...form, role: e.target.value })}
-                >
-                  <option value="student">Student</option>
-                  <option value="college_admin">College Admin</option>
-                </select>
-                <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
-                  expand_more
-                </span>
-              </div>
-              <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mt-1 flex items-center gap-1 leading-tight">
-                <span className="material-symbols-outlined text-[14px]">info</span>
+            {/* Notification Alert */}
+            <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100 flex gap-4 items-center">
+              <AlertTriangle className="w-5 h-5 text-indigo-500 shrink-0" />
+              <p className="text-[10px] font-bold text-indigo-700 uppercase tracking-widest leading-relaxed">
                 {form.role === 'college_admin'
-                  ? "College Admin accounts require verification by the SuperAdmin."
-                  : "Student accounts require verification by your College Administrator."}
+                  ? "Administrator access requires SuperAdmin audit."
+                  : "Student profiles require Campus Admin verification."}
               </p>
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-[#111827] dark:text-gray-200">
-                Password
-              </label>
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xl">
-                  lock
-                </span>
-                <input
-                  required
-                  className="w-full h-12 pl-10 pr-10 rounded-lg border border-[#E5E7EB] focus:border-[#5048e5] focus:ring-2 focus:ring-[#5048e5]/20 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white transition-all outline-none"
-                  placeholder="••••••••"
-                  type={showPassword ? "text" : "password"}
-                  value={form.password}
-                  onChange={(e) =>
-                    setForm({ ...form, password: e.target.value })
-                  }
-                />
-                <button
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#5048e5] transition-colors"
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  <span className="material-symbols-outlined text-xl">
-                    {showPassword ? "visibility_off" : "visibility"}
-                  </span>
-                </button>
+            {/* Password Fields */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4 border-t border-slate-50">
+              <div className="space-y-2">
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em] ml-1">Security Secret</label>
+                <div className="relative group">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-indigo-600 transition-colors" />
+                  <input
+                    required
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    className="w-full pl-12 pr-12 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:bg-white focus:border-indigo-500 transition-all text-sm font-bold"
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300">
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em] ml-1">Confirm Secret</label>
+                <div className="relative group">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-indigo-600 transition-colors" />
+                  <input
+                    required
+                    type="password"
+                    placeholder="••••••••"
+                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:bg-white focus:border-indigo-500 transition-all text-sm font-bold"
+                    value={form.confirmPassword}
+                    onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+                  />
+                </div>
               </div>
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-[#111827] dark:text-gray-200">
-                Confirm Password
-              </label>
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xl">
-                  lock_reset
-                </span>
-                <input
-                  required
-                  className="w-full h-12 pl-10 pr-4 rounded-lg border border-[#E5E7EB] focus:border-[#5048e5] focus:ring-2 focus:ring-[#5048e5]/20 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white transition-all outline-none"
-                  placeholder="••••••••"
-                  type="password"
-                  value={form.confirmPassword}
-                  onChange={(e) =>
-                    setForm({ ...form, confirmPassword: e.target.value })
-                  }
-                />
-              </div>
-            </div>
+            <button type="submit" className="metallic-btn w-full py-5 text-base shadow-indigo-100">
+              Establish Institutional Identity
+              <ArrowRight className="w-5 h-5" />
+            </button>
 
-            <div className="pt-4">
-              <button
-                type="submit"
-                className="w-full h-14 bg-gradient-to-r from-[#4F46E5] to-[#9333EA] text-white font-semibold rounded-lg shadow-lg shadow-[#5048e5]/20 hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-              >
-                Create Account
-                <span className="material-symbols-outlined">arrow_forward</span>
-              </button>
-            </div>
+            <p className="text-center text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
+              Existing Profile? <Link to="/login" className="text-indigo-600 hover:opacity-80 transition-all">Authenticate Now</Link>
+            </p>
           </form>
-
-          <p className="text-center text-sm text-[#6B7280] dark:text-gray-400 pt-2">
-            Already have an account?{" "}
-            <Link
-              className="text-[#5048e5] font-semibold hover:underline"
-              to="/login"
-            >
-              Sign In
-            </Link>
-          </p>
         </div>
-      </div>
 
-      <p className="mt-8 text-xs text-center text-[#6B7280] dark:text-gray-500 max-w-xs px-4">
-        By creating an account, you agree to our{" "}
-        <a className="underline" href="#">
-          Terms of Service
-        </a>{" "}
-        and{" "}
-        <a className="underline" href="#">
-          Privacy Policy
-        </a>
-        .
-      </p>
+        <p className="mt-8 text-[9px] font-extrabold text-center text-slate-400 uppercase tracking-[0.2em] max-w-lg mx-auto leading-relaxed">
+          By establishing a profile, you adhere to the <span className="text-slate-900 border-b border-slate-200">Protocol for Campus Conduct</span> and <span className="text-slate-900 border-b border-slate-200">Data Integrity Guidelines</span>.
+        </p>
+      </div>
     </div>
   );
 };

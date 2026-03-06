@@ -54,6 +54,10 @@ const eventSchema = new mongoose.Schema({
     enum: ["upcoming", "ongoing", "completed", "cancelled"],
     default: "upcoming",
   },
+  bannerImage: {
+    type: String, // Cloudinary URL
+    default: "",
+  },
   imageUrl: {
     type: String,
     default: "",
@@ -65,6 +69,24 @@ const eventSchema = new mongoose.Schema({
     type: [String],
     default: [],
   },
+  dosAndDonts: {
+    type: [String],
+    default: [],
+  },
+  participationRequirements: [
+    {
+      label: String,
+      fieldType: {
+        type: String,
+        enum: ["text", "file", "number", "email"],
+        default: "text",
+      },
+      isRequired: {
+        type: Boolean,
+        default: true,
+      },
+    }
+  ],
   isActive: {
     type: Boolean,
     default: true,

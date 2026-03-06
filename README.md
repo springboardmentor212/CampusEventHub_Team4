@@ -162,11 +162,9 @@ npm run dev
 
 ## 🔐 Security Guidelines
 
-* Do NOT commit environment files
-* Do NOT expose database credentials
-* Do NOT hardcode secrets
-* Use environment variables only
-* Review PR before merging
+* Use `.env.local` for local secrets (preferred over `.env`)
+* Generic defaults can be placed in `.env` (but still not committed)
+* Review PR before merging to ensure no secrets were accidentally committed
 
 ---
 

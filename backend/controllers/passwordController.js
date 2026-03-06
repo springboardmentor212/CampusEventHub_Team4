@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { User } from "../models/User.js";
-import sendEmail from "../utils/emailService.js";
+import sendEmail, { EmailTemplates } from "../utils/emailService.js";
 import catchAsync from "../utils/catchAsync.js";
 import AppError from "../utils/appError.js";
 
@@ -29,13 +29,8 @@ export const requestPasswordReset = catchAsync(async (req, res, next) => {
   const message = `Forgot your password? Reset it here: ${resetUrl}. If you didn't, please ignore.`;
 
   try {
-    await sendEmail({
-      email: user.email,
-      subject: "Password Reset Request - CampusEventHub",
-      message,
-      html: `<p>Click <a href="${resetUrl}">here</a> to reset your password.</p>`,
-    });
-
+    const tpl = EmailTemplates.passwordReset(resetUrl);
+    await sendEmail({ email: user.email, ...tpl });
     res.status(200).json({
       success: true,
       message: "If the email exists, a reset link will be sent.",

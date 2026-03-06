@@ -8,7 +8,9 @@ import {
   getMyEvents,
   registerForEvent,
   approveEvent,
+  rejectEvent,
   getPendingEvents,
+  cancelEvent,
 } from "../controllers/eventController.js";
 import { authenticate, isApprovedCollegeAdmin, canManageEvents, isStudent, isSuperAdmin } from "../middleware/auth.js";
 import validateRequest, { createEventSchema, updateEventSchema } from "../middleware/validateMiddleware.js";
@@ -28,10 +30,12 @@ router.get("/my/events", authenticate, canManageEvents, getMyEvents);
 
 // 4. Owner Authority (Resource Specific)
 router.patch("/:id", authenticate, canManageEvents, validateRequest(updateEventSchema), updateEvent);
+router.patch("/:id/cancel", authenticate, canManageEvents, cancelEvent);
 router.delete("/:id", authenticate, canManageEvents, deleteEvent);
 
 // 5. Admin Authority (SuperAdmin only)
 router.get("/admin/pending-events", authenticate, isSuperAdmin, getPendingEvents);
 router.patch("/:id/approve", authenticate, isSuperAdmin, approveEvent);
+router.delete("/:id/reject", authenticate, isSuperAdmin, rejectEvent);
 
 export default router;

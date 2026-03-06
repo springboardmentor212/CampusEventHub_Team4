@@ -4,19 +4,22 @@ import cors from "cors";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
+import helmet from "helmet";
 import authRoutes from "./routes/auth.js";
 import collegeRoutes from "./routes/colleges.js";
 import eventRoutes from "./routes/events.js";
+import dashboardRoutes from "./routes/dashboards.js";
+import notificationRoutes from "./routes/notifications.js";
+import registrationRoutes from "./routes/registrations.js";
+import mediaRoutes from "./routes/media.js";
 import globalErrorHandler from "./middleware/errorMiddleware.js";
 import AppError from "./utils/appError.js";
 
 /*
   Environment configuration 
 */
-dotenv.config(); // Loads .env by default
-if (!process.env.MONGO_URI) {
-  dotenv.config({ path: "./.env.local" });
-}
+dotenv.config({ path: ".env.local" });
+dotenv.config();
 
 // Critical Environment Variable Check
 const requiredEnv = ["MONGO_URI", "JWT_SECRET", "FRONTEND_URL"];
@@ -27,6 +30,8 @@ requiredEnv.forEach((env) => {
 });
 
 const app = express();
+app.set("trust proxy", 1);
+app.use(helmet());
 
 /*
   Middleware
@@ -34,12 +39,13 @@ const app = express();
 // CORS Hardening
 app.use(
   cors({
-    origin: ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175"],
+    origin: process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(",") : ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175"],
     credentials: true,
   })
 );
 
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cookieParser());
 
 // Rate Limiting
@@ -60,6 +66,10 @@ const authLimiter = rateLimit({
 app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/colleges", collegeRoutes);
 app.use("/api/events", eventRoutes);
+app.use("/api/registrations", registrationRoutes);
+app.use("/api/dashboards", dashboardRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/media", mediaRoutes);
 
 /*
   Basic Health Route

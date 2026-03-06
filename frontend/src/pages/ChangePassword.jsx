@@ -1,7 +1,9 @@
 import { useState } from "react";
+import DashboardLayout from "../components/DashboardLayout";
 import API from "../api/axios";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
+import { Lock, ShieldCheck, ArrowRight, RefreshCw } from "lucide-react";
 
 const ChangePassword = () => {
     const navigate = useNavigate();
@@ -10,6 +12,7 @@ const ChangePassword = () => {
         newPassword: "",
         confirmPassword: "",
     });
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -19,80 +22,99 @@ const ChangePassword = () => {
             return;
         }
 
-        const loadingToast = toast.loading("Updating password...");
+        setIsSubmitting(true);
+        const loadingToast = toast.loading("Verifying identity and updating security credentials...");
         try {
             await API.post("/auth/change-password", {
                 currentPassword: form.currentPassword,
                 newPassword: form.newPassword,
             });
-            toast.success("Password updated successfully!", { id: loadingToast });
-            navigate("/student"); // Redirect back to dashboard
+            toast.success("Security credentials updated successfully", { id: loadingToast });
+            navigate(-1);
         } catch (err) {
-            toast.error(err.response?.data?.message || "Update failed", { id: loadingToast });
+            toast.error(err.response?.data?.message || "Operation failed", { id: loadingToast });
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
     return (
-        <div className="font-display bg-gradient-to-br from-[#EEF2FF] to-[#F5F3FF] min-h-screen flex md:items-center justify-center p-4">
-            <div className="w-full max-w-[440px] bg-white rounded-xl shadow-xl border border-gray-100 px-6 py-8 md:px-8 md:py-10 mt-10 md:mt-0">
-                <h2 className="text-xl md:text-2xl font-bold text-center text-[#111827] mb-6">
-                    Change Password
-                </h2>
-
-                <form onSubmit={handleSubmit} className="space-y-4 md:space-y-5">
-                    <div className="space-y-1">
-                        <label className="text-sm font-medium text-gray-700">Current Password</label>
-                        <input
-                            type="password"
-                            placeholder="••••••••"
-                            required
-                            className="w-full py-3 px-4 border border-gray-200 rounded-lg focus:ring-[#5048e5] focus:border-[#5048e5] text-sm outline-none transition-all"
-                            value={form.currentPassword}
-                            onChange={(e) =>
-                                setForm({ ...form, currentPassword: e.target.value })
-                            }
-                        />
+        <DashboardLayout>
+            <div className="max-w-xl mx-auto py-12 animate-fade-in">
+                <header className="text-center mb-10">
+                    <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 mb-6 mx-auto border border-indigo-100">
+                        <ShieldCheck className="w-8 h-8" />
                     </div>
+                    <h1 className="text-3xl font-black text-slate-900 tracking-tight">Access Security</h1>
+                    <p className="text-slate-500 font-medium mt-1">Rotate your credentials to maintain account integrity</p>
+                </header>
 
-                    <div className="space-y-1">
-                        <label className="text-sm font-medium text-gray-700">New Password</label>
-                        <input
-                            type="password"
-                            placeholder="••••••••"
-                            required
-                            className="w-full py-3 px-4 border border-gray-200 rounded-lg focus:ring-[#5048e5] focus:border-[#5048e5] text-sm outline-none transition-all"
-                            value={form.newPassword}
-                            onChange={(e) => setForm({ ...form, newPassword: e.target.value })}
-                        />
+                <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm p-8 md:p-12">
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest ml-1">Current Secret</label>
+                            <div className="relative">
+                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
+                                <input
+                                    type="password"
+                                    placeholder="••••••••"
+                                    required
+                                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:bg-white transition-all text-sm font-bold"
+                                    value={form.currentPassword}
+                                    onChange={(e) => setForm({ ...form, currentPassword: e.target.value })}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest ml-1">New Secret</label>
+                            <div className="relative">
+                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
+                                <input
+                                    type="password"
+                                    placeholder="••••••••"
+                                    required
+                                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:bg-white transition-all text-sm font-bold"
+                                    value={form.newPassword}
+                                    onChange={(e) => setForm({ ...form, newPassword: e.target.value })}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest ml-1">Confirm New Secret</label>
+                            <div className="relative">
+                                <RefreshCw className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
+                                <input
+                                    type="password"
+                                    placeholder="••••••••"
+                                    required
+                                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:bg-white transition-all text-sm font-bold"
+                                    value={form.confirmPassword}
+                                    onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+                                />
+                            </div>
+                        </div>
+
+                        <button
+                            type="submit"
+                            disabled={isSubmitting}
+                            className="metallic-btn w-full py-4 mt-4"
+                        >
+                            Update Credentials
+                            <ArrowRight className="w-4 h-4" />
+                        </button>
+                    </form>
+
+                    <div className="mt-8 p-4 bg-slate-50 rounded-2xl border border-slate-100 flex gap-4 items-start">
+                        <ShieldCheck className="w-5 h-5 text-indigo-500 mt-0.5" />
+                        <p className="text-[11px] text-slate-500 leading-relaxed font-medium">
+                            Ensuring robust password complexity helps protect your campus identity. Use a mix of alphanumeric characters and symbols.
+                        </p>
                     </div>
-
-                    <div className="space-y-1">
-                        <label className="text-sm font-medium text-gray-700">Confirm New Password</label>
-                        <input
-                            type="password"
-                            placeholder="••••••••"
-                            required
-                            className="w-full py-3 px-4 border border-gray-200 rounded-lg focus:ring-[#5048e5] focus:border-[#5048e5] text-sm outline-none transition-all"
-                            value={form.confirmPassword}
-                            onChange={(e) =>
-                                setForm({ ...form, confirmPassword: e.target.value })
-                            }
-                        />
-                    </div>
-
-                    <button
-                        type="submit"
-                        className="w-full py-3.5 md:py-4 bg-gradient-to-r from-[#4F46E5] to-[#9333EA] text-white rounded-lg font-semibold shadow-lg shadow-[#5048e5]/20 hover:opacity-90 active:scale-[0.98] transition-all mt-4"
-                    >
-                        Update Password
-                    </button>
-
-                    <p className="text-xs text-center text-gray-500">
-                        Password must be at least 8 characters with uppercase, lowercase, and numbers.
-                    </p>
-                </form>
+                </div>
             </div>
-        </div>
+        </DashboardLayout>
     );
 };
 

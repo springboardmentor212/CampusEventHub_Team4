@@ -5,6 +5,8 @@ import {
     getProfile,
     updateProfile,
     verifyEmail,
+    deleteAccountByToken,
+    resendVerification,
     logout,
     getPendingUsers,
     approveUser,
@@ -14,7 +16,7 @@ import {
     getAllColleges,
 } from "../controllers/authController.js";
 import { requestPasswordReset, resetPassword, changePassword } from "../controllers/passwordController.js";
-import { authenticate, isSuperAdmin } from "../middleware/auth.js";
+import { authenticate, isSuperAdmin, isApprovedCollegeAdmin } from "../middleware/auth.js";
 import validateRequest, {
     registerSchema,
     loginSchema,
@@ -25,11 +27,17 @@ import validateRequest, {
 
 const router = express.Router();
 
-// Public routes
+// Public auth routes
 router.post("/register", validateRequest(registerSchema), register);
 router.post("/login", validateRequest(loginSchema), login);
 router.get("/logout", logout);
+
+// Email verification & onboarding
 router.get("/verify-email/:token", verifyEmail);
+router.get("/delete-account/:token", deleteAccountByToken);
+router.post("/resend-verification", resendVerification);
+
+// Password reset
 router.post("/request-password-reset", validateRequest(requestResetSchema), requestPasswordReset);
 router.post("/reset-password", validateRequest(resetPasswordSchema), resetPassword);
 
@@ -43,7 +51,7 @@ router.post("/change-password", authenticate, validateRequest(changePasswordSche
 router.get("/admin/pending-users", authenticate, isSuperAdmin, getPendingUsers);
 router.get("/admin/all-users", authenticate, isSuperAdmin, getAllUsers);
 router.get("/admin/all-colleges", authenticate, isSuperAdmin, getAllColleges);
-router.get("/college/pending-students", authenticate, getPendingStudents);
+router.get("/college/pending-students", authenticate, isApprovedCollegeAdmin, getPendingStudents);
 router.patch("/admin/approve-user/:id", authenticate, approveUser); // Middlewares inside controller check permissions
 router.delete("/admin/reject-user/:id", authenticate, rejectUser);
 
