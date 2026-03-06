@@ -145,8 +145,8 @@ const EventRegistrations = () => {
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                             <input
                                 type="text"
-                                placeholder="Filter attendees by name or ID..."
-                                className="pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/10 outline-none w-full"
+                                placeholder="Filter: e.g. UDAY SOMAPURAM or ID-2026..."
+                                className="pl-14 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/10 outline-none w-full"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
@@ -207,8 +207,8 @@ const EventRegistrations = () => {
                                             </td>
                                             <td className="px-6 py-5">
                                                 <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-tighter ${reg.status === 'approved' || reg.status === 'attended' ? 'bg-emerald-100 text-emerald-700' :
-                                                        reg.status === 'pending' ? 'bg-amber-100 text-amber-700' :
-                                                            'bg-rose-100 text-rose-700'
+                                                    reg.status === 'pending' ? 'bg-amber-100 text-amber-700' :
+                                                        'bg-rose-100 text-rose-700'
                                                     }`}>
                                                     {reg.status === 'attended' ? 'Approved' : reg.status}
                                                 </span>
@@ -251,8 +251,8 @@ const EventRegistrations = () => {
                                                             <button
                                                                 onClick={() => handleMarkAttendance(reg._id, reg.status === 'attended' ? 'approved' : 'attended')}
                                                                 className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all active:scale-95 border ${reg.status === 'attended'
-                                                                        ? 'bg-rose-50 text-rose-600 border-rose-100 hover:bg-rose-600 hover:text-white'
-                                                                        : 'bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700'
+                                                                    ? 'bg-rose-50 text-rose-600 border-rose-100 hover:bg-rose-600 hover:text-white'
+                                                                    : 'bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700'
                                                                     }`}
                                                             >
                                                                 {reg.status === 'attended' ? 'Undo Check-in' : 'Mark Attended'}

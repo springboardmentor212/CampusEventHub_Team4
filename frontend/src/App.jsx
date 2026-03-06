@@ -13,10 +13,12 @@ import CreateEvent from "./pages/CreateEvent";
 import EditEvent from "./pages/EditEvent";
 import ManageEvents from "./pages/ManageEvents";
 import EventRegistrations from "./pages/EventRegistrations";
+import EventDetails from "./pages/EventDetails";
 import VerifyEmail from "./pages/VerifyEmail";
 import DeleteAccount from "./pages/DeleteAccount";
 import ResendVerification from "./pages/ResendVerification";
 import ProtectedRoute from "./components/ProtectedRoute";
+import NotFound from "./pages/NotFound";
 
 function App() {
   return (
@@ -81,6 +83,14 @@ function App() {
             }
           />
           <Route
+            path="/event/:id"
+            element={
+              <ProtectedRoute role="student">
+                <EventDetails />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/college-admin"
             element={
               <ProtectedRoute role="college_admin">
@@ -96,6 +106,8 @@ function App() {
               </ProtectedRoute>
             }
           />
+          {/* Catch-all route for 404 */}
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

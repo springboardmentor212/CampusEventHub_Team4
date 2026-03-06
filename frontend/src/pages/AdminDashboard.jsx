@@ -49,7 +49,7 @@ const AdminDashboard = () => {
       setPendingAdmins(adminsRes.data.data.users);
       setPendingEvents(eventsRes.data.data.events);
     } catch (err) {
-      toast.error("Failed to fetch administrative data");
+      toast.error("Terminal ready. Initialize your dashboard credentials.");
     } finally {
       setLoading(false);
     }
@@ -282,7 +282,17 @@ const AdminDashboard = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {pendingAdmins.length === 0 ? (
-                    <tr><td colSpan="3" className="px-6 py-12 text-center text-slate-400">No pending admin applications</td></tr>
+                    <tr>
+                      <td colSpan="3" className="px-6 py-24 text-center">
+                        <div className="flex flex-col items-center animate-fade-in grayscale-[0.5] opacity-60">
+                          <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-300 mb-4 border border-indigo-100">
+                            <UserCheck className="w-8 h-8" />
+                          </div>
+                          <p className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">Queue: Purged</p>
+                          <p className="text-xs text-slate-400 mt-1">No pending administrative credentials found.</p>
+                        </div>
+                      </td>
+                    </tr>
                   ) : (
                     pendingAdmins.map(admin => (
                       <tr key={admin._id} className="hover:bg-slate-50 transition-colors">
@@ -322,18 +332,38 @@ const AdminDashboard = () => {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-6">
               {pendingEvents.length === 0 ? (
-                <div className="col-span-2 py-12 text-center text-slate-400">No events awaiting approval</div>
+                <div className="col-span-2 py-24 text-center">
+                  <div className="flex flex-col items-center animate-fade-in grayscale-[0.5] opacity-60">
+                    <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-300 mb-4 border border-indigo-100">
+                      <Calendar className="w-8 h-8" />
+                    </div>
+                    <p className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">Protocols: Secure</p>
+                    <p className="text-xs text-slate-400 mt-1">Institutional records reflect a clean terminal.</p>
+                  </div>
+                </div>
               ) : (
                 pendingEvents.map(event => (
-                  <div key={event._id} className="p-4 rounded-xl border border-slate-100 bg-slate-50 flex items-center justify-between">
-                    <div>
-                      <h4 className="font-bold text-slate-900">{event.title}</h4>
-                      <p className="text-xs text-slate-500 line-clamp-1">{event.college?.name}</p>
-                      <p className="text-[10px] text-indigo-600 font-bold mt-1 uppercase tracking-wider">{event.category}</p>
+                  <div key={event._id} className="p-4 rounded-xl border border-slate-100 bg-slate-50 flex items-center justify-between group hover:border-indigo-100 transition-all">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-lg bg-slate-200 overflow-hidden border border-slate-200 shrink-0">
+                        <img
+                          src={event.bannerImage || "/images/campus_life_professional.png"}
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                          alt=""
+                        />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{event.title}</h4>
+                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest leading-none mt-1">{event.college?.name}</p>
+                        <div className="flex items-center gap-2 mt-1.5">
+                          <span className="text-[9px] bg-white border border-slate-200 text-slate-500 px-1.5 py-0.5 rounded font-black uppercase tracking-tighter">{event.category}</span>
+                          <span className="text-[9px] text-indigo-400 font-bold">{new Date(event.startDate).toLocaleDateString()}</span>
+                        </div>
+                      </div>
                     </div>
                     <div className="flex gap-2 ml-4">
-                      <button onClick={() => handleApproveEvent(event._id)} className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-transform active:scale-95">Approve</button>
-                      <button onClick={() => handleRejectEvent(event._id)} className="px-4 py-2 bg-white text-rose-600 text-xs font-bold rounded-lg border border-rose-200 hover:bg-rose-50 transition-transform active:scale-95">Reject</button>
+                      <button onClick={() => handleApproveEvent(event._id)} className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-transform active:scale-95 shadow-sm">Approve</button>
+                      <button onClick={() => handleRejectEvent(event._id)} className="px-4 py-2 bg-white text-rose-600 text-xs font-bold rounded-lg border border-rose-200 hover:bg-rose-50 transition-transform active:scale-95 shadow-sm">Reject</button>
                     </div>
                   </div>
                 ))

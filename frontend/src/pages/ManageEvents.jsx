@@ -130,8 +130,26 @@ const ManageEvents = () => {
                                     </tr>
                                 ) : filteredEvents.length === 0 ? (
                                     <tr>
-                                        <td colSpan="4" className="px-6 py-20 text-center text-slate-400">
-                                            <p className="text-sm font-medium italic">No events found in your stable.</p>
+                                        <td colSpan="4" className="px-6 py-32 text-center">
+                                            <div className="flex flex-col items-center animate-fade-in group">
+                                                <div className="w-24 h-24 rounded-3xl bg-slate-50 flex items-center justify-center mb-8 border border-slate-100 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500 shadow-sm relative">
+                                                    <Calendar className="w-10 h-10 text-slate-300" />
+                                                    <div className="absolute -top-2 -right-2 w-6 h-6 bg-indigo-600 rounded-full flex items-center justify-center border-4 border-white">
+                                                        <Plus className="w-3 h-3 text-white" />
+                                                    </div>
+                                                </div>
+                                                <h3 className="text-2xl font-black text-slate-900 tracking-tight mb-2">The Catalog is Empty.</h3>
+                                                <p className="text-slate-500 font-medium mb-10 max-w-xs mx-auto leading-relaxed">
+                                                    Your institutional stable is currently dormant. Initialize local history now.
+                                                </p>
+                                                <button
+                                                    onClick={() => navigate("/create-event")}
+                                                    className="hero-btn h-14 px-8 rounded-2xl group/btn"
+                                                >
+                                                    Launch your first program
+                                                    <ArrowRight className="w-5 h-5 ml-2 group-hover/btn:translate-x-1 transition-transform" />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ) : (
@@ -170,8 +188,8 @@ const ManageEvents = () => {
                                                 </td>
                                                 <td className="px-6 py-5">
                                                     <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-tighter ${isCancelled ? 'bg-rose-100 text-rose-700' :
-                                                            !event.isApproved ? 'bg-amber-100 text-amber-700' :
-                                                                isPast ? 'bg-slate-200 text-slate-600' : 'bg-emerald-100 text-emerald-700'
+                                                        !event.isApproved ? 'bg-amber-100 text-amber-700' :
+                                                            isPast ? 'bg-slate-200 text-slate-600' : 'bg-emerald-100 text-emerald-700'
                                                         }`}>
                                                         {isCancelled ? 'Cancelled' :
                                                             !event.isApproved ? 'Awaiting Approval' :
