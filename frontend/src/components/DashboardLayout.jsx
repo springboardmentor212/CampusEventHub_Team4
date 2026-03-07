@@ -50,13 +50,13 @@ const DashboardLayout = ({ children }) => {
     const menuItems = [
         {
             label: "Control Panel",
-            path: '/admin',
+            path: '/superadmin',
             icon: LayoutDashboard,
             roles: ['admin']
         },
         {
             label: "Dashboard",
-            path: '/college-admin',
+            path: '/admin',
             icon: LayoutDashboard,
             roles: ['college_admin']
         },

@@ -71,7 +71,7 @@ const CreateEvent = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        const loadingToast = toast.loading("Broadcasting Institutional Asset...");
+        const loadingToast = toast.loading("Creating your event...");
 
         const requirementsArray = form.requirements
             ? form.requirements.split(",").map(req => req.trim()).filter(req => req !== "")
@@ -89,10 +89,10 @@ const CreateEvent = () => {
                 dosAndDonts: dosArray,
                 maxParticipants: form.maxParticipants ? parseInt(form.maxParticipants) : null
             });
-            toast.success("Event Broadcast: Active.", { id: loadingToast });
+            toast.success("Event created successfully!", { id: loadingToast });
             navigate("/manage-events");
         } catch (err) {
-            toast.error(err.response?.data?.message || "Protocol Interruption", { id: loadingToast });
+            toast.error(err.response?.data?.message || "Failed to create event. Please try again.", { id: loadingToast });
         }
     };
 
@@ -103,15 +103,13 @@ const CreateEvent = () => {
                 <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
                     <div>
                         <div className="flex items-center gap-3 mb-4">
-                            <span className="px-3 py-1 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg">Event Architect</span>
-                            <span className="w-1.5 h-1.5 rounded-full bg-slate-200"></span>
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">Operations Mode</span>
+                            <span className="px-3 py-1 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg">Create Event</span>
                         </div>
-                        <h1 className="text-5xl font-black text-slate-900 tracking-tight italic">Initialize New Event.</h1>
-                        <p className="text-slate-500 mt-3 font-medium text-lg">Define parameters, protocols, and visual identity for campus-wide broadcast.</p>
+                        <h1 className="text-5xl font-black text-slate-900 tracking-tight italic">Create a New Event.</h1>
+                        <p className="text-slate-500 mt-3 font-medium text-lg">Fill in the details below to publish your event for students.</p>
                     </div>
                     <div className="flex gap-4">
-                        <button onClick={() => navigate(-1)} className="px-6 py-3 border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-50 transition-all">Abort Deployment</button>
+                        <button onClick={() => navigate(-1)} className="px-6 py-3 border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-50 transition-all">Cancel</button>
                     </div>
                 </header>
 
@@ -125,13 +123,13 @@ const CreateEvent = () => {
                                     <ImageIcon className="w-5 h-5" />
                                 </div>
                                 <div>
-                                    <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm italic">Visual Identity</h3>
-                                    <p className="text-[10px] font-bold text-slate-400 mt-0.5">Banner asset for global discovery.</p>
+                                    <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm italic">Cover Image</h3>
+                                    <p className="text-[10px] font-bold text-slate-400 mt-0.5">Banner image displayed on the event card.</p>
                                 </div>
                             </div>
 
                             <ImageUpload
-                                label="Event Hero Asset"
+                                label="Event Banner"
                                 onUpload={(url) => setForm({ ...form, bannerImage: url })}
                             />
                         </section>
@@ -143,23 +141,23 @@ const CreateEvent = () => {
                                     <Layers className="w-5 h-5" />
                                 </div>
                                 <div>
-                                    <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm italic">Logical Architecture</h3>
-                                    <p className="text-[10px] font-bold text-slate-400 mt-0.5">Core identity and narrative parameters.</p>
+                                    <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm italic">Event Details</h3>
+                                    <p className="text-[10px] font-bold text-slate-400 mt-0.5">Basic information about your event.</p>
                                 </div>
                             </div>
 
                             <FormInput
-                                label="Institutional Title"
+                                label="Event Title"
                                 icon={Type}
                                 required
-                                placeholder="e.g. Annual Advanced Robotics Seminar 2026"
+                                placeholder="e.g. Annual Robotics Workshop 2026"
                                 value={form.title}
                                 onChange={(e) => setForm({ ...form, title: e.target.value })}
                             />
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                                 <FormInput
-                                    label="Classification"
+                                    label="Category"
                                     icon={Target}
                                     value={form.category}
                                     onChange={(e) => setForm({ ...form, category: e.target.value })}
@@ -169,7 +167,7 @@ const CreateEvent = () => {
                                 </FormInput>
 
                                 <FormInput
-                                    label="Geography / Location"
+                                    label="Location"
                                     icon={MapPin}
                                     required
                                     placeholder="e.g. Central Auditorium, Block B"
@@ -179,11 +177,11 @@ const CreateEvent = () => {
                             </div>
 
                             <FormInput
-                                label="Narrative Intelligence (Description)"
+                                label="Description"
                                 icon={FileText}
                                 type="textarea"
                                 required
-                                placeholder="Outline the core objectives, mission, and scope of this event..."
+                                placeholder="Describe what this event is about, what students can expect..."
                                 value={form.description}
                                 onChange={(e) => setForm({ ...form, description: e.target.value })}
                                 rows={6}
@@ -198,8 +196,8 @@ const CreateEvent = () => {
                                         <ShieldAlert className="w-5 h-5" />
                                     </div>
                                     <div>
-                                        <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm italic">Participation Protocol</h3>
-                                        <p className="text-[10px] font-bold text-slate-400 mt-0.5">Define custom data capture requirements.</p>
+                                        <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm italic">Additional Fields</h3>
+                                        <p className="text-[10px] font-bold text-slate-400 mt-0.5">Add custom questions to collect from students during registration.</p>
                                     </div>
                                 </div>
                                 <button
@@ -208,22 +206,22 @@ const CreateEvent = () => {
                                     className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-white transition-colors"
                                 >
                                     <Plus className="w-3 h-3" />
-                                    Add Attribute
+                                    Add Field
                                 </button>
                             </div>
 
                             <div className="space-y-4">
                                 {form.participationRequirements.length === 0 ? (
                                     <div className="py-8 text-center bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">Default Student ID only.</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">No extra fields added. Only Student ID required by default.</p>
                                     </div>
                                 ) : (
                                     form.participationRequirements.map((req, idx) => (
                                         <div key={idx} className="flex flex-col md:flex-row gap-4 p-6 bg-slate-50 rounded-[2rem] animate-fade-in relative group">
                                             <div className="flex-1 space-y-4">
                                                 <FormInput
-                                                    label="Field Prompt (Label)"
-                                                    placeholder="e.g. Department, Laptop Serial, etc."
+                                                    label="Field Name"
+                                                    placeholder="e.g. Team Name, Year of Study, etc."
                                                     value={req.label}
                                                     onChange={(e) => updateRequirement(idx, "label", e.target.value)}
                                                 />
@@ -233,10 +231,10 @@ const CreateEvent = () => {
                                                         value={req.fieldType}
                                                         onChange={(e) => updateRequirement(idx, "fieldType", e.target.value)}
                                                     >
-                                                        <option value="text">Text Input</option>
-                                                        <option value="number">Numeric</option>
-                                                        <option value="email">Email Mask</option>
-                                                        <option value="file">File Asset</option>
+                                                        <option value="text">Text</option>
+                                                        <option value="number">Number</option>
+                                                        <option value="email">Email</option>
+                                                        <option value="file">File Upload</option>
                                                     </select>
                                                     <label className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl cursor-pointer select-none">
                                                         <input
@@ -251,7 +249,7 @@ const CreateEvent = () => {
                                             </div>
                                             <button
                                                 type="button"
-                                                onClick={() => removeRequirement(index)}
+                                                onClick={() => removeRequirement(idx)}
                                                 className="md:self-start p-2 text-rose-400 hover:text-rose-600 hover:bg-white rounded-xl transition-all"
                                             >
                                                 <Trash2 className="w-5 h-5" />
@@ -272,13 +270,13 @@ const CreateEvent = () => {
                                     <Clock className="w-5 h-5" />
                                 </div>
                                 <div>
-                                    <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm italic">Chronology</h3>
-                                    <p className="text-[10px] font-bold text-slate-400 mt-0.5">Deployment timeline.</p>
+                                    <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm italic">Schedule</h3>
+                                    <p className="text-[10px] font-bold text-slate-400 mt-0.5">Event dates and times.</p>
                                 </div>
                             </div>
 
                             <FormInput
-                                label="Window Start (Live)"
+                                label="Start Date & Time"
                                 icon={Calendar}
                                 type="datetime-local"
                                 required
@@ -287,7 +285,7 @@ const CreateEvent = () => {
                             />
 
                             <FormInput
-                                label="Window End (Archive)"
+                                label="End Date & Time"
                                 icon={Calendar}
                                 type="datetime-local"
                                 required
@@ -296,7 +294,7 @@ const CreateEvent = () => {
                             />
 
                             <FormInput
-                                label="Registration Cut-off"
+                                label="Registration Deadline"
                                 icon={Clock}
                                 type="datetime-local"
                                 value={form.registrationDeadline}
@@ -309,7 +307,7 @@ const CreateEvent = () => {
                                         <Users className="w-4 h-4" />
                                     </div>
                                     <div className="flex-1">
-                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Attendance Threshold</p>
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Maximum Capacity</p>
                                         <input
                                             type="number"
                                             placeholder="Max capacity (e.g. 500)"
@@ -324,10 +322,10 @@ const CreateEvent = () => {
                             <div className="pt-10">
                                 <button type="submit" className="hero-btn w-full py-6 group shadow-3xl shadow-indigo-100 italic">
                                     <Zap className="w-5 h-5 group-hover:scale-125 transition-transform" />
-                                    Initialize Broadcast
+                                    Publish Event
                                     <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                                 </button>
-                                <p className="text-[9px] font-bold text-slate-400 text-center uppercase tracking-widest mt-6">Protocol Verification Required</p>
+                                <p className="text-[9px] font-bold text-slate-400 text-center uppercase tracking-widest mt-6">Needs admin approval before going live</p>
                             </div>
                         </section>
                     </div>

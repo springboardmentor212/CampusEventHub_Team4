@@ -59,11 +59,19 @@ const CollegeAdminDashboard = () => {
       setStats(statsRes.data.data);
       setAnalytics(analyticsRes.data.data);
 
-      // Fetch registrations for events created by this admin
-      const regRes = await API.get("/registrations/event/all");
-      setRegistrations(regRes.data.data.registrations || []);
+      // Fetch registrations — use my events list, then pull regs for each
+      const eventsRes = await API.get("/events/my/events");
+      const myEvents = eventsRes.data.data.events || [];
+      const allRegs = [];
+      await Promise.all(myEvents.slice(0, 5).map(async (ev) => {
+        try {
+          const r = await API.get(`/registrations/event/${ev._id}`);
+          allRegs.push(...(r.data.data.registrations || []));
+        } catch { /* event may have no registrations */ }
+      }));
+      setRegistrations(allRegs);
     } catch (err) {
-      toast.error("Error syncing institutional data.");
+      toast.error("Failed to load dashboard data.");
     } finally {
       setLoading(false);
     }
@@ -84,7 +92,7 @@ const CollegeAdminDashboard = () => {
       <DashboardLayout>
         <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
           <div className="w-12 h-12 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin"></div>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Hydrating Institutional Terminal...</p>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Loading Dashboard...</p>
         </div>
       </DashboardLayout>
     );
@@ -97,10 +105,10 @@ const CollegeAdminDashboard = () => {
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div className="space-y-1">
             <div className="flex items-center gap-3">
-              <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">Program Command</h1>
-              <span className="text-[10px] font-black bg-indigo-600 text-white px-3 py-1 rounded-full uppercase tracking-widest">Institutional</span>
+              <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">College Dashboard</h1>
+              <span className="text-[10px] font-black bg-indigo-600 text-white px-3 py-1 rounded-full uppercase tracking-widest">Admin</span>
             </div>
-            <p className="text-slate-500 font-medium">Growth and engagement metrics for the campus programs</p>
+            <p className="text-slate-500 font-medium">Overview of your college's events and student engagement.</p>
           </div>
           <div className="flex items-center gap-3">
             <button
@@ -108,40 +116,40 @@ const CollegeAdminDashboard = () => {
               className="px-6 py-3 bg-slate-900 text-white font-bold rounded-2xl flex items-center gap-2 hover:bg-slate-800 shadow-xl shadow-slate-200 transition-all active:scale-95"
             >
               <Plus className="w-5 h-5" />
-              Initialize Program
+              Create Event
             </button>
           </div>
         </header>
 
         {/* Marketing/Financial Metrics */}
-        <div className="stats-grid">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <MetricCard
             icon={Briefcase}
-            label="Live Portfolio"
+            label="Total Events"
             value={stats.totalEvents}
             trend={`${stats.upcomingCount} Upcoming`}
-            accent="accent-marketing"
+            accent="text-indigo-600 bg-indigo-50 border-indigo-100"
           />
           <MetricCard
             icon={Users}
-            label="Engagement Volume"
+            label="Total Registrations"
             value={stats.totalRegistrations}
             trend={`${stats.totalParticipants} Total`}
-            accent="accent-sales"
+            accent="text-emerald-600 bg-emerald-50 border-emerald-100"
           />
           <MetricCard
             icon={Clock}
-            label="Pending Pipeline"
+            label="Pending Approvals"
             value={stats.pendingRegistrations}
-            trend="Action Needed"
-            accent="accent-financial"
+            trend="Needs Action"
+            accent="text-amber-600 bg-amber-50 border-amber-100"
           />
           <MetricCard
             icon={Zap}
-            label="Capacity Peak"
+            label="Average Capacity"
             value={`${Math.round((stats.totalParticipants / (stats.totalEvents * 50 || 1)) * 100)}%`}
-            trend="Rolling Average"
-            accent="accent-operations"
+            trend="Current Avg"
+            accent="text-purple-600 bg-purple-50 border-purple-100"
           />
         </div>
 
@@ -150,8 +158,8 @@ const CollegeAdminDashboard = () => {
           <div className="lg:col-span-2 greta-card greta-card-hover flex flex-col">
             <div className="flex items-center justify-between mb-10">
               <div className="flex flex-col">
-                <h3 className="font-bold text-xl text-slate-900 tracking-tight">Engagement Intelligence</h3>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Institutional Registration Flow (30D)</p>
+                <h3 className="font-bold text-xl text-slate-900 tracking-tight">Registration Analytics</h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Registrations over last 30 days</p>
               </div>
               <div className="flex items-center gap-4">
                 <select className="bg-slate-50 border-none text-[10px] font-black uppercase rounded-lg px-2 py-1 outline-none cursor-pointer">
@@ -183,7 +191,7 @@ const CollegeAdminDashboard = () => {
             <div className="greta-card greta-card-hover border-amber-100 bg-amber-50/30">
               <h3 className="font-bold text-slate-900 flex items-center gap-2 mb-6">
                 <AlertCircle className="w-5 h-5 text-amber-500" />
-                Operational Alerts
+                Alerts & Notifications
               </h3>
               <div className="space-y-4">
                 {stats.pendingRegistrations > 0 && (
@@ -252,9 +260,9 @@ const CollegeAdminDashboard = () => {
             <div className="flex flex-col">
               <h3 className="font-bold text-slate-900 flex items-center gap-3 text-xl">
                 <UserCheck className="w-6 h-6 text-indigo-600" />
-                Student Clearance Queue
+                Pending Registrations
               </h3>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Process pending program registrations</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Approve or reject student registrations</p>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-black bg-indigo-600 text-white px-3 py-1 rounded-full uppercase tracking-widest">{registrations.filter(r => r.status === 'pending').length} Pending</span>
@@ -267,10 +275,10 @@ const CollegeAdminDashboard = () => {
             <table className="w-full text-left">
               <thead className="text-[10px] text-slate-400 uppercase tracking-widest bg-slate-50/20 border-b border-slate-50">
                 <tr>
-                  <th className="px-8 py-5 font-bold">Candidate</th>
-                  <th className="px-8 py-5 font-bold">Target Program</th>
+                  <th className="px-8 py-5 font-bold">Student</th>
+                  <th className="px-8 py-5 font-bold">Event</th>
                   <th className="px-8 py-5 font-bold">Status</th>
-                  <th className="px-8 py-5 font-bold text-right">Execution</th>
+                  <th className="px-8 py-5 font-bold text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -279,7 +287,7 @@ const CollegeAdminDashboard = () => {
                     <td colSpan="4" className="px-8 py-20 text-center">
                       <div className="flex flex-col items-center opacity-40 grayscale">
                         <Shield className="w-12 h-12 text-slate-300 mb-4" />
-                        <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Clearance queue: purged</p>
+                        <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">No pending registrations</p>
                       </div>
                     </td>
                   </tr>
@@ -306,12 +314,12 @@ const CollegeAdminDashboard = () => {
                       <td className="px-8 py-5">
                         <div className="flex items-center gap-2">
                           <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                          <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Protocol Check</span>
+                          <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Pending</span>
                         </div>
                       </td>
                       <td className="px-8 py-5 text-right">
                         <div className="flex items-center justify-end gap-3">
-                          <button onClick={() => handleApproval(reg._id, 'confirmed')} className="px-4 py-2 bg-slate-900 text-white text-[10px] font-black uppercase rounded-xl hover:bg-slate-800 shadow-xl shadow-slate-200 transition-all active:scale-95">Grant Access</button>
+                          <button onClick={() => handleApproval(reg._id, 'confirmed')} className="px-4 py-2 bg-slate-900 text-white text-[10px] font-black uppercase rounded-xl hover:bg-slate-800 shadow-xl shadow-slate-200 transition-all active:scale-95">Approve</button>
                           <button onClick={() => handleApproval(reg._id, 'rejected')} className="p-2 border border-rose-100 text-rose-500 rounded-xl hover:bg-rose-50 transition-all active:scale-95">
                             <XCircle className="w-4 h-4" />
                           </button>
@@ -330,20 +338,19 @@ const CollegeAdminDashboard = () => {
 };
 
 const MetricCard = ({ icon: Icon, label, value, trend, accent }) => (
-  <div className="metric-card greta-card-hover group overflow-hidden">
+  <div className="bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-md transition-shadow duration-300 overflow-hidden relative">
     <div className="flex justify-between items-start relative z-10">
       <div className={`p-2.5 rounded-xl border ${accent}`}>
         <Icon className="w-5 h-5" />
       </div>
-      <div className="flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded-full bg-slate-50 text-slate-500 border border-slate-100 uppercase tracking-widest">
+      <div className="flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full bg-slate-50 text-slate-500 border border-slate-100 uppercase tracking-widest">
         {trend}
       </div>
     </div>
-    <div className="mt-4 relative z-10">
-      <p className="metric-label">{label}</p>
-      <p className="metric-value mt-0.5">{value}</p>
+    <div className="mt-6 relative z-10">
+      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">{label}</p>
+      <p className="text-3xl font-bold text-slate-900 tracking-tight">{value}</p>
     </div>
-    <div className="absolute -right-4 -bottom-4 w-16 h-16 bg-slate-50 rounded-full group-hover:scale-150 transition-transform opacity-30" />
   </div>
 );
 

@@ -31,8 +31,8 @@ const Login = () => {
       const loggedUser = await login(email, password);
       toast.success("Welcome back!", { id: loadingToast });
 
-      if (loggedUser.role === "admin") navigate("/admin");
-      else if (loggedUser.role === "college_admin") navigate("/college-admin");
+      if (loggedUser.role === "admin") navigate("/superadmin");
+      else if (loggedUser.role === "college_admin") navigate("/admin");
       else navigate("/student");
     } catch (err) {
       toast.error(err.response?.data?.message || "Invalid credentials", { id: loadingToast });

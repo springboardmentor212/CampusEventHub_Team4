@@ -141,7 +141,7 @@ const EditEvent = () => {
             <div className="h-[70vh] flex items-center justify-center">
                 <div className="flex flex-col items-center gap-4">
                     <div className="w-12 h-12 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin"></div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Accessing Datatheory...</span>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Loading Event Details...</span>
                 </div>
             </div>
         </DashboardLayout>
@@ -154,12 +154,10 @@ const EditEvent = () => {
                 <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
                     <div>
                         <div className="flex items-center gap-3 mb-4">
-                            <span className="px-3 py-1 bg-amber-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg">Event Refiner</span>
-                            <span className="w-1.5 h-1.5 rounded-full bg-slate-200"></span>
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">Update Mode</span>
+                            <span className="px-3 py-1 bg-amber-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg">Edit Event</span>
                         </div>
-                        <h1 className="text-5xl font-black text-slate-900 tracking-tight italic">Modify Parameters.</h1>
-                        <p className="text-slate-500 mt-3 font-medium text-lg">Adjust the technical specifications and narrative of your event.</p>
+                        <h1 className="text-5xl font-black text-slate-900 tracking-tight italic">Update Event Details.</h1>
+                        <p className="text-slate-500 mt-3 font-medium text-lg">Adjust the specifications and information of your event.</p>
                     </div>
                     <div className="flex gap-4">
                         <button onClick={() => navigate(-1)} className="px-6 py-3 border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-50 transition-all">Cancel Changes</button>
@@ -176,13 +174,13 @@ const EditEvent = () => {
                                     <ImageIcon className="w-5 h-5" />
                                 </div>
                                 <div>
-                                    <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm italic">Visual Identity</h3>
-                                    <p className="text-[10px] font-bold text-slate-400 mt-0.5">Asset management for public feed.</p>
+                                    <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm italic">Cover Image</h3>
+                                    <p className="text-[10px] font-bold text-slate-400 mt-0.5">Banner image for the event.</p>
                                 </div>
                             </div>
 
                             <ImageUpload
-                                label="Update Hero Asset"
+                                label="Update Cover Image"
                                 defaultValue={form.bannerImage}
                                 onUpload={(url) => setForm({ ...form, bannerImage: url })}
                             />
@@ -195,13 +193,13 @@ const EditEvent = () => {
                                     <Layers className="w-5 h-5" />
                                 </div>
                                 <div>
-                                    <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm italic">Logical Architecture</h3>
-                                    <p className="text-[10px] font-bold text-slate-400 mt-0.5">Adjust core identity parameters.</p>
+                                    <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm italic">Basic Information</h3>
+                                    <p className="text-[10px] font-bold text-slate-400 mt-0.5">Adjust basic event details.</p>
                                 </div>
                             </div>
 
                             <FormInput
-                                label="Institutional Title"
+                                label="Event Title"
                                 icon={Type}
                                 required
                                 value={form.title}
@@ -220,7 +218,7 @@ const EditEvent = () => {
                                 </FormInput>
 
                                 <FormInput
-                                    label="Geography / Location"
+                                    label="Location"
                                     icon={MapPin}
                                     required
                                     value={form.location}
@@ -229,7 +227,7 @@ const EditEvent = () => {
                             </div>
 
                             <FormInput
-                                label="Narrative Content"
+                                label="Event Description"
                                 icon={FileText}
                                 type="textarea"
                                 required
@@ -247,8 +245,8 @@ const EditEvent = () => {
                                         <ShieldAlert className="w-5 h-5" />
                                     </div>
                                     <div>
-                                        <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm italic">Participation Protocol</h3>
-                                        <p className="text-[10px] font-bold text-slate-400 mt-0.5">Data capture requirements.</p>
+                                        <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm italic">Additional Fields</h3>
+                                        <p className="text-[10px] font-bold text-slate-400 mt-0.5">Custom information required from students.</p>
                                     </div>
                                 </div>
                                 <button
@@ -266,7 +264,7 @@ const EditEvent = () => {
                                     <div key={idx} className="flex flex-col md:flex-row gap-4 p-6 bg-slate-50 rounded-[2rem] relative group">
                                         <div className="flex-1 space-y-4">
                                             <FormInput
-                                                label="Field Prompt"
+                                                label="Field Name"
                                                 value={req.label}
                                                 onChange={(e) => updateRequirement(idx, "label", e.target.value)}
                                             />
@@ -312,11 +310,11 @@ const EditEvent = () => {
                                 <div className="p-3 rounded-2xl bg-amber-50 text-amber-600">
                                     <Clock className="w-5 h-5" />
                                 </div>
-                                <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm italic">Chronology</h3>
+                                <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm italic">Schedule</h3>
                             </div>
 
                             <FormInput
-                                label="Window Start"
+                                label="Start Date & Time"
                                 icon={Calendar}
                                 type="datetime-local"
                                 required
@@ -325,7 +323,7 @@ const EditEvent = () => {
                             />
 
                             <FormInput
-                                label="Window End"
+                                label="End Date & Time"
                                 icon={Calendar}
                                 type="datetime-local"
                                 required
@@ -334,7 +332,7 @@ const EditEvent = () => {
                             />
 
                             <FormInput
-                                label="Reg. Deadline"
+                                label="Registration Deadline"
                                 icon={Clock}
                                 type="datetime-local"
                                 value={form.registrationDeadline}
@@ -347,7 +345,7 @@ const EditEvent = () => {
                                         <Users className="w-4 h-4" />
                                     </div>
                                     <div className="flex-1">
-                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Attendance Threshold</p>
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Maximum Capacity</p>
                                         <input
                                             type="number"
                                             placeholder="No limit"
@@ -362,14 +360,14 @@ const EditEvent = () => {
                             <div className="pt-10 space-y-4">
                                 <button type="submit" className="hero-btn w-full py-6 group shadow-3xl shadow-amber-100/50 italic bg-slate-900 text-white hover:bg-slate-800">
                                     <Zap className="w-5 h-5 group-hover:scale-125 transition-transform" />
-                                    Commit Modifications
+                                    Save Changes
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => navigate(-1)}
                                     className="w-full py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors"
                                 >
-                                    Discard Changes
+                                    Cancel Changes
                                 </button>
                             </div>
                         </section>

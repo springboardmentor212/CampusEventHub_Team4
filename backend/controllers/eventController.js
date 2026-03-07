@@ -4,7 +4,7 @@ import { College } from "../models/College.js";
 import { Registration } from "../models/Registration.js";
 import AppError from "../utils/appError.js";
 import catchAsync from "../utils/catchAsync.js";
-import sendEmail from "../utils/emailService.js";
+import sendEmail, { EmailTemplates } from "../utils/emailService.js";
 import { logAdminAction } from "../utils/logger.js";
 import { notifyUser } from "../utils/notificationService.js";
 
@@ -63,8 +63,7 @@ export const createEvent = catchAsync(async (req, res, next) => {
     // Send email using branded template
     try {
       const emailPromises = superAdmins.map(admin => {
-        const tpl = sendEmail.EmailTemplates ? sendEmail.EmailTemplates.newEventPending(event.title, user.college.name) : null;
-        if (!tpl) return Promise.resolve(); // Fallback if template missing
+        const tpl = EmailTemplates.newEventPending(event.title, user.college.name);
         return sendEmail({ email: admin.email, ...tpl });
       });
       Promise.allSettled(emailPromises);
@@ -118,10 +117,8 @@ export const approveEvent = catchAsync(async (req, res, next) => {
 
   // Notify creator via email non-blocking
   try {
-    if (sendEmail.EmailTemplates) {
-      const tpl = sendEmail.EmailTemplates.eventApproved(event.createdBy.firstName, event.title);
-      sendEmail({ email: event.createdBy.email, ...tpl }).catch(err => console.error(err));
-    }
+    const tpl = EmailTemplates.eventApproved(event.createdBy.firstName, event.title);
+    sendEmail({ email: event.createdBy.email, ...tpl }).catch(err => console.error(err));
   } catch (err) {
     console.error("Event approval email setup failed:", err);
   }
@@ -157,10 +154,8 @@ export const rejectEvent = catchAsync(async (req, res, next) => {
 
   // Notify creator via email non-blocking
   try {
-    if (sendEmail.EmailTemplates) {
-      const tpl = sendEmail.EmailTemplates.eventRejected(event.createdBy.firstName, event.title);
-      sendEmail({ email: event.createdBy.email, ...tpl }).catch(err => console.error(err));
-    }
+    const tpl = EmailTemplates.eventRejected(event.createdBy.firstName, event.title);
+    sendEmail({ email: event.createdBy.email, ...tpl }).catch(err => console.error(err));
   } catch (err) {
     console.error("Event rejection email setup failed:", err);
   }
@@ -479,16 +474,30 @@ export const updateEvent = catchAsync(async (req, res, next) => {
   // If critical change occurred, notify all registered students
   if (criticalChange) {
     try {
-      const registrations = await Registration.find({ event: id, status: "approved" });
-      const notificationPromises = registrations.map(reg =>
-        notifyUser({
-          recipientId: reg.user,
+      const registrations = await Registration.find({ event: id, status: "approved" }).populate("user", "email firstName");
+      const notificationPromises = registrations.map(async (reg) => {
+        await notifyUser({
+          recipientId: reg.user._id,
           type: "EVENT_MODIFIED",
           title: "Event Details Updated",
           message: `Important: The details for "${event.title}" have been updated. Please check the dashboard for the new schedule/location.`,
           link: "/student"
-        })
-      );
+        });
+
+        try {
+          await sendEmail({
+            email: reg.user.email,
+            subject: `[Updated] ${event.title}`,
+            message: `Hi ${reg.user.firstName}, the event "${event.title}" has been updated.`,
+            html: `<div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+              <h2 style="color: #4F46E5;">Event Updated</h2>
+              <p>Hi <strong>${reg.user.firstName}</strong>,</p>
+              <p>The details for the event <strong>"${event.title}"</strong> have been updated by the organizer.</p>
+              <p>Please log in to your dashboard to check the latest schedule and location.</p>
+            </div>`
+          });
+        } catch (e) { console.error("Update email failed", e); }
+      });
       await Promise.allSettled(notificationPromises);
     } catch (err) {
       console.error("Failed to notify students of event update:", err);

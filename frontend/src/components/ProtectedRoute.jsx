@@ -11,8 +11,12 @@ const ProtectedRoute = ({ children, role }) => {
   if (user.role === 'admin') return children;
 
   // Check specific role requirement
-  if (role && user.role !== role) {
-    return <Navigate to="/login" />;
+  if (role) {
+    if (Array.isArray(role)) {
+      if (!role.includes(user.role)) return <Navigate to="/login" />;
+    } else {
+      if (user.role !== role) return <Navigate to="/login" />;
+    }
   }
 
   // Handle unapproved College Admins

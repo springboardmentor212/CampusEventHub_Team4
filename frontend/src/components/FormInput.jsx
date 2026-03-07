@@ -37,8 +37,8 @@ const FormInput = ({
                 ${error ? 'border-rose-200 bg-rose-50/30 focus-within:border-rose-400 focus-within:ring-rose-500/5' : ''}
             `}>
                 {Icon && (
-                    <div className={`pl-5 pr-1 flex items-center justify-center shrink-0 ${isTextarea ? 'mt-4' : ''}`}>
-                        <Icon className="w-4.5 h-4.5 text-slate-400 transition-all duration-300 group-focus-within:text-indigo-600 group-focus-within:scale-110" />
+                    <div className={`pl-4 pr-0 flex items-center justify-center shrink-0 ${isTextarea ? 'mt-4' : ''}`}>
+                        <Icon strokeWidth={2.5} className="w-5 h-5 text-slate-400 transition-all duration-300 group-focus-within:text-indigo-600 group-focus-within:scale-110" />
                     </div>
                 )}
                 <Component
@@ -50,10 +50,10 @@ const FormInput = ({
                     required={required}
                     rows={rows}
                     className={`
-                        flex-1 bg-transparent border-none outline-none 
-                        py-4 px-4 
+                        flex-1 min-w-0 bg-transparent border-none outline-none 
+                        py-4 ${Icon ? 'pl-3' : 'pl-5'} pr-5
                         text-sm font-bold text-slate-900 
-                        placeholder:text-slate-300 placeholder:font-medium
+                        placeholder:text-slate-400 placeholder:font-medium
                         appearance-none
                         ${isTextarea ? 'resize-none min-h-[120px]' : ''}
                     `}

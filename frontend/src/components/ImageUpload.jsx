@@ -22,7 +22,7 @@ const ImageUpload = ({ label, onUpload, defaultValue = null }) => {
         formData.append("image", file);
 
         setUploading(true);
-        const loadingToast = toast.loading("Processing visual asset...");
+        const loadingToast = toast.loading("Uploading image...");
 
         try {
             const res = await API.post("/media/image", formData, {
@@ -31,9 +31,9 @@ const ImageUpload = ({ label, onUpload, defaultValue = null }) => {
             const url = res.data.data.url;
             setPreview(url);
             onUpload(url);
-            toast.success("Asset synchronized", { id: loadingToast });
+            toast.success("Image uploaded!", { id: loadingToast });
         } catch (err) {
-            toast.error("Upload failed. Verify server protocol.", { id: loadingToast });
+            toast.error("Upload failed. Please check your connection and try again.", { id: loadingToast });
         } finally {
             setUploading(false);
         }
@@ -87,7 +87,7 @@ const ImageUpload = ({ label, onUpload, defaultValue = null }) => {
                         </div>
                         <div>
                             <p className="text-sm font-bold text-slate-900 mb-1">
-                                {uploading ? "Analyzing Artifact..." : "Upload High-Resolution Banner"}
+                                {uploading ? "Uploading image..." : "Click to upload banner image"}
                             </p>
                             <p className="text-xs text-slate-500 max-w-[240px]">
                                 SVG, PNG, JPG (Max. 5MB). Optimal ratio: 16:9

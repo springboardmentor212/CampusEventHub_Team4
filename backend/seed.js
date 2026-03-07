@@ -85,21 +85,7 @@ const seedData = async () => {
         isActive: true,
         isApproved: true,
         accountStatus: "active",
-      },
-      {
-        username: "uday_student",
-        email: "udaysomapuram@gmail.com",
-        password: "pass123",
-        role: "student",
-        college: colleges[0]._id,
-        firstName: "UDAY",
-        lastName: "STUDENT",
-        phone: "+91-7777777777",
-        officialId: "ST-2026-UDAY",
-        isEmailVerified: true,
-        isActive: true,
-        isApproved: true,
-      },
+      }
     ]);
     console.log(`Created ${users.length} users`);
 
@@ -154,18 +140,10 @@ const seedData = async () => {
     ]);
     console.log(`Created ${events.length} events`);
 
-    // ─── Sample Registrations (Milestone-3 ready) ───────────────────────────
-    await Registration.create([
-      { event: events[0]._id, user: users[2]._id, college: colleges[0]._id, status: "pending" },
-      { event: events[1]._id, user: users[2]._id, college: colleges[1]._id, status: "approved", approvalDate: new Date() },
-    ]);
-    console.log("Created 2 sample registrations");
-
     console.log("\n=== Seed Data Created Successfully ===");
     console.log("\n=== Login Credentials ===");
-    console.log("Super Admin:"); console.log("  229x1a2856@gprec.ac.in / pass123");
-    console.log("\nCollege Admin:"); console.log("  229x1a2856@gmail.com / pass123");
-    console.log("\nStudent:"); console.log("  udaysomapuram@gmail.com / pass123");
+    console.log("Super Admin (Access: /superadmin):"); console.log("  229x1a2856@gprec.ac.in / pass123");
+    console.log("\nCollege Admin (Access: /admin):"); console.log("  229x1a2856@gmail.com / pass123");
 
     await mongoose.disconnect();
     console.log("\nDisconnected from MongoDB");
