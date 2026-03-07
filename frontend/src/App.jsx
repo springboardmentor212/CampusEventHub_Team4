@@ -19,6 +19,7 @@ import DeleteAccount from "./pages/DeleteAccount";
 import ResendVerification from "./pages/ResendVerification";
 import ProtectedRoute from "./components/ProtectedRoute";
 import NotFound from "./pages/NotFound";
+import Profile from "./pages/Profile";
 
 function App() {
   return (
@@ -83,9 +84,17 @@ function App() {
             }
           />
           <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/event/:id"
             element={
-              <ProtectedRoute role="student">
+              <ProtectedRoute role={["student", "college_admin", "admin"]}>
                 <EventDetails />
               </ProtectedRoute>
             }

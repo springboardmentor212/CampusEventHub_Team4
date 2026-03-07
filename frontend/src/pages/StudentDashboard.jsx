@@ -40,8 +40,9 @@ const StudentDashboard = () => {
   const [registrations, setRegistrations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState("discover"); // discover, passes
+  const [activeTab, setActiveTab] = useState("discover"); // discover, passes, helpdesk
   const [filterCategory, setFilterCategory] = useState("All");
+  const [participationFilter, setParticipationFilter] = useState("all"); // all, ongoing, upcoming, past
 
   useEffect(() => {
     fetchData();
@@ -158,7 +159,10 @@ const StudentDashboard = () => {
           <div className="flex gap-1 p-1 bg-slate-50 rounded-xl w-full md:w-auto">
             <NavTab active={activeTab === 'discover'} onClick={() => setActiveTab('discover')} label="Browse Events" icon={LayoutGrid} />
             {user?.role === 'student' && (
-              <NavTab active={activeTab === 'passes'} onClick={() => setActiveTab('passes')} label="My Tickets" icon={Ticket} />
+              <>
+                <NavTab active={activeTab === 'passes'} onClick={() => setActiveTab('passes')} label="My Events" icon={Bookmark} />
+                <NavTab active={activeTab === 'helpdesk'} onClick={() => setActiveTab('helpdesk')} label="Help Desk" icon={Shield} />
+              </>
             )}
           </div>
 
@@ -258,17 +262,44 @@ const StudentDashboard = () => {
               </div>
             )}
           </div>
-        ) : (
+        ) : activeTab === "passes" ? (
           <div className="space-y-12">
+            <div className="flex gap-4 p-1 bg-slate-50 rounded-2xl w-fit">
+              {['all', 'ongoing', 'upcoming', 'past'].map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setParticipationFilter(f)}
+                  className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${participationFilter === f ? 'bg-white text-indigo-600 shadow-sm border border-indigo-100' : 'text-slate-500 hover:text-slate-900'}`}
+                >
+                  {f === 'all' ? 'All My Events' : f}
+                </button>
+              ))}
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-              {registrations.length === 0 ? (
-                <div className="col-span-full py-24 bg-slate-50 border border-dashed border-slate-200 rounded-3xl text-center">
-                  <Bookmark className="w-12 h-12 text-slate-300 mx-auto mb-4 opacity-50" />
-                  <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">No Events Registered</p>
-                  <p className="text-slate-400 text-xs mt-2 font-medium">Your upcoming events and tickets will appear here.</p>
-                </div>
-              ) : (
-                registrations.map(reg => (
+              {(() => {
+                const now = new Date();
+                const filtered = registrations.filter(reg => {
+                  if (!reg.event) return false;
+                  const start = new Date(reg.event.startDate);
+                  const end = new Date(reg.event.endDate);
+                  if (participationFilter === 'ongoing') return start <= now && end >= now;
+                  if (participationFilter === 'upcoming') return start > now;
+                  if (participationFilter === 'past') return end < now;
+                  return true;
+                });
+
+                if (filtered.length === 0) {
+                  return (
+                    <div className="col-span-full py-24 bg-slate-50 border border-dashed border-slate-200 rounded-3xl text-center">
+                      <Bookmark className="w-12 h-12 text-slate-300 mx-auto mb-4 opacity-50" />
+                      <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">No Events Found</p>
+                      <p className="text-slate-400 text-xs mt-2 font-medium">Try changing your filter or browse new events.</p>
+                    </div>
+                  );
+                }
+
+                return filtered.map(reg => (
                   <div key={reg._id} className="bg-white border border-slate-200 rounded-3xl p-6 flex flex-col md:flex-row gap-6 hover:shadow-lg hover:border-indigo-200 transition-all duration-300">
                     <div className="w-full md:w-32 h-32 rounded-2xl overflow-hidden shrink-0 border border-slate-100">
                       <img
@@ -281,7 +312,14 @@ const StudentDashboard = () => {
                       <div className="flex justify-between items-start">
                         <div>
                           <h3 className="font-bold text-lg text-slate-900 mb-1">{reg.event?.title}</h3>
-                          <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest">{reg.event?.category}</p>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">{reg.event?.category}</span>
+                            {new Date(reg.event?.startDate) <= now && new Date(reg.event?.endDate) >= now && (
+                              <span className="flex items-center gap-1 text-[9px] font-black text-emerald-600 uppercase animate-pulse">
+                                <Activity className="w-3 h-3" /> Live Now
+                              </span>
+                            )}
+                          </div>
                         </div>
                         <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${reg.status === 'approved' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-amber-50 text-amber-600 border border-amber-100'}`}>
                           {reg.status}
@@ -294,20 +332,46 @@ const StudentDashboard = () => {
                           <span className="text-xs font-medium text-slate-700 truncate">{reg.event?.college?.name}</span>
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Date</span>
-                          <span className="text-xs font-medium text-slate-700">{new Date(reg.event?.startDate).toLocaleDateString()}</span>
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Date & Time</span>
+                          <span className="text-xs font-medium text-slate-700">{new Date(reg.event?.startDate).toLocaleString()}</span>
                         </div>
                       </div>
 
                       <div className="flex gap-3 pt-4 border-t border-slate-100 mt-2">
-                        <Link to={`/event/${reg.event?._id}`} className="px-5 py-2 bg-slate-900 text-white text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-slate-800 transition-colors shadow-sm text-center">View Ticket</Link>
-                        <button className="px-5 py-2 border border-rose-200 text-rose-600 text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-rose-50 transition-colors text-center">Cancel</button>
+                        <Link to={`/event/${reg.event?._id}`} className="px-5 py-2 bg-slate-900 text-white text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-slate-800 transition-colors shadow-sm text-center">View Details</Link>
+                        {reg.status === 'approved' && new Date(reg.event?.startDate) > now && (
+                          <button className="px-5 py-2 border border-rose-200 text-rose-600 text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-rose-50 transition-colors text-center">Withdraw</button>
+                        )}
                       </div>
                     </div>
                   </div>
-                ))
-              )}
+                ));
+              })()}
             </div>
+          </div>
+        ) : (
+          <div className="space-y-12 py-20 px-10 bg-white rounded-[3rem] border border-slate-100 text-center max-w-2xl mx-auto shadow-sm">
+            <div className="w-20 h-20 bg-indigo-50 text-indigo-600 rounded-3xl flex items-center justify-center mx-auto mb-8">
+              <Shield className="w-10 h-10" />
+            </div>
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight italic">How can we help?</h2>
+            <p className="text-slate-500 font-medium leading-relaxed">Having trouble with a registration or technical issues? Contact our campus help desk for immediate assistance.</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12">
+              <div className="p-6 bg-slate-50 rounded-2xl text-left border border-slate-100 group hover:border-indigo-200 transition-all">
+                <Mail className="w-6 h-6 text-indigo-500 mb-4" />
+                <p className="text-xs font-black text-slate-900 uppercase">Email Support</p>
+                <p className="text-xs text-slate-500 mt-1">support@campuseventhub.edu</p>
+              </div>
+              <div className="p-6 bg-slate-50 rounded-2xl text-left border border-slate-100 group hover:border-indigo-200 transition-all">
+                <Activity className="w-6 h-6 text-indigo-500 mb-4" />
+                <p className="text-xs font-black text-slate-900 uppercase">System Status</p>
+                <p className="text-xs text-emerald-600 mt-1 font-bold">All Systems Operational</p>
+              </div>
+            </div>
+            <button className="hero-btn w-full mt-10 py-5 italic">
+              Raise a Support Ticket
+              <ArrowUpRight className="w-5 h-5" />
+            </button>
           </div>
         )}
       </div>

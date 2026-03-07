@@ -8,6 +8,7 @@ const sendToken = (user, statusCode, res) => {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "Strict",
+        path: "/",
     };
 
     res.cookie("token", token, cookieOptions);

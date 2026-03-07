@@ -45,6 +45,23 @@ const eventSchema = new mongoose.Schema({
     type: Number,
     default: null,
   },
+  participationMode: {
+    type: String,
+    enum: ["solo", "duo", "trio", "quad"],
+    default: "solo",
+  },
+  isTeamEvent: {
+    type: Boolean,
+    default: false,
+  },
+  minTeamSize: {
+    type: Number,
+    default: 1,
+  },
+  maxTeamSize: {
+    type: Number,
+    default: 1,
+  },
   currentParticipants: {
     type: Number,
     default: 0,

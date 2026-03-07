@@ -14,6 +14,7 @@ import {
     getPendingStudents,
     getAllUsers,
     getAllColleges,
+    createStudent,
 } from "../controllers/authController.js";
 import { requestPasswordReset, resetPassword, changePassword } from "../controllers/passwordController.js";
 import { authenticate, isSuperAdmin, isApprovedCollegeAdmin } from "../middleware/auth.js";
@@ -52,6 +53,7 @@ router.get("/admin/pending-users", authenticate, isSuperAdmin, getPendingUsers);
 router.get("/admin/all-users", authenticate, isSuperAdmin, getAllUsers);
 router.get("/admin/all-colleges", authenticate, isSuperAdmin, getAllColleges);
 router.get("/college/pending-students", authenticate, isApprovedCollegeAdmin, getPendingStudents);
+router.post("/admin/create-student", authenticate, createStudent); // Middleware check inside controller
 router.patch("/admin/approve-user/:id", authenticate, approveUser); // Middlewares inside controller check permissions
 router.delete("/admin/reject-user/:id", authenticate, rejectUser);
 

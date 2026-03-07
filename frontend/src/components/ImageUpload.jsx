@@ -33,7 +33,8 @@ const ImageUpload = ({ label, onUpload, defaultValue = null }) => {
             onUpload(url);
             toast.success("Image uploaded!", { id: loadingToast });
         } catch (err) {
-            toast.error("Upload failed. Please check your connection and try again.", { id: loadingToast });
+            const msg = err.response?.data?.message || "Upload failed. Verify server protocol/connection.";
+            toast.error(msg, { id: loadingToast });
         } finally {
             setUploading(false);
         }

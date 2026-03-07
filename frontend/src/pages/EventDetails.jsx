@@ -37,7 +37,6 @@ const EventDetails = () => {
     }, [id, navigate]);
 
     const handleRegister = async () => {
-        // If event has custom requirements and modal isn't open, open it
         if (event.participationRequirements?.length > 0 && !showRegModal) {
             setShowRegModal(true);
             return;
@@ -47,7 +46,7 @@ const EventDetails = () => {
         const loadingToast = toast.loading("Verifying credentials and capacity...");
         try {
             await API.post(`/registrations/register/${id}`, {
-                customFields: customResponses
+                customResponses
             });
             toast.success("Registration protocol complete. Check your dashboard.", { id: loadingToast });
             navigate("/student");
@@ -110,12 +109,18 @@ const EventDetails = () => {
                                     <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                                     {event.category}
                                 </span>
+                                {event.isTeamEvent && (
+                                    <span className="bg-indigo-600 text-white px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest shadow-xl flex items-center gap-2 italic">
+                                        <Users className="w-3.5 h-3.5" />
+                                        {event.participationMode.toUpperCase()} Admission
+                                    </span>
+                                )}
                             </div>
                         </div>
 
                         {/* Title & Organization */}
                         <div className="space-y-6">
-                            <h1 className="text-5xl md:text-6xl font-black text-slate-900 tracking-tighter leading-none italic italic">
+                            <h1 className="text-5xl md:text-6xl font-black text-slate-900 tracking-tighter leading-none italic">
                                 {event.title}
                             </h1>
                             <div className="flex flex-wrap items-center gap-8 pt-4">
@@ -147,7 +152,7 @@ const EventDetails = () => {
                                 <div className="p-2 rounded-xl bg-slate-900 text-white">
                                     <Info className="w-5 h-5" />
                                 </div>
-                                <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm italic">Narrative & Strategy</h3>
+                                <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm italic">About Event</h3>
                             </div>
                             <p className="text-slate-600 leading-relaxed text-xl font-medium whitespace-pre-wrap">
                                 {event.description}
@@ -156,13 +161,12 @@ const EventDetails = () => {
 
                         {/* Requirements Grid */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                            {/* Protocols */}
                             <div className="bg-white rounded-[2.5rem] p-10 border border-slate-100 shadow-sm">
                                 <div className="flex items-center gap-3 mb-8">
                                     <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100">
                                         <ShieldCheck className="w-5 h-5" />
                                     </div>
-                                    <h3 className="font-black text-slate-900 uppercase tracking-widest text-xs italic">Institutional Protocol</h3>
+                                    <h3 className="font-black text-slate-900 uppercase tracking-widest text-xs italic">Important Rules</h3>
                                 </div>
                                 <ul className="space-y-5">
                                     {event.dosAndDonts?.length > 0 ? event.dosAndDonts.map((item, idx) => (
@@ -174,13 +178,12 @@ const EventDetails = () => {
                                 </ul>
                             </div>
 
-                            {/* Prereqs */}
                             <div className="bg-white rounded-[2.5rem] p-10 border border-slate-100 shadow-sm">
                                 <div className="flex items-center gap-3 mb-8">
                                     <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-100">
                                         <ListChecks className="w-5 h-5" />
                                     </div>
-                                    <h3 className="font-black text-slate-900 uppercase tracking-widest text-xs italic">Asset Prerequisites</h3>
+                                    <h3 className="font-black text-slate-900 uppercase tracking-widest text-xs italic">Requirements</h3>
                                 </div>
                                 <ul className="space-y-5">
                                     {event.requirements?.length > 0 ? event.requirements.map((item, idx) => (
@@ -217,17 +220,16 @@ const EventDetails = () => {
                     </div>
 
                     {/* Sidebar: Details & Action */}
-                    <div className="space-y-8">
+                    <div className="lg:col-span-1 space-y-8">
                         <div className="bg-white border border-slate-100 rounded-[3rem] p-10 shadow-2xl shadow-slate-200/50 sticky top-8">
                             <div className="space-y-10">
-                                {/* Time & Location Container */}
                                 <div className="space-y-8">
                                     <div className="flex items-start gap-4">
                                         <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center border border-slate-100 text-indigo-600 shrink-0">
                                             <CalendarCheck className="w-6 h-6" />
                                         </div>
                                         <div>
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Chronology</p>
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Event Timing</p>
                                             <p className="font-extrabold text-slate-900 mt-2 text-lg leading-tight">{startDate.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
                                             <p className="text-[10px] text-indigo-500 font-black uppercase tracking-widest mt-1 italic">{startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} — {endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                                         </div>
@@ -238,7 +240,7 @@ const EventDetails = () => {
                                             <MapPin className="w-6 h-6" />
                                         </div>
                                         <div>
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Geography</p>
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Event Location</p>
                                             <p className="font-extrabold text-slate-900 mt-2 text-lg leading-tight">{event.location}</p>
                                             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Campus Ground Access</p>
                                         </div>
@@ -249,10 +251,13 @@ const EventDetails = () => {
                                             <Users className="w-6 h-6" />
                                         </div>
                                         <div>
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Availability</p>
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Event Capacity</p>
                                             <p className="font-extrabold text-slate-900 mt-2 text-lg leading-tight">
                                                 {event.maxParticipants ? `${event.maxParticipants - event.currentParticipants} Spots Open` : "Open Admission"}
                                             </p>
+                                            {event.isTeamEvent && (
+                                                <p className="text-[10px] text-indigo-500 font-bold uppercase tracking-widest mt-1 italic">Teams of {event.minTeamSize}—{event.maxTeamSize} members</p>
+                                            )}
                                             <div className="w-full h-1.5 bg-slate-100 rounded-full mt-4 overflow-hidden">
                                                 <div
                                                     className="h-full bg-indigo-600 rounded-full"
@@ -263,7 +268,6 @@ const EventDetails = () => {
                                     </div>
                                 </div>
 
-                                {/* Main Action */}
                                 <div className="pt-10 border-t border-slate-100 space-y-6">
                                     <button
                                         onClick={handleRegister}
@@ -287,7 +291,6 @@ const EventDetails = () => {
                             </div>
                         </div>
 
-                        {/* ID Verification Tag */}
                         <div className="flex flex-col items-center gap-3 px-8 text-center text-slate-300">
                             <ShieldAlert className="w-6 h-6 opacity-30" />
                             <p className="text-[9px] font-bold uppercase tracking-widest leading-relaxed">
@@ -298,7 +301,6 @@ const EventDetails = () => {
                 </div>
             </div>
 
-            {/* Registration Modal for Custom Fields */}
             {showRegModal && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 backdrop-blur-3xl bg-slate-900/60 transition-all animate-fade-in">
                     <div className="bg-white rounded-[4rem] p-12 max-w-md w-full shadow-4xl animate-slide-up relative overflow-hidden">
@@ -313,6 +315,34 @@ const EventDetails = () => {
                         </header>
 
                         <div className="space-y-8">
+                            {event.isTeamEvent && (
+                                <>
+                                    <div className="space-y-3">
+                                        <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                            Team Name <span className="text-rose-500">*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            className="w-full bg-indigo-50/30 border border-indigo-100 rounded-2xl px-6 py-4 text-sm font-bold text-slate-700 focus:ring-4 focus:ring-indigo-100 outline-none transition-all"
+                                            placeholder="Enter your team's name..."
+                                            required
+                                            onChange={(e) => setCustomResponses({ ...customResponses, "Team Name": e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="space-y-3">
+                                        <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                            Team Member Emails <span className="text-rose-500">*</span>
+                                        </label>
+                                        <textarea
+                                            className="w-full bg-indigo-50/30 border border-indigo-100 rounded-2xl px-6 py-4 text-sm font-bold text-slate-700 focus:ring-4 focus:ring-indigo-100 outline-none transition-all"
+                                            placeholder={`Emails of exactly ${event.maxTeamSize - 1} other members`}
+                                            required
+                                            rows={2}
+                                            onChange={(e) => setCustomResponses({ ...customResponses, "Team Members": e.target.value })}
+                                        />
+                                    </div>
+                                </>
+                            )}
                             {event.participationRequirements.map((req, idx) => (
                                 <div key={idx} className="space-y-3">
                                     <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">

@@ -61,7 +61,7 @@ const DashboardLayout = ({ children }) => {
             roles: ['college_admin']
         },
         {
-            label: "Events Feed",
+            label: "Campus Feed",
             path: '/student',
             icon: Home,
             roles: ['student', 'college_admin', 'admin']
@@ -79,6 +79,12 @@ const DashboardLayout = ({ children }) => {
             icon: Briefcase,
             roles: ['college_admin', 'admin'],
             requiresApproved: true
+        },
+        {
+            label: "My Profile",
+            path: "/profile",
+            icon: UserIcon,
+            roles: ['student', 'college_admin', 'admin']
         },
     ].filter(item => {
         const hasRole = item.roles.includes(user?.role);
@@ -193,10 +199,15 @@ const DashboardLayout = ({ children }) => {
                         {/* User Profile */}
                         <div className="flex items-center gap-4 pl-6 border-l border-slate-200">
                             <div className="text-right hidden sm:block">
-                                <p className="text-sm font-bold text-slate-900">{user?.firstName} {user?.lastName}</p>
-                                <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest">{user?.role?.replace('_', ' ')}</p>
+                                <p className="text-sm font-black text-slate-900 leading-none mb-1">{user?.firstName} {user?.lastName}</p>
+                                <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-md tracking-widest ${user?.role === 'admin' ? 'bg-slate-900 text-white' :
+                                        user?.role === 'college_admin' ? 'bg-indigo-600 text-white' :
+                                            'bg-emerald-500 text-white'
+                                    }`}>
+                                    {user?.role?.replace('_', ' ')}
+                                </span>
                             </div>
-                            <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center border border-indigo-200">
+                            <div className="w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center border border-indigo-100 shadow-sm">
                                 <UserIcon className="w-5 h-5 text-indigo-600" />
                             </div>
                         </div>

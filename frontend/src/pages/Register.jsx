@@ -17,9 +17,11 @@ import {
   ArrowRight,
   Sparkles
 } from "lucide-react";
+import useAuth from "../hooks/useAuth";
 
 const Register = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [form, setForm] = useState({
     username: "",
@@ -35,6 +37,14 @@ const Register = () => {
   const [loadingColleges, setLoadingColleges] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [registeredEmail, setRegisteredEmail] = useState(null);
+
+  useEffect(() => {
+    if (user) {
+      if (user.role === "admin") navigate("/superadmin");
+      else if (user.role === "college_admin") navigate("/admin");
+      else navigate("/student");
+    }
+  }, [user, navigate]);
 
   useEffect(() => {
     const fetchColleges = async () => {
@@ -88,21 +98,43 @@ const Register = () => {
   };
 
   if (registeredEmail) {
+    const isAdmin = form.role === "college_admin";
     return (
       <div className="min-h-screen bg-white flex items-center justify-center p-6 animate-fade-in">
         <div className="glass-card p-10 max-w-lg w-full text-center">
           <div className="w-20 h-20 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 mx-auto mb-8">
             <MailCheck className="w-10 h-10" />
           </div>
-          <h1 className="text-3xl font-bold text-slate-900 mb-4">Check your email</h1>
-          <p className="text-slate-500 mb-8 leading-relaxed">
-            We've sent a verification link to <br />
+          <h1 className="text-3xl font-bold text-slate-900 mb-4 italic">Verification Required.</h1>
+          <p className="text-slate-500 mb-6 leading-relaxed">
+            We've transmitted a specialized identity bridge to: <br />
             <span className="font-bold text-slate-900">{registeredEmail}</span>
           </p>
 
+          <div className="bg-slate-50 rounded-2xl p-6 mb-8 text-left border border-slate-100">
+            <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 italic">Next Steps Sequence</h4>
+            <div className="space-y-4">
+              <div className="flex gap-4">
+                <div className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold">1</div>
+                <p className="text-xs font-bold text-slate-600">Access your institutional inbox and verify your identity.</p>
+              </div>
+              {isAdmin ? (
+                <div className="flex gap-4">
+                  <div className="w-5 h-5 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center text-[10px] font-bold">2</div>
+                  <p className="text-xs font-bold text-slate-600 leading-relaxed">The <span className="text-indigo-600">SuperAdmin</span> will then review your credentials. You'll receive a final authorization email once approved.</p>
+                </div>
+              ) : (
+                <div className="flex gap-4">
+                  <div className="w-5 h-5 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center text-[10px] font-bold">2</div>
+                  <p className="text-xs font-bold text-slate-600 leading-relaxed">Proceed to <span className="text-indigo-600">Login</span> to start exploring the campus feed.</p>
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="space-y-4">
-            <Link to="/login" className="hero-btn w-full">Go to Login</Link>
-            <p className="text-sm text-slate-400">Didn't receive it? Check your spam folder.</p>
+            <Link to="/login" className="hero-btn w-full italic">Continue to Login</Link>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">Identity record will be purged if not verified within 24 hours.</p>
           </div>
         </div>
       </div>

@@ -50,6 +50,14 @@ const userSchema = new mongoose.Schema({
     type: String,
     trim: true,
   },
+  academicClass: {
+    type: String,
+    trim: true,
+  },
+  section: {
+    type: String,
+    trim: true,
+  },
   avatar: {
     type: String,
     default: "",

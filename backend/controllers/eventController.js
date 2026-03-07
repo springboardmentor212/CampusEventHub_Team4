@@ -15,7 +15,8 @@ export const createEvent = catchAsync(async (req, res, next) => {
 
   // SECURITY: Whitelist allowed fields — prevent injection of isApproved, currentParticipants etc.
   const { title, description, category, location, startDate, endDate, maxParticipants,
-    registrationDeadline, requirements, dosAndDonts, participationRequirements, imageUrl, bannerImage } = req.body;
+    registrationDeadline, requirements, dosAndDonts, participationRequirements, imageUrl, bannerImage,
+    isTeamEvent, minTeamSize, maxTeamSize, participationMode } = req.body;
 
   // Validate: Start date must be in the future
   if (new Date(startDate) <= new Date()) {
@@ -30,6 +31,7 @@ export const createEvent = catchAsync(async (req, res, next) => {
   const event = await Event.create({
     title, description, category, location, startDate, endDate, maxParticipants,
     registrationDeadline, requirements, dosAndDonts, participationRequirements, imageUrl, bannerImage,
+    isTeamEvent, minTeamSize, maxTeamSize, participationMode: participationMode || "solo",
     college: collegeId,
     createdBy: req.userId,
     isApproved: req.userRole === "admin", // SuperAdmins bypass approval
@@ -133,6 +135,8 @@ export const approveEvent = catchAsync(async (req, res, next) => {
 // Reject an event (SuperAdmin only)
 export const rejectEvent = catchAsync(async (req, res, next) => {
   const { id } = req.params;
+  const { reason } = req.body;
+
   const event = await Event.findById(id).populate("createdBy", "firstName lastName email");
 
   if (!event) {
@@ -148,13 +152,13 @@ export const rejectEvent = catchAsync(async (req, res, next) => {
     performedBy: req.userId,
     targetId: event._id,
     targetType: "Event",
-    details: { title: event.title },
+    details: { title: event.title, reason },
     ipAddress: req.ip,
   });
 
   // Notify creator via email non-blocking
   try {
-    const tpl = EmailTemplates.eventRejected(event.createdBy.firstName, event.title);
+    const tpl = EmailTemplates.eventRejected(event.createdBy.firstName, event.title, reason || "Documentation requirements not met.");
     sendEmail({ email: event.createdBy.email, ...tpl }).catch(err => console.error(err));
   } catch (err) {
     console.error("Event rejection email setup failed:", err);
@@ -453,9 +457,9 @@ export const updateEvent = catchAsync(async (req, res, next) => {
     (req.body.title && req.body.title !== event.title);
 
   // SECURITY: Whitelist allowed update fields — prevent injecting isApproved, currentParticipants, createdBy etc
-  const allowedFields = ["title", "description", "category", "location", "startDate", "endDate",
-    "maxParticipants", "registrationDeadline", "requirements", "dosAndDonts", "participationRequirements",
-    "imageUrl", "bannerImage", "status"];
+  const allowedFields = ["title", "description", "category", "location", "startDate", "endDate", "maxParticipants",
+    "registrationDeadline", "requirements", "dosAndDonts", "participationRequirements", "bannerImage", "isTeamEvent",
+    "minTeamSize", "maxTeamSize", "participationMode"];
   const sanitizedUpdate = { updatedAt: Date.now() };
   for (const key of allowedFields) {
     if (req.body[key] !== undefined) sanitizedUpdate[key] = req.body[key];
@@ -480,27 +484,32 @@ export const updateEvent = catchAsync(async (req, res, next) => {
           recipientId: reg.user._id,
           type: "EVENT_MODIFIED",
           title: "Event Details Updated",
-          message: `Important: The details for "${event.title}" have been updated. Please check the dashboard for the new schedule/location.`,
+          message: `Important: The details for "${event.title}" have been updated. Please review the updated schedule.`,
           link: "/student"
         });
 
         try {
-          await sendEmail({
-            email: reg.user.email,
-            subject: `[Updated] ${event.title}`,
-            message: `Hi ${reg.user.firstName}, the event "${event.title}" has been updated.`,
-            html: `<div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-              <h2 style="color: #4F46E5;">Event Updated</h2>
-              <p>Hi <strong>${reg.user.firstName}</strong>,</p>
-              <p>The details for the event <strong>"${event.title}"</strong> have been updated by the organizer.</p>
-              <p>Please log in to your dashboard to check the latest schedule and location.</p>
-            </div>`
-          });
+          const tpl = EmailTemplates.eventModified(event.title, event.title);
+          await sendEmail({ email: reg.user.email, ...tpl });
         } catch (e) { console.error("Update email failed", e); }
       });
       await Promise.allSettled(notificationPromises);
     } catch (err) {
       console.error("Failed to notify students of event update:", err);
+    }
+
+    // Also notify SuperAdmin of critical edits if it's not them
+    if (req.userRole !== 'admin') {
+      const superAdmins = await User.find({ role: "admin" }).select("email");
+      superAdmins.forEach(async (admin) => {
+        await notifyUser({
+          recipientId: admin._id,
+          type: "ADMIN_ANNOUNCEMENT",
+          title: `Event Edit: ${event.title}`,
+          message: `College Admin ${req.user.firstName} modified critical details of event "${event.title}".`,
+          link: `/admin`,
+        });
+      });
     }
   }
 
@@ -535,7 +544,30 @@ export const deleteEvent = catchAsync(async (req, res, next) => {
   }
 
   // Soft delete by setting isActive to false
-  await Event.findByIdAndUpdate(id, { isActive: false });
+  await Event.findByIdAndUpdate(id, { isActive: false, status: "cancelled" });
+
+  // Notify registered students
+  try {
+    const registrations = await Registration.find({ event: id }).populate("user", "email firstName");
+    registrations.forEach(async (reg) => {
+      const tpl = EmailTemplates.eventCancelled(event.title);
+      await sendEmail({ email: reg.user.email, ...tpl });
+    });
+  } catch (e) { console.error("Deletion notification failed", e); }
+
+  // Notify SuperAdmin
+  if (req.userRole !== 'admin') {
+    const superAdmins = await User.find({ role: "admin" }).select("email");
+    superAdmins.forEach(async (admin) => {
+      await notifyUser({
+        recipientId: admin._id,
+        type: "ADMIN_ANNOUNCEMENT",
+        title: "Event Deleted",
+        message: `Administrative Notice: Event "${event.title}" has been removed by ${req.user.firstName}.`,
+        link: `/superadmin`,
+      });
+    });
+  }
 
   res.status(200).json({
     success: true,

@@ -75,7 +75,8 @@ if (hasCloudinary) {
                 if (req.file) {
                     // Expose a URL-like path so the media route can use req.file.path
                     const relativePath = `/uploads/${req.file.filename}`;
-                    req.file.path = `${process.env.FRONTEND_URL?.replace("5173", "5000") || "http://localhost:5000"}${relativePath}`;
+                    const firstFrontend = process.env.FRONTEND_URL?.split(",")[0] || "http://localhost:5173";
+                    req.file.path = `${firstFrontend.replace("5173", "5000") || "http://localhost:5000"}${relativePath}`;
                 }
                 next();
             });

@@ -42,6 +42,10 @@ const CreateEvent = () => {
         requirements: "",
         dosAndDonts: "",
         bannerImage: "",
+        isTeamEvent: false,
+        minTeamSize: "1",
+        maxTeamSize: "4",
+        participationMode: "solo",
         participationRequirements: [] // Dynamic fields
     });
 
@@ -80,6 +84,20 @@ const CreateEvent = () => {
         const dosArray = form.dosAndDonts
             ? form.dosAndDonts.split(",").map(d => d.trim()).filter(d => d !== "")
             : [];
+
+        // ─── Validate date ordering ────────────────────────────
+        if (form.registrationDeadline && form.startDate) {
+            if (new Date(form.registrationDeadline) >= new Date(form.startDate)) {
+                toast.error("Registration deadline must be before the event start time.", { id: loadingToast });
+                return;
+            }
+        }
+        if (form.startDate && form.endDate) {
+            if (new Date(form.startDate) >= new Date(form.endDate)) {
+                toast.error("Event start time must be before the end time.", { id: loadingToast });
+                return;
+            }
+        }
 
         try {
             await API.post("/events/create", {
@@ -276,7 +294,15 @@ const CreateEvent = () => {
                             </div>
 
                             <FormInput
-                                label="Start Date & Time"
+                                label="Registration Closes At"
+                                icon={Clock}
+                                type="datetime-local"
+                                value={form.registrationDeadline}
+                                onChange={(e) => setForm({ ...form, registrationDeadline: e.target.value })}
+                            />
+
+                            <FormInput
+                                label="Event Start Date & Time"
                                 icon={Calendar}
                                 type="datetime-local"
                                 required
@@ -285,7 +311,7 @@ const CreateEvent = () => {
                             />
 
                             <FormInput
-                                label="End Date & Time"
+                                label="Event End Date & Time"
                                 icon={Calendar}
                                 type="datetime-local"
                                 required
@@ -293,30 +319,66 @@ const CreateEvent = () => {
                                 onChange={(e) => setForm({ ...form, endDate: e.target.value })}
                             />
 
-                            <FormInput
-                                label="Registration Deadline"
-                                icon={Clock}
-                                type="datetime-local"
-                                value={form.registrationDeadline}
-                                onChange={(e) => setForm({ ...form, registrationDeadline: e.target.value })}
-                            />
-
                             <div className="pt-6 space-y-6 border-t border-slate-50">
                                 <div className="flex items-center gap-3">
                                     <div className="p-3 rounded-2xl bg-slate-50 text-slate-600">
                                         <Users className="w-4 h-4" />
                                     </div>
-                                    <div className="flex-1">
-                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Maximum Capacity</p>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Maximum Capacity</p>
                                         <input
                                             type="number"
-                                            placeholder="Max capacity (e.g. 500)"
-                                            className="w-full bg-transparent border-none p-0 text-xl font-black text-slate-900 placeholder:text-slate-200 outline-none"
+                                            placeholder="e.g. 500"
+                                            className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 placeholder:text-slate-300 outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition"
                                             value={form.maxParticipants}
                                             onChange={(e) => setForm({ ...form, maxParticipants: e.target.value })}
                                         />
                                     </div>
                                 </div>
+
+                                <div className="flex items-center justify-between mb-4">
+                                    <div>
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Participation Style</p>
+                                        <p className="text-[10px] text-slate-500 mt-1">Select team configuration</p>
+                                    </div>
+                                    <select
+                                        className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-[9px] font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-indigo-100"
+                                        value={form.participationMode}
+                                        onChange={(e) => {
+                                            const mode = e.target.value;
+                                            const isTeam = mode !== "solo";
+                                            let sizes = { min: "1", max: "1" };
+                                            if (mode === "duo") sizes = { min: "2", max: "2" };
+                                            if (mode === "trio") sizes = { min: "3", max: "3" };
+                                            if (mode === "quad") sizes = { min: "4", max: "4" };
+
+                                            setForm({
+                                                ...form,
+                                                participationMode: mode,
+                                                isTeamEvent: isTeam,
+                                                minTeamSize: sizes.min,
+                                                maxTeamSize: sizes.max
+                                            });
+                                        }}
+                                    >
+                                        <option value="solo">Solo (Individual)</option>
+                                        <option value="duo">Duo (2 Members)</option>
+                                        <option value="trio">Trio (3 Members)</option>
+                                        <option value="quad">Quad (4 Members)</option>
+                                    </select>
+                                </div>
+
+                                {form.isTeamEvent && (
+                                    <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100 animate-fade-in">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <Users className="w-3.5 h-3.5 text-indigo-600" />
+                                            <p className="text-[10px] font-black text-indigo-900 uppercase tracking-widest">Team Lockdown</p>
+                                        </div>
+                                        <p className="text-[10px] text-indigo-600 font-medium leading-relaxed">
+                                            Event restricted to exactly {form.maxTeamSize} participants per team.
+                                        </p>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="pt-10">

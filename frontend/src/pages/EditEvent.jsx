@@ -46,6 +46,8 @@ const EditEvent = () => {
         requirements: "",
         dosAndDonts: "",
         bannerImage: "",
+        participationMode: "solo",
+        isTeamEvent: false,
         participationRequirements: []
     });
 
@@ -75,10 +77,12 @@ const EditEvent = () => {
                     requirements: event.requirements ? event.requirements.join(", ") : "",
                     dosAndDonts: event.dosAndDonts ? event.dosAndDonts.join(", ") : "",
                     bannerImage: event.bannerImage || "",
+                    participationMode: event.participationMode || "solo",
+                    isTeamEvent: !!event.isTeamEvent,
                     participationRequirements: event.participationRequirements || []
                 });
             } catch (err) {
-                toast.error("Resource retrieval failure");
+                toast.error("Failed to load event details.");
                 navigate("/manage-events");
             } finally {
                 setLoading(false);
@@ -111,7 +115,7 @@ const EditEvent = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        const loadingToast = toast.loading("Syncing modifications...");
+        const loadingToast = toast.loading("Saving changes...");
 
         const requirementsArray = form.requirements
             ? form.requirements.split(",").map(req => req.trim()).filter(req => req !== "")
@@ -121,6 +125,20 @@ const EditEvent = () => {
             ? form.dosAndDonts.split(",").map(d => d.trim()).filter(d => d !== "")
             : [];
 
+        // Validate date ordering
+        if (form.registrationDeadline && form.startDate) {
+            if (new Date(form.registrationDeadline) >= new Date(form.startDate)) {
+                toast.error("Registration deadline must be before the event start time.", { id: loadingToast });
+                return;
+            }
+        }
+        if (form.startDate && form.endDate) {
+            if (new Date(form.startDate) >= new Date(form.endDate)) {
+                toast.error("Event start time must be before the end time.", { id: loadingToast });
+                return;
+            }
+        }
+
         try {
             await API.patch(`/events/${id}`, {
                 ...form,
@@ -129,10 +147,10 @@ const EditEvent = () => {
                 dosAndDonts: dosArray,
                 maxParticipants: form.maxParticipants ? parseInt(form.maxParticipants) : null
             });
-            toast.success("Event parameters updated.", { id: loadingToast });
+            toast.success("Event updated successfully!", { id: loadingToast });
             navigate("/manage-events");
         } catch (err) {
-            toast.error(err.response?.data?.message || "Sync protocol failure", { id: loadingToast });
+            toast.error(err.response?.data?.message || "Failed to save changes. Try again.", { id: loadingToast });
         }
     };
 
@@ -255,7 +273,7 @@ const EditEvent = () => {
                                     className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2"
                                 >
                                     <Plus className="w-3 h-3" />
-                                    Add Attribute
+                                    Add Field
                                 </button>
                             </div>
 
@@ -274,10 +292,10 @@ const EditEvent = () => {
                                                     value={req.fieldType}
                                                     onChange={(e) => updateRequirement(idx, "fieldType", e.target.value)}
                                                 >
-                                                    <option value="text">Text Input</option>
-                                                    <option value="number">Numeric</option>
-                                                    <option value="email">Email Mask</option>
-                                                    <option value="file">File Asset</option>
+                                                    <option value="text">Text</option>
+                                                    <option value="number">Number</option>
+                                                    <option value="email">Email</option>
+                                                    <option value="file">File Upload</option>
                                                 </select>
                                                 <label className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl cursor-pointer">
                                                     <input
@@ -314,7 +332,15 @@ const EditEvent = () => {
                             </div>
 
                             <FormInput
-                                label="Start Date & Time"
+                                label="Registration Closes At"
+                                icon={Clock}
+                                type="datetime-local"
+                                value={form.registrationDeadline}
+                                onChange={(e) => setForm({ ...form, registrationDeadline: e.target.value })}
+                            />
+
+                            <FormInput
+                                label="Event Start Date & Time"
                                 icon={Calendar}
                                 type="datetime-local"
                                 required
@@ -323,7 +349,7 @@ const EditEvent = () => {
                             />
 
                             <FormInput
-                                label="End Date & Time"
+                                label="Event End Date & Time"
                                 icon={Calendar}
                                 type="datetime-local"
                                 required
@@ -331,29 +357,45 @@ const EditEvent = () => {
                                 onChange={(e) => setForm({ ...form, endDate: e.target.value })}
                             />
 
-                            <FormInput
-                                label="Registration Deadline"
-                                icon={Clock}
-                                type="datetime-local"
-                                value={form.registrationDeadline}
-                                onChange={(e) => setForm({ ...form, registrationDeadline: e.target.value })}
-                            />
-
                             <div className="pt-6 space-y-6 border-t border-slate-50">
                                 <div className="flex items-center gap-3">
                                     <div className="p-3 rounded-2xl bg-slate-50 text-slate-600">
                                         <Users className="w-4 h-4" />
                                     </div>
-                                    <div className="flex-1">
-                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Maximum Capacity</p>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Maximum Capacity</p>
                                         <input
                                             type="number"
-                                            placeholder="No limit"
-                                            className="w-full bg-transparent border-none p-0 text-xl font-black text-slate-900 outline-none"
+                                            placeholder="e.g. 500 (leave blank for unlimited)"
+                                            className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 placeholder:text-slate-300 outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition"
                                             value={form.maxParticipants}
                                             onChange={(e) => setForm({ ...form, maxParticipants: e.target.value })}
                                         />
                                     </div>
+                                </div>
+
+                                <div className="flex items-center justify-between mt-6">
+                                    <div>
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Participation Style</p>
+                                        <p className="text-[10px] text-slate-500 mt-1">Select team configuration</p>
+                                    </div>
+                                    <select
+                                        className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-[9px] font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-indigo-100"
+                                        value={form.participationMode}
+                                        onChange={(e) => {
+                                            const mode = e.target.value;
+                                            setForm({
+                                                ...form,
+                                                participationMode: mode,
+                                                isTeamEvent: mode !== "solo"
+                                            });
+                                        }}
+                                    >
+                                        <option value="solo">Solo (Individual)</option>
+                                        <option value="duo">Duo (2 Members)</option>
+                                        <option value="trio">Trio (3 Members)</option>
+                                        <option value="quad">Quad (4 Members)</option>
+                                    </select>
                                 </div>
                             </div>
 

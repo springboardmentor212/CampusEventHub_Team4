@@ -19,7 +19,8 @@ import {
   Zap,
   Globe,
   Settings,
-  Shield
+  Shield,
+  ArrowRight
 } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area,
@@ -33,6 +34,8 @@ const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [pendingAdmins, setPendingAdmins] = useState([]);
   const [pendingEvents, setPendingEvents] = useState([]);
+  const [detailPanel, setDetailPanel] = useState(null); // { type, data, title }
+  const [panelLoading, setPanelLoading] = useState(false);
 
   const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f59e0b', '#10b981'];
 
@@ -106,11 +109,36 @@ const AdminDashboard = () => {
     }
   };
 
-  if (loading || !stats) return (
+  const openDetailPanel = async (type) => {
+    setPanelLoading(true);
+    setDetailPanel({ type, data: [], title: '' });
+    try {
+      if (type === 'colleges') {
+        const res = await API.get('/auth/admin/all-colleges');
+        setDetailPanel({ type, title: 'All Colleges', data: res.data.data.colleges || [] });
+      } else if (type === 'events') {
+        const res = await API.get('/events?status=all&limit=50');
+        setDetailPanel({ type, title: 'All Events', data: res.data.data.events || [] });
+      } else if (type === 'students') {
+        const res = await API.get('/auth/admin/all-users');
+        const students = (res.data.data.users || []).filter(u => u.role === 'student');
+        setDetailPanel({ type, title: 'All Students', data: students });
+      } else if (type === 'approvals') {
+        setDetailPanel({ type, title: 'Pending Approvals', data: { admins: pendingAdmins, events: pendingEvents } });
+      }
+    } catch (e) {
+      toast.error('Failed to load details.');
+      setDetailPanel(null);
+    } finally {
+      setPanelLoading(false);
+    }
+  };
+
+  if (loading || !stats || !analytics) return (
     <DashboardLayout>
       <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
         <div className="w-12 h-12 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin"></div>
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Loading Dashboard...</p>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Initializing Dashboards...</p>
       </div>
     </DashboardLayout>
   );
@@ -146,10 +174,31 @@ const AdminDashboard = () => {
           <div className="space-y-10">
             {/* Executive Metrics */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <ExecutiveMetric icon={Building2} label="Total Colleges" value={stats.totalColleges} trend="+2 New" trendType="up" accent="text-indigo-600 bg-indigo-50 border-indigo-100" />
-              <ExecutiveMetric icon={Zap} label="Total Events" value={stats.totalEvents} trend="+12% Active" trendType="up" accent="text-amber-600 bg-amber-50 border-amber-100" />
-              <ExecutiveMetric icon={Users} label="Total Students" value={stats.totalStudents} trend="+48 Users" trendType="up" accent="text-emerald-600 bg-emerald-50 border-emerald-100" />
-              <ExecutiveMetric icon={Clock} label="Pending Approvals" value={stats.pendingAdmins + stats.pendingEvents} trend="Needs Action" trendType="neutral" accent="text-slate-600 bg-slate-50 border-slate-100" />
+              <ExecutiveMetric
+                icon={Building2} label="Total Colleges" value={stats.totalColleges}
+                trend={`${stats.totalCollegeAdmins} Admins`} trendType="up"
+                accent="text-indigo-600 bg-indigo-50 border-indigo-100"
+                onClick={() => openDetailPanel('colleges')}
+              />
+              <ExecutiveMetric
+                icon={Zap} label="Total Events" value={stats.totalEvents}
+                trend={`${stats.ongoingEvents} Ongoing`} trendType="up"
+                accent="text-amber-600 bg-amber-50 border-amber-100"
+                onClick={() => openDetailPanel('events')}
+              />
+              <ExecutiveMetric
+                icon={Users} label="Total Students" value={stats.totalStudents}
+                trend={`${stats.totalRegistrations} Registrations`} trendType="up"
+                accent="text-emerald-600 bg-emerald-50 border-emerald-100"
+                onClick={() => openDetailPanel('students')}
+              />
+              <ExecutiveMetric
+                icon={Clock} label="Pending Approvals" value={stats.pendingAdmins + stats.pendingEvents}
+                trend={stats.pendingAdmins + stats.pendingEvents > 0 ? 'Needs Action' : 'All Clear'}
+                trendType={stats.pendingAdmins + stats.pendingEvents > 0 ? 'neutral' : 'up'}
+                accent="text-slate-600 bg-slate-50 border-slate-100"
+                onClick={() => openDetailPanel('approvals')}
+              />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
@@ -428,15 +477,125 @@ const AdminDashboard = () => {
             </section>
           </div>
         )}
+
+        {/* Slide-over Detail Panel */}
+        {detailPanel && (
+          <div className="fixed inset-0 z-[100] flex justify-end">
+            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" onClick={() => setDetailPanel(null)} />
+            <div className="relative w-full max-w-2xl bg-white h-full shadow-2xl flex flex-col animate-slide-left">
+              <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-900">{detailPanel.title}</h2>
+                  <p className="text-xs font-medium text-slate-400 mt-1">{detailPanel.data.length} Records found</p>
+                </div>
+                <button onClick={() => setDetailPanel(null)} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
+                  <XCircle className="w-6 h-6 text-slate-400" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-8">
+                {panelLoading ? (
+                  <div className="flex flex-col items-center justify-center h-64 gap-4">
+                    <div className="w-10 h-10 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin"></div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Fetching data...</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {detailPanel.type === 'colleges' && detailPanel.data.map(college => (
+                      <div key={college._id} className="p-4 border border-slate-100 rounded-2xl flex items-center justify-between hover:border-indigo-100 transition-colors">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center">
+                            <Building2 className="w-6 h-6 text-indigo-600" />
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-900">{college.name}</p>
+                            <p className="text-xs text-slate-500">{college.location || 'Location not set'}</p>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-black text-indigo-500 bg-indigo-50 px-2 py-1 rounded-lg uppercase">{college.code}</span>
+                      </div>
+                    ))}
+
+                    {detailPanel.type === 'events' && detailPanel.data.map(event => (
+                      <div key={event._id} className="p-4 border border-slate-100 rounded-2xl flex items-center gap-4 hover:border-indigo-100 transition-colors">
+                        <div className="w-16 h-16 rounded-xl bg-slate-100 overflow-hidden shrink-0">
+                          <img src={event.bannerImage || '/images/campus_life_professional.png'} className="w-full h-full object-cover" alt="" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-bold text-slate-900 line-clamp-1">{event.title}</p>
+                          <div className="flex items-center gap-3 mt-1">
+                            <span className="text-[9px] font-black text-indigo-500 uppercase">{event.category}</span>
+                            <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              {new Date(event.startDate).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+                        <span className={`text-[9px] font-black px-2 py-1 rounded-lg uppercase ${event.isApproved ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
+                          {event.isApproved ? 'Live' : 'Pending'}
+                        </span>
+                      </div>
+                    ))}
+
+                    {detailPanel.type === 'students' && detailPanel.data.map(student => (
+                      <div key={student._id} className="p-4 border border-slate-100 rounded-2xl flex items-center gap-4 hover:border-indigo-100 transition-colors">
+                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-500">
+                          {student.firstName[0]}{student.lastName[0]}
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-bold text-slate-900">{student.firstName} {student.lastName}</p>
+                          <p className="text-xs text-slate-400">{student.email}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] font-black text-slate-400 uppercase">{student.college?.code || 'N/A'}</p>
+                        </div>
+                      </div>
+                    ))}
+
+                    {detailPanel.type === 'approvals' && (
+                      <div className="space-y-8">
+                        <div>
+                          <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Pending Admins</h4>
+                          {detailPanel.data.admins?.length === 0 ? <p className="text-sm text-slate-300 italic">No pending admins</p> :
+                            detailPanel.data.admins?.map(admin => (
+                              <div key={admin._id} className="p-3 border-b border-slate-50 flex items-center justify-between">
+                                <span className="text-sm font-bold text-slate-700">{admin.firstName}</span>
+                                <button onClick={() => { setActiveTab('approvals'); setDetailPanel(null); }} className="text-[10px] font-black text-indigo-600 uppercase">View</button>
+                              </div>
+                            ))
+                          }
+                        </div>
+                        <div>
+                          <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Pending Events</h4>
+                          {detailPanel.data.events?.length === 0 ? <p className="text-sm text-slate-300 italic">No pending events</p> :
+                            detailPanel.data.events?.map(event => (
+                              <div key={event._id} className="p-3 border-b border-slate-50 flex items-center justify-between">
+                                <span className="text-sm font-bold text-slate-700">{event.title}</span>
+                                <button onClick={() => { setActiveTab('approvals'); setDetailPanel(null); }} className="text-[10px] font-black text-indigo-600 uppercase">View</button>
+                              </div>
+                            ))
+                          }
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );
 };
 
-const ExecutiveMetric = ({ icon: Icon, label, value, trend, trendType, accent }) => (
-  <div className="bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-md transition-shadow duration-300 overflow-hidden relative">
+const ExecutiveMetric = ({ icon: Icon, label, value, trend, trendType, accent, onClick }) => (
+  <div
+    onClick={onClick}
+    className="bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-xl hover:border-indigo-200 transition-all duration-300 overflow-hidden relative group cursor-pointer active:scale-[0.98]"
+  >
     <div className="flex justify-between items-start">
-      <div className={`p-2.5 rounded-xl border ${accent}`}>
+      <div className={`p-2.5 rounded-xl border group-hover:scale-110 transition-transform ${accent}`}>
         <Icon className="w-5 h-5" />
       </div>
       <div className={`flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full border border-slate-100 uppercase tracking-widest ${trendType === 'up' ? 'text-emerald-600 bg-emerald-50' :
@@ -449,8 +608,14 @@ const ExecutiveMetric = ({ icon: Icon, label, value, trend, trendType, accent })
     </div>
     <div className="mt-6 relative z-10">
       <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">{label}</p>
-      <p className="text-3xl font-bold text-slate-900 tracking-tight">{value}</p>
+      <div className="flex items-end justify-between">
+        <p className="text-3xl font-black text-slate-900 tracking-tight">{value}</p>
+        <div className="p-1 px-2 bg-slate-50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+          <ArrowRight className="w-4 h-4 text-indigo-600" />
+        </div>
+      </div>
     </div>
+    <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-indigo-50 rounded-full opacity-0 group-hover:opacity-20 transition-all duration-500" />
   </div>
 );
 
@@ -471,10 +636,11 @@ const EfficiencyRow = ({ label, value, progress }) => (
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
+    const value = payload[0].value || 0;
     return (
       <div className="bg-slate-900 border-none shadow-2xl rounded-2xl p-4 animate-fade-in translate-y-[-10px]">
-        <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">{label || 'Metric Data'}</p>
-        <p className="text-xl font-black text-white">{payload[0].value} <span className="text-[10px] font-bold text-indigo-400 uppercase ml-1">Volume</span></p>
+        <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 text-center">{label || 'Metric Data'}</p>
+        <p className="text-xl font-black text-white text-center">{value} <span className="text-[10px] font-bold text-indigo-400 uppercase ml-1">Volume</span></p>
       </div>
     );
   }
