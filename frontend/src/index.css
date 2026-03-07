@@ -152,3 +152,53 @@ label {
 @utility premium-card {
   @apply bg-white border border-slate-200 rounded-[2rem] p-8 transition-all duration-500 hover:border-indigo-200 hover:shadow-2xl hover:shadow-indigo-100/10;
 }
+
+/* Greta Dashboard Pack Tokens */
+@utility greta-card {
+  @apply bg-white border border-slate-100 rounded-2xl p-6 transition-all duration-300;
+  box-shadow: 0 4px 20px -5px rgba(0, 0, 0, 0.05);
+}
+
+@utility greta-card-hover {
+  @apply hover:shadow-xl hover:shadow-slate-200/50 hover:border-slate-200;
+}
+
+@utility accent-marketing {
+  @apply text-emerald-600 bg-emerald-50 border-emerald-100;
+}
+
+@utility accent-financial {
+  @apply text-amber-600 bg-amber-50 border-amber-100;
+}
+
+@utility accent-operations {
+  @apply text-indigo-600 bg-indigo-50 border-indigo-100;
+}
+
+@utility accent-support {
+  @apply text-purple-600 bg-purple-50 border-purple-100;
+}
+
+@utility accent-sales {
+  @apply text-rose-600 bg-rose-50 border-rose-100;
+}
+
+@utility accent-executive {
+  @apply text-slate-800 bg-slate-100 border-slate-200;
+}
+
+@utility stats-grid {
+  @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6;
+}
+
+@utility metric-card {
+  @apply greta-card flex flex-col justify-between h-32 relative overflow-hidden;
+}
+
+@utility metric-value {
+  @apply text-3xl font-black text-slate-900 tracking-tight;
+}
+
+@utility metric-label {
+  @apply text-[10px] font-bold text-slate-400 uppercase tracking-widest;
+}

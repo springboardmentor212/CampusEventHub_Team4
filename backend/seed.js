@@ -58,28 +58,28 @@ const seedData = async () => {
     const users = await User.create([
       {
         username: "superadmin",
-        email: "admin@campuseventhub.com",
-        password: "password123",
+        email: "229x1a2856@gprec.ac.in",
+        password: "pass123",
         role: "admin",
         college: colleges[0]._id,
-        firstName: "System",
-        lastName: "Administrator",
-        phone: "+1-555-0001",
-        officialId: "SA-001",
+        firstName: "UDAY",
+        lastName: "SOMAPURAM",
+        phone: "+91-9999999999",
+        officialId: "SUPER-ADM-001",
         isEmailVerified: true,
         isActive: true,
         isApproved: true,
         accountStatus: "active",
       },
       {
-        username: "college_admin_iot",
-        email: "admin@iot.edu",
-        password: "password123",
+        username: "college_admin",
+        email: "229x1a2856@gmail.com",
+        password: "pass123",
         role: "college_admin",
         college: colleges[0]._id,
-        firstName: "College",
-        lastName: "Admin",
-        phone: "+1-555-0101",
+        firstName: "COLLEGE",
+        lastName: "ADMIN",
+        phone: "+91-8888888888",
         officialId: "IOT-ADM-01",
         isEmailVerified: true,
         isActive: true,
@@ -87,58 +87,15 @@ const seedData = async () => {
         accountStatus: "active",
       },
       {
-        username: "college_admin_cos",
-        email: "admin@cos.edu",
-        password: "password123",
-        role: "college_admin",
-        college: colleges[1]._id,
-        firstName: "Science",
-        lastName: "Admin",
-        phone: "+1-555-0102",
-        officialId: "COS-ADM-01",
-        isEmailVerified: true,
-        isActive: true,
-        isApproved: true,
-        accountStatus: "active",
-      },
-      {
-        username: "student_alice",
-        email: "student1@iot.edu",
-        password: "password123",
+        username: "uday_student",
+        email: "udaysomapuram@gmail.com",
+        password: "pass123",
         role: "student",
         college: colleges[0]._id,
-        firstName: "Alice",
-        lastName: "Johnson",
-        phone: "+1-555-0111",
-        officialId: "IOT-ST-001",
-        isEmailVerified: true,
-        isActive: true,
-        isApproved: true,
-      },
-      {
-        username: "student_bob",
-        email: "student2@iot.edu",
-        password: "password123",
-        role: "student",
-        college: colleges[0]._id,
-        firstName: "Bob",
-        lastName: "Smith",
-        phone: "+1-555-0112",
-        officialId: "IOT-ST-002",
-        isEmailVerified: true,
-        isActive: true,
-        isApproved: true,
-      },
-      {
-        username: "student_carol",
-        email: "student1@cos.edu",
-        password: "password123",
-        role: "student",
-        college: colleges[1]._id,
-        firstName: "Carol",
-        lastName: "Williams",
-        phone: "+1-555-0121",
-        officialId: "COS-ST-001",
+        firstName: "UDAY",
+        lastName: "STUDENT",
+        phone: "+91-7777777777",
+        officialId: "ST-2026-UDAY",
         isEmailVerified: true,
         isActive: true,
         isApproved: true,
@@ -176,7 +133,7 @@ const seedData = async () => {
         startDate: nextWeek,
         endDate: new Date(nextWeek.getTime() + 2 * 24 * 60 * 60 * 1000),
         college: colleges[1]._id,
-        createdBy: users[2]._id,
+        createdBy: users[1]._id,
         isApproved: true,
         status: "upcoming",
         requirements: ["Sports gear"],
@@ -190,7 +147,7 @@ const seedData = async () => {
         startDate: today,
         endDate: new Date(today.getTime() + 5 * 60 * 60 * 1000),
         college: colleges[0]._id,
-        createdBy: users[1]._id,
+        createdBy: users[0]._id,
         isApproved: true,
         status: "ongoing",
       }
@@ -199,18 +156,16 @@ const seedData = async () => {
 
     // ─── Sample Registrations (Milestone-3 ready) ───────────────────────────
     await Registration.create([
-      { event: events[0]._id, user: users[3]._id, college: colleges[0]._id, status: "pending" },
-      { event: events[0]._id, user: users[4]._id, college: colleges[0]._id, status: "approved", approvalDate: new Date() },
-      { event: events[1]._id, user: users[5]._id, college: colleges[1]._id, status: "pending" },
+      { event: events[0]._id, user: users[2]._id, college: colleges[0]._id, status: "pending" },
+      { event: events[1]._id, user: users[2]._id, college: colleges[1]._id, status: "approved", approvalDate: new Date() },
     ]);
-    console.log("Created 3 sample registrations");
+    console.log("Created 2 sample registrations");
 
     console.log("\n=== Seed Data Created Successfully ===");
     console.log("\n=== Login Credentials ===");
-    console.log("Super Admin:"); console.log("  admin@campuseventhub.com / password123");
-    console.log("\nCollege Admin (IOT):"); console.log("  admin@iot.edu / password123");
-    console.log("\nCollege Admin (COS):"); console.log("  admin@cos.edu / password123");
-    console.log("\nStudents:"); console.log("  student1@iot.edu | student2@iot.edu | student1@cos.edu / password123");
+    console.log("Super Admin:"); console.log("  229x1a2856@gprec.ac.in / pass123");
+    console.log("\nCollege Admin:"); console.log("  229x1a2856@gmail.com / pass123");
+    console.log("\nStudent:"); console.log("  udaysomapuram@gmail.com / pass123");
 
     await mongoose.disconnect();
     console.log("\nDisconnected from MongoDB");

@@ -194,13 +194,25 @@ const EventRegistrations = () => {
                                                     </div>
                                                     <div>
                                                         <h5 className="text-sm font-bold text-slate-900">{reg.user?.firstName} {reg.user?.lastName}</h5>
-                                                        <div className="flex items-center gap-3 mt-1 text-slate-400">
-                                                            <span className="text-[10px] font-bold uppercase tracking-tighter">ID: {reg.user?.officialId}</span>
-                                                            <span className="opacity-20">|</span>
-                                                            <span className="text-[10px] font-bold uppercase tracking-tighter flex items-center gap-1">
-                                                                <School className="w-3 h-3" />
-                                                                {reg.user?.college?.name}
-                                                            </span>
+                                                        <div className="flex flex-col gap-1 mt-1">
+                                                            <div className="flex items-center gap-2 text-slate-400">
+                                                                <span className="text-[10px] font-bold uppercase tracking-tighter">ID: {reg.user?.officialId}</span>
+                                                                <span className="opacity-20">|</span>
+                                                                <span className="text-[10px] font-bold uppercase tracking-tighter flex items-center gap-1">
+                                                                    <School className="w-3 h-3" />
+                                                                    {reg.user?.college?.name}
+                                                                </span>
+                                                            </div>
+                                                            {/* Custom Fields - Participation Protocol Responses */}
+                                                            {reg.customFields && Object.keys(reg.customFields).length > 0 && (
+                                                                <div className="flex flex-wrap gap-2 mt-2">
+                                                                    {Object.entries(reg.customFields).map(([key, val]) => (
+                                                                        <div key={key} className="px-2 py-0.5 bg-slate-50 border border-slate-100 rounded text-[8px] font-black uppercase tracking-widest text-slate-500">
+                                                                            <span className="opacity-50">{key}:</span> {val}
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </div>
