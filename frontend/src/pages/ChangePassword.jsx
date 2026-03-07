@@ -1,5 +1,6 @@
 import { useState } from "react";
 import DashboardLayout from "../components/DashboardLayout";
+import FormInput from "../components/FormInput";
 import API from "../api/axios";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -51,50 +52,35 @@ const ChangePassword = () => {
 
                 <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm p-8 md:p-12">
                     <form onSubmit={handleSubmit} className="space-y-6">
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest ml-1">Current Secret</label>
-                            <div className="relative">
-                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
-                                <input
-                                    type="password"
-                                    placeholder="••••••••"
-                                    required
-                                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:bg-white transition-all text-sm font-bold"
-                                    value={form.currentPassword}
-                                    onChange={(e) => setForm({ ...form, currentPassword: e.target.value })}
-                                />
-                            </div>
-                        </div>
+                        <FormInput
+                            label="Current Secret"
+                            icon={Lock}
+                            type="password"
+                            placeholder="••••••••"
+                            required
+                            value={form.currentPassword}
+                            onChange={(e) => setForm({ ...form, currentPassword: e.target.value })}
+                        />
 
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest ml-1">New Secret</label>
-                            <div className="relative">
-                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
-                                <input
-                                    type="password"
-                                    placeholder="••••••••"
-                                    required
-                                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:bg-white transition-all text-sm font-bold"
-                                    value={form.newPassword}
-                                    onChange={(e) => setForm({ ...form, newPassword: e.target.value })}
-                                />
-                            </div>
-                        </div>
+                        <FormInput
+                            label="New Secret"
+                            icon={Lock}
+                            type="password"
+                            placeholder="••••••••"
+                            required
+                            value={form.newPassword}
+                            onChange={(e) => setForm({ ...form, newPassword: e.target.value })}
+                        />
 
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest ml-1">Confirm New Secret</label>
-                            <div className="relative">
-                                <RefreshCw className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
-                                <input
-                                    type="password"
-                                    placeholder="••••••••"
-                                    required
-                                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:bg-white transition-all text-sm font-bold"
-                                    value={form.confirmPassword}
-                                    onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
-                                />
-                            </div>
-                        </div>
+                        <FormInput
+                            label="Confirm New Secret"
+                            icon={RefreshCw}
+                            type="password"
+                            placeholder="••••••••"
+                            required
+                            value={form.confirmPassword}
+                            onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+                        />
 
                         <button
                             type="submit"

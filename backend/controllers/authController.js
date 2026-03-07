@@ -16,6 +16,7 @@ const generateVerificationToken = () => {
 // Register a new user
 export const register = catchAsync(async (req, res, next) => {
   const { username, email, password, collegeId, firstName, lastName, phone, officialId, role } = req.body;
+  console.log(`[Registration] Request for ${email} with role: ${role}`);
 
   // Validate college exists
   const college = await College.findById(collegeId);
@@ -199,11 +200,21 @@ export const verifyEmail = catchAsync(async (req, res, next) => {
     }
   }
 
+  // Send welcome email to students immediately after verification
+  if (user.role === 'student') {
+    try {
+      const tpl = EmailTemplates.welcome(user.firstName);
+      await sendEmail({ email: user.email, ...tpl });
+    } catch (err) {
+      console.error("Welcome email failed after verification:", err);
+    }
+  }
+
   res.status(200).json({
     success: true,
     message: user.role === "student"
-      ? "Email verified! Your account is now active. You can log in."
-      : "Email verified! Your account is pending approval by the Super Admin.",
+      ? "Identity confirmed. Your account is now active. Please proceed to login."
+      : "Identity confirmed. Your application has been transmitted to the SuperAdmin for final authorization. You will be notified once activated.",
   });
 });
 
@@ -224,11 +235,24 @@ export const deleteAccountByToken = catchAsync(async (req, res, next) => {
     ));
   }
 
+  // If it was a college admin, notify super admins of the purge
+  if (user.role === 'college_admin' && !user.isApproved) {
+    const superAdmins = await User.find({ role: "admin" }).select("email");
+    superAdmins.forEach(async (admin) => {
+      await sendEmail({
+        email: admin.email,
+        subject: "Security Alert: Admin Application Purged",
+        message: `The application for ${user.firstName} (${user.email}) from ${user.college} was deleted by the user via the security bridge.`,
+        html: baseTemplate("Application Purged", `<p>The administrative application for <strong>${user.firstName}</strong> has been removed by the user using the 'I Didn't Sign Up' security link.</p>`)
+      }).catch(e => console.error("Purge notice failed", e));
+    });
+  }
+
   await User.findByIdAndDelete(user._id);
 
   res.status(200).json({
     success: true,
-    message: "Account removed successfully. Your email address is now free to use.",
+    message: "Identity record purged. Your email has been removed from our registration protocols.",
   });
 });
 
@@ -327,6 +351,8 @@ export const updateProfile = catchAsync(async (req, res, next) => {
   if (lastName !== undefined) allowedUpdates.lastName = lastName;
   if (phone !== undefined) allowedUpdates.phone = phone;
   if (avatar !== undefined) allowedUpdates.avatar = avatar;
+  if (req.body.academicClass !== undefined) allowedUpdates.academicClass = req.body.academicClass;
+  if (req.body.section !== undefined) allowedUpdates.section = req.body.section;
 
   const user = await User.findByIdAndUpdate(
     userId,
@@ -496,5 +522,55 @@ export const getAllColleges = catchAsync(async (req, res, next) => {
     success: true,
     results: colleges.length,
     data: { colleges }
+  });
+});
+
+// Admin: Manually create a student account
+export const createStudent = catchAsync(async (req, res, next) => {
+  const { username, email, password, firstName, lastName, phone, officialId, academicClass, section, collegeId } = req.body;
+
+  // Determination of college: SuperAdmin specifies collegeId, CollegeAdmin uses their own
+  let targetCollegeId = collegeId;
+  if (req.userRole === 'college_admin') {
+    targetCollegeId = req.user.college;
+  }
+
+  if (!targetCollegeId) return next(new AppError("College ID is required.", 400));
+
+  const existingUser = await User.findOne({ $or: [{ email }, { username }] });
+  if (existingUser) return next(new AppError("User already exists.", 400));
+
+  const newUser = new User({
+    username,
+    email,
+    password,
+    firstName,
+    lastName,
+    phone,
+    officialId,
+    academicClass,
+    section,
+    role: "student",
+    college: targetCollegeId,
+    isEmailVerified: true, // Manual creation skips email verification
+    isApproved: true,
+    isActive: true,
+    accountStatus: "active"
+  });
+
+  await newUser.save();
+
+  // Send welcome email
+  try {
+    const tpl = EmailTemplates.welcome(firstName);
+    await sendEmail({ email, ...tpl });
+  } catch (err) {
+    console.error("Welcome email failed:", err);
+  }
+
+  res.status(201).json({
+    success: true,
+    message: "Student account created manually.",
+    data: { user: newUser }
   });
 });

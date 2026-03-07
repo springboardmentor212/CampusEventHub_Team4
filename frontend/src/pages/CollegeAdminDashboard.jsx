@@ -19,302 +19,317 @@ import {
   Settings,
   UserCheck,
   AlertCircle,
-  Check
+  Check,
+  Zap,
+  Activity,
+  Shield,
+  ArrowUpRight,
+  ArrowDownRight,
+  PieChart as PieIcon,
+  Globe,
+  DollarSign,
+  Briefcase
 } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  BarChart, Bar, Cell, PieChart, Pie
-} from 'recharts';
+  BarChart, Bar, Cell, PieChart, Pie, Legend
+} from "recharts";
 
 const CollegeAdminDashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [analytics, setAnalytics] = useState(null);
-  const [pendingStudents, setPendingStudents] = useState([]);
+  const [registrations, setRegistrations] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#f43f5e', '#8b5cf6'];
+  const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f59e0b', '#10b981'];
 
-  const fetchData = async () => {
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const [dashRes, analyticsRes, studentRes] = await Promise.all([
+      const [statsRes, analyticsRes] = await Promise.all([
         API.get("/dashboards/college-admin"),
-        API.get("/dashboards/analytics"),
-        API.get("/auth/college/pending-students"),
+        API.get("/dashboards/analytics")
       ]);
-
-      setStats(dashRes.data.data);
+      setStats(statsRes.data.data);
       setAnalytics(analyticsRes.data.data);
-      setPendingStudents(studentRes.data.data.users);
+
+      // Fetch registrations — use my events list, then pull regs for each
+      const eventsRes = await API.get("/events/my/events");
+      const myEvents = eventsRes.data.data.events || [];
+      const allRegs = [];
+      await Promise.all(myEvents.slice(0, 5).map(async (ev) => {
+        try {
+          const r = await API.get(`/registrations/event/${ev._id}`);
+          allRegs.push(...(r.data.data.registrations || []));
+        } catch { /* event may have no registrations */ }
+      }));
+      setRegistrations(allRegs);
     } catch (err) {
-      toast.error("Failed to load dashboard data");
+      toast.error("Failed to load dashboard data.");
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (user?.isApproved) {
-      fetchData();
-    } else {
-      setLoading(false);
-    }
-  }, [user]);
-
-  const handleApproveStudent = async (id) => {
+  const handleApproval = async (regId, status) => {
     try {
-      await API.patch(`/auth/admin/approve-user/${id}`);
-      toast.success("Student approved successfully!");
-      setPendingStudents(prev => prev.filter((s) => s._id !== id));
-      fetchData();
+      await API.patch(`/registrations/${regId}/${status === 'confirmed' ? 'approve' : 'reject'}`);
+      toast.success(`Registration ${status}`);
+      fetchDashboardData();
     } catch (err) {
-      toast.error("Failed to approve student");
+      toast.error("Process failed");
     }
   };
 
-  const handleRejectStudent = async (id) => {
-    if (!window.confirm("Reject and delete this student registration?")) return;
-    try {
-      await API.delete(`/auth/admin/reject-user/${id}`);
-      toast.success("Student profile rejected");
-      setPendingStudents(prev => prev.filter((s) => s._id !== id));
-      fetchData();
-    } catch (err) {
-      toast.error("Failed to reject student");
-    }
-  };
-
-  if (!user?.isApproved && user?.role === "college_admin") {
+  if (loading || !stats) {
     return (
       <DashboardLayout>
-        <div className="flex flex-col items-center justify-center py-24 bg-white rounded-2xl border border-slate-200 shadow-sm max-w-2xl mx-auto mt-10">
-          <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-500 mb-6 border border-amber-100">
-            <Clock className="w-8 h-8" />
-          </div>
-          <h1 className="text-3xl font-bold text-slate-900 mb-4 tracking-tight">Access Restricted</h1>
-          <p className="text-slate-500 text-center px-12 leading-relaxed">
-            Your college administrator account for <strong>{user?.college?.name}</strong> is currently pending verification by the SuperAdmin.
-            We'll notify you via email as soon as your account is activated.
-          </p>
-          <div className="mt-8 px-5 py-2 bg-amber-50 text-amber-700 rounded-full text-[10px] font-bold uppercase tracking-widest border border-amber-200">
-            Status: Pending SuperAdmin Verification
-          </div>
+        <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
+          <div className="w-12 h-12 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin"></div>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Loading Dashboard...</p>
         </div>
       </DashboardLayout>
     );
   }
 
-  if (loading || !stats) return (
-    <DashboardLayout>
-      <div className="flex items-center justify-center h-64">
-        <div className="w-12 h-12 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin"></div>
-      </div>
-    </DashboardLayout>
-  );
-
   return (
     <DashboardLayout>
-      <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div>
-          <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">Institutional Portal</h1>
-          <p className="text-slate-500 font-medium mt-1">{user?.college?.name} Management Dashboard</p>
-        </div>
-        <div className="flex gap-3">
-          <button onClick={() => navigate("/create-event")} className="metallic-btn flex items-center gap-2">
-            <Plus className="w-4 h-4" />
-            New Event
-          </button>
-          <button onClick={() => navigate("/manage-events")} className="secondary-btn flex items-center gap-2">
-            <BarChart3 className="w-4 h-4" />
-            Manage
-          </button>
-        </div>
-      </div>
-
-      {/* Critical Alerts */}
-      {(stats.deadlineAlerts.length > 0 || stats.capacityAlerts.length > 0 || pendingStudents.length > 0) && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-          {stats.deadlineAlerts.length > 0 && (
-            <div className="bg-rose-50 border border-rose-100 p-4 rounded-2xl flex items-center gap-4">
-              <div className="w-10 h-10 bg-rose-100 text-rose-600 rounded-xl flex items-center justify-center flex-shrink-0">
-                <Clock className="w-5 h-5" />
-              </div>
-              <div>
-                <h4 className="text-rose-900 font-bold text-sm">Upcoming Deadlines</h4>
-                <p className="text-rose-700 text-[10px] font-medium uppercase tracking-wider">{stats.deadlineAlerts.length} Events closing soon</p>
-              </div>
+      <div className="max-w-7xl mx-auto space-y-10 animate-fade-in">
+        {/* Admin Header */}
+        <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div className="space-y-1">
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">College Dashboard</h1>
+              <span className="text-[10px] font-black bg-indigo-600 text-white px-3 py-1 rounded-full uppercase tracking-widest">Admin</span>
             </div>
-          )}
-          {stats.capacityAlerts.length > 0 && (
-            <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl flex items-center gap-4">
-              <div className="w-10 h-10 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center flex-shrink-0">
-                <Users className="w-5 h-5" />
-              </div>
-              <div>
-                <h4 className="text-amber-900 font-bold text-sm">High Occupancy</h4>
-                <p className="text-amber-700 text-[10px] font-medium uppercase tracking-wider">{stats.capacityAlerts.length} Events at 80%+</p>
-              </div>
-            </div>
-          )}
-          {pendingStudents.length > 0 && (
-            <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-2xl flex items-center gap-4 cursor-pointer hover:bg-indigo-100" onClick={() => navigate("/manage-users")}>
-              <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0">
-                <UserCheck className="w-5 h-5" />
-              </div>
-              <div>
-                <h4 className="text-indigo-900 font-bold text-sm">Student Requests</h4>
-                <p className="text-indigo-700 text-[10px] font-medium uppercase tracking-wider">{pendingStudents.length} Awaiting Review</p>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Analytics Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-        <StatCard icon={Calendar} label="All Events" value={stats.totalEvents} trend="+3.2%" color="indigo" />
-        <StatCard icon={Users} label="Total Reach" value={stats.totalParticipants} trend="+12.5%" color="emerald" />
-        <StatCard icon={TrendingUp} label="Total Bookings" value={stats.totalRegistrations} color="blue" />
-        <StatCard icon={UserCheck} label="Approval Rate" value="98.4%" color="rose" />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-        {/* Main Trend Chart */}
-        <div className="lg:col-span-2 bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h3 className="text-lg font-bold text-slate-900">Registration Trend</h3>
-              <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-1">Institutional Activity (Last 30 Days)</p>
-            </div>
-            <div className="flex gap-2">
-              <div className="w-3 h-3 bg-indigo-600 rounded-full"></div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Bookings</span>
-            </div>
+            <p className="text-slate-500 font-medium">Overview of your college's events and student engagement.</p>
           </div>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={analytics?.registrationTrend}>
-                <defs>
-                  <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.1} />
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="_id" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b' }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b' }} />
-                <Tooltip content={<CustomTooltip />} />
-                <Area type="monotone" dataKey="count" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorCount)" />
-              </AreaChart>
-            </ResponsiveContainer>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate("/create-event")}
+              className="px-6 py-3 bg-slate-900 text-white font-bold rounded-2xl flex items-center gap-2 hover:bg-slate-800 shadow-xl shadow-slate-200 transition-all active:scale-95"
+            >
+              <Plus className="w-5 h-5" />
+              Create Event
+            </button>
           </div>
+        </header>
+
+        {/* Marketing/Financial Metrics */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <MetricCard
+            icon={Briefcase}
+            label="Total Events"
+            value={stats.totalEvents}
+            trend={`${stats.upcomingCount} Upcoming`}
+            accent="text-indigo-600 bg-indigo-50 border-indigo-100"
+          />
+          <MetricCard
+            icon={Users}
+            label="Total Registrations"
+            value={stats.totalRegistrations}
+            trend={`${stats.totalParticipants} Total`}
+            accent="text-emerald-600 bg-emerald-50 border-emerald-100"
+          />
+          <MetricCard
+            icon={Clock}
+            label="Pending Approvals"
+            value={stats.pendingRegistrations}
+            trend="Needs Action"
+            accent="text-amber-600 bg-amber-50 border-amber-100"
+          />
+          <MetricCard
+            icon={Zap}
+            label="Average Capacity"
+            value={`${Math.round((stats.totalParticipants / (stats.totalEvents * 50 || 1)) * 100)}%`}
+            trend="Current Avg"
+            accent="text-purple-600 bg-purple-50 border-purple-100"
+          />
         </div>
 
-        {/* Secondary Chart/Info */}
-        <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center">
-          <h3 className="text-lg font-bold text-slate-900 w-full mb-8">Event Categories</h3>
-          <div className="flex-1 w-full h-full max-h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={analytics?.categoryDistribution || []}
-                  dataKey="count"
-                  nameKey="_id"
-                  innerRadius={50}
-                  outerRadius={80}
-                  paddingAngle={5}
-                >
-                  {analytics?.categoryDistribution.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="grid grid-cols-2 gap-4 w-full mt-6">
-            {analytics?.categoryDistribution.slice(0, 4).map((cat, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }}></div>
-                <span className="text-[10px] font-bold text-slate-600 uppercase truncate">{cat._id}</span>
-                <span className="text-[10px] font-bold text-slate-400 ml-auto">{cat.count}</span>
+        {/* Intelligence Area */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+          <div className="lg:col-span-2 greta-card greta-card-hover flex flex-col">
+            <div className="flex items-center justify-between mb-10">
+              <div className="flex flex-col">
+                <h3 className="font-bold text-xl text-slate-900 tracking-tight">Registration Analytics</h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Registrations over last 30 days</p>
               </div>
-            ))}
+              <div className="flex items-center gap-4">
+                <select className="bg-slate-50 border-none text-[10px] font-black uppercase rounded-lg px-2 py-1 outline-none cursor-pointer">
+                  <option>Rolling 30 Days</option>
+                  <option>Q1 Performance</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex-1 min-h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={analytics?.registrationTrend}>
+                  <defs>
+                    <linearGradient id="colorReg" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.15} />
+                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0.01} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="_id" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontBold: 'bold', fill: '#94a3b8' }} dy={10} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontBold: 'bold', fill: '#94a3b8' }} dx={-10} />
+                  <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#6366f1', strokeWidth: 1 }} />
+                  <Area type="monotone" dataKey="count" stroke="#6366f1" strokeWidth={4} fillOpacity={1} fill="url(#colorReg)" dot={{ r: 4, fill: '#6366f1', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6, strokeWidth: 0 }} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-        </div>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 mt-10">
-        {/* Student Request Table */}
-        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="p-6 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
-            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest flex items-center gap-2">
-              <Users className="w-4 h-4 text-indigo-500" />
-              Verification Queue
-            </h3>
-            <span className="text-[10px] font-bold bg-white px-2.5 py-1 rounded-full text-slate-500 border border-slate-200">{pendingStudents.length} Requests</span>
-          </div>
-          <div className="divide-y divide-slate-100">
-            {pendingStudents.length === 0 ? (
-              <div className="p-12 text-center text-slate-400 text-sm tracking-wide">Empty queue — all caught up!</div>
-            ) : (
-              pendingStudents.map(student => (
-                <div key={student._id} className="p-5 flex items-center justify-between hover:bg-slate-50 transition-colors">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-400 font-bold">
-                      {student.firstName[0]}{student.lastName[0]}
+          <div className="lg:col-span-1 space-y-8">
+            <div className="greta-card greta-card-hover border-amber-100 bg-amber-50/30">
+              <h3 className="font-bold text-slate-900 flex items-center gap-2 mb-6">
+                <AlertCircle className="w-5 h-5 text-amber-500" />
+                Alerts & Notifications
+              </h3>
+              <div className="space-y-4">
+                {stats.pendingRegistrations > 0 && (
+                  <div className="p-4 bg-white rounded-2xl border border-amber-100 flex items-center justify-between shadow-sm">
+                    <div className="flex flex-col">
+                      <span className="text-sm font-bold text-amber-900">{stats.pendingRegistrations} Registrations</span>
+                      <span className="text-[10px] text-amber-600 font-bold uppercase">Pending Clearance</span>
                     </div>
-                    <div>
-                      <p className="text-sm font-bold text-slate-900">{student.firstName} {student.lastName}</p>
-                      <p className="text-[10px] font-medium text-slate-500 uppercase tracking-tighter">ID: {student.officialId}</p>
-                    </div>
+                    <div className="w-2 h-2 bg-amber-500 rounded-full animate-ping" />
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleApproveStudent(student._id)}
-                      className="p-2 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100 hover:bg-emerald-600 hover:text-white transition-all active:scale-95"
-                    >
-                      <Check className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleRejectStudent(student._id)}
-                      className="p-2 bg-rose-50 text-rose-600 rounded-lg border border-rose-100 hover:bg-rose-600 hover:text-white transition-all active:scale-95"
-                    >
-                      <XCircle className="w-4 h-4" />
+                )}
+                {stats.pendingApprovalCount > 0 && (
+                  <div className="p-4 bg-white rounded-2xl border border-indigo-100 flex items-center justify-between shadow-sm">
+                    <div className="flex flex-col">
+                      <span className="text-sm font-bold text-indigo-900">{stats.pendingApprovalCount} Proposals</span>
+                      <span className="text-[10px] text-indigo-600 font-bold uppercase">Awaiting SuperAdmin</span>
+                    </div>
+                    <button onClick={() => navigate('/manage-events')} className="p-2 bg-indigo-500 text-white rounded-lg">
+                      <ArrowUpRight className="w-4 h-4" />
                     </button>
                   </div>
-                </div>
-              ))
-            )}
-          </div>
-        </section>
-
-        {/* Top Events Table */}
-        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="p-6 bg-slate-50 border-b border-slate-100">
-            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-indigo-500" />
-              Popular Events
-            </h3>
-          </div>
-          <div className="divide-y divide-slate-100">
-            {stats.recentEvents.slice(0, 5).map(event => (
-              <div key={event._id} className="p-5 flex items-center border-l-4" style={{ borderColor: event.isApproved ? '#10b981' : '#f59e0b' }}>
-                <div className="flex-1">
-                  <p className="text-sm font-bold text-slate-900">{event.title}</p>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{event.category}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-bold text-indigo-600">{event.currentParticipants}<span className="text-[10px] font-medium text-slate-400 ml-1">Regs.</span></p>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase mt-0.5">{Math.round((event.currentParticipants / (event.maxParticipants || 1)) * 100)}% Cap.</p>
-                </div>
-                <button onClick={() => navigate(`/manage-events`)} className="p-2 ml-4 text-slate-300 hover:text-indigo-600 transition-colors">
-                  <ArrowRight className="w-4 h-4" />
-                </button>
+                )}
+                {stats.capacityAlerts.length > 0 && (
+                  <div className="p-4 bg-white rounded-2xl border border-rose-100 flex items-center justify-between shadow-sm">
+                    <div className="flex flex-col">
+                      <span className="text-sm font-bold text-rose-900">{stats.capacityAlerts.length} Events</span>
+                      <span className="text-[10px] text-rose-600 font-bold uppercase">Near Maximum Capacity</span>
+                    </div>
+                    <Activity className="w-4 h-4 text-rose-500" />
+                  </div>
+                )}
               </div>
-            ))}
+            </div>
+
+            <div className="greta-card greta-card-hover">
+              <h3 className="font-bold text-slate-900 mb-6 flex items-center gap-2">
+                <PieIcon className="w-5 h-5 text-indigo-500" />
+                Category Mix
+              </h3>
+              <div className="h-48">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={analytics?.categoryDistribution}
+                      dataKey="count"
+                      nameKey="_id"
+                      innerRadius={45}
+                      outerRadius={65}
+                      paddingAngle={5}
+                    >
+                      {analytics?.categoryDistribution.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Operational Flow: Approvals */}
+        <section className="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm shadow-slate-200/50">
+          <div className="px-8 py-6 border-b border-slate-50 bg-slate-50/50 flex justify-between items-center">
+            <div className="flex flex-col">
+              <h3 className="font-bold text-slate-900 flex items-center gap-3 text-xl">
+                <UserCheck className="w-6 h-6 text-indigo-600" />
+                Pending Registrations
+              </h3>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Approve or reject student registrations</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black bg-indigo-600 text-white px-3 py-1 rounded-full uppercase tracking-widest">{registrations.filter(r => r.status === 'pending').length} Pending</span>
+              <button onClick={fetchDashboardData} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                <Activity className="w-4 h-4 text-slate-400" />
+              </button>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="text-[10px] text-slate-400 uppercase tracking-widest bg-slate-50/20 border-b border-slate-50">
+                <tr>
+                  <th className="px-8 py-5 font-bold">Student</th>
+                  <th className="px-8 py-5 font-bold">Event</th>
+                  <th className="px-8 py-5 font-bold">Status</th>
+                  <th className="px-8 py-5 font-bold text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {registrations.filter(r => r.status === 'pending').length === 0 ? (
+                  <tr>
+                    <td colSpan="4" className="px-8 py-20 text-center">
+                      <div className="flex flex-col items-center opacity-40 grayscale">
+                        <Shield className="w-12 h-12 text-slate-300 mb-4" />
+                        <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">No pending registrations</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  registrations.filter(r => r.status === 'pending').map(reg => (
+                    <tr key={reg._id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="px-8 py-5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-900 font-black text-xs border border-slate-100">
+                            {reg.user?.firstName?.[0]}{reg.user?.lastName?.[0]}
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="font-bold text-slate-900">{reg.user?.firstName} {reg.user?.lastName}</span>
+                            <span className="text-xs text-slate-400 font-medium">{reg.user?.email}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-8 py-5">
+                        <div className="flex flex-col">
+                          <span className="text-sm text-slate-700 font-bold">{reg.event?.title}</span>
+                          <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">{reg.event?.category}</span>
+                        </div>
+                      </td>
+                      <td className="px-8 py-5">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                          <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Pending</span>
+                        </div>
+                      </td>
+                      <td className="px-8 py-5 text-right">
+                        <div className="flex items-center justify-end gap-3">
+                          <button onClick={() => handleApproval(reg._id, 'confirmed')} className="px-4 py-2 bg-slate-900 text-white text-[10px] font-black uppercase rounded-xl hover:bg-slate-800 shadow-xl shadow-slate-200 transition-all active:scale-95">Approve</button>
+                          <button onClick={() => handleApproval(reg._id, 'rejected')} className="p-2 border border-rose-100 text-rose-500 rounded-xl hover:bg-rose-50 transition-all active:scale-95">
+                            <XCircle className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </section>
       </div>
@@ -322,39 +337,29 @@ const CollegeAdminDashboard = () => {
   );
 };
 
-const StatCard = ({ icon: Icon, label, value, trend, color }) => {
-  const colorClasses = {
-    indigo: "bg-indigo-50 text-indigo-600 border-indigo-100",
-    emerald: "bg-emerald-50 text-emerald-600 border-emerald-100",
-    blue: "bg-blue-50 text-blue-600 border-blue-100",
-    rose: "bg-rose-50 text-rose-600 border-rose-100"
-  };
-
-  return (
-    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-      <div className="flex justify-between items-start mb-4">
-        <div className={`p-3 rounded-xl border ${colorClasses[color]}`}>
-          <Icon className="w-6 h-6" />
-        </div>
-        {trend && (
-          <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-1">
-            <TrendingUp className="w-3 h-3" />
-            {trend}
-          </span>
-        )}
+const MetricCard = ({ icon: Icon, label, value, trend, accent }) => (
+  <div className="bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-md transition-shadow duration-300 overflow-hidden relative">
+    <div className="flex justify-between items-start relative z-10">
+      <div className={`p-2.5 rounded-xl border ${accent}`}>
+        <Icon className="w-5 h-5" />
       </div>
-      <p className="stats-label">{label}</p>
-      <p className="stats-value mt-1">{value}</p>
+      <div className="flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full bg-slate-50 text-slate-500 border border-slate-100 uppercase tracking-widest">
+        {trend}
+      </div>
     </div>
-  );
-};
+    <div className="mt-6 relative z-10">
+      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">{label}</p>
+      <p className="text-3xl font-bold text-slate-900 tracking-tight">{value}</p>
+    </div>
+  </div>
+);
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-slate-900 border-none shadow-xl rounded-xl p-3">
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{label}</p>
-        <p className="text-lg font-bold text-white">{payload[0].value}</p>
+      <div className="bg-slate-900 border-none shadow-2xl rounded-2xl p-4 animate-fade-in translate-y-[-10px]">
+        <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">{label}</p>
+        <p className="text-xl font-black text-white">{payload[0].value} <span className="text-[10px] font-bold text-indigo-400 uppercase ml-1">Enrollees</span></p>
       </div>
     );
   }

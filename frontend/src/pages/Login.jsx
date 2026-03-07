@@ -1,20 +1,21 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import useAuth from "../hooks/useAuth";
+import FormInput from "../components/FormInput";
 import {
   Mail,
   Lock,
   Eye,
   EyeOff,
-  ChevronRight,
-  Calendar,
   ArrowRight,
-  ShieldCheck
+  ShieldCheck,
+  CheckCircle2,
+  LockKeyhole
 } from "lucide-react";
 
 const Login = () => {
-  const { login } = useAuth();
+  const { login, user } = useAuth();
   const navigate = useNavigate();
 
   const [email, setEmail] = useState("");
@@ -22,16 +23,24 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  useEffect(() => {
+    if (user) {
+      if (user.role === "admin") navigate("/superadmin");
+      else if (user.role === "college_admin") navigate("/admin");
+      else navigate("/student");
+    }
+  }, [user, navigate]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    const loadingToast = toast.loading("Authenticating secure credentials...");
+    const loadingToast = toast.loading("Verifying access...");
     try {
       const loggedUser = await login(email, password);
-      toast.success("Identity verified. Welcome back.", { id: loadingToast });
+      toast.success("Welcome back!", { id: loadingToast });
 
-      if (loggedUser.role === "admin") navigate("/admin");
-      else if (loggedUser.role === "college_admin") navigate("/college-admin");
+      if (loggedUser.role === "admin") navigate("/superadmin");
+      else if (loggedUser.role === "college_admin") navigate("/admin");
       else navigate("/student");
     } catch (err) {
       toast.error(err.response?.data?.message || "Invalid credentials", { id: loadingToast });
@@ -41,96 +50,100 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 relative overflow-hidden">
-      {/* Decorative Elements */}
-      <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
-        <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-indigo-500/5 rounded-full blur-[120px]"></div>
-        <div className="absolute -bottom-[10%] -right-[10%] w-[40%] h-[40%] bg-purple-500/5 rounded-full blur-[120px]"></div>
-      </div>
-
-      <div className="w-full max-w-[480px] animate-fade-in z-10">
-        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-2xl shadow-indigo-100/50 overflow-hidden">
-          {/* Header */}
-          <div className="p-10 pb-4 text-center">
-            <div className="flex justify-center mb-8">
-              <div className="w-16 h-16 bg-indigo-600 rounded-[1.25rem] flex items-center justify-center shadow-lg shadow-indigo-200">
-                <Calendar className="text-white w-8 h-8" />
-              </div>
-            </div>
-            <h1 className="text-3xl font-black text-slate-900 tracking-tight">CampusEventHub</h1>
-            <p className="text-slate-400 text-sm mt-3 font-bold uppercase tracking-widest text-[10px]">Institutional Control Center</p>
+    <div className="h-screen bg-white flex flex-col md:flex-row overflow-hidden">
+      {/* Visual Section */}
+      <div className="hidden md:flex md:w-1/2 relative p-12 bg-slate-50 border-r border-slate-100 items-center justify-center">
+        <div className="relative z-10 w-full max-w-lg mx-auto flex flex-col">
+          <div className="mb-8">
+            <span className="inline-badge">University Partner</span>
+            <h1 className="editorial-header mt-4">
+              Connect. Engage. Succeed.
+            </h1>
+            <p className="mt-4 text-slate-600 text-lg">
+              The simplest way to discover and manage campus events.
+            </p>
           </div>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="p-10 pt-6 space-y-7">
-            <div className="space-y-2">
-              <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em] ml-1">Secure Email</label>
-              <div className="relative group">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-indigo-600 transition-colors" />
-                <input
-                  type="email"
-                  placeholder="name@university.edu"
-                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:bg-white focus:border-indigo-600 focus:ring-4 focus:ring-indigo-600/5 transition-all text-sm font-bold"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
+          <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-slate-200">
+            <img
+              src="/images/campus_life_professional.png"
+              alt="Campus Life"
+              className="w-full h-auto object-cover"
+            />
+          </div>
+        </div>
+      </div>
 
-            <div className="space-y-2">
-              <div className="flex justify-between items-center ml-1">
-                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em]">Access Secret</label>
-                <Link to="/forgot-password" title="Forgot Password" className="text-[10px] font-extrabold text-indigo-600 uppercase tracking-wider hover:underline">Reset</Link>
-              </div>
-              <div className="relative group">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-indigo-600 transition-colors" />
-                <input
-                  type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
-                  className="w-full pl-12 pr-12 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:bg-white focus:border-indigo-600 focus:ring-4 focus:ring-indigo-600/5 transition-all text-sm font-bold"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
+      {/* Form Section */}
+      <div className="flex-1 flex flex-col items-center justify-center p-8 md:p-12 lg:p-24 bg-white overflow-y-auto no-scrollbar">
+        <div className="w-full max-w-sm">
+          <header className="mb-10">
+            <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Sign In</h2>
+            <p className="text-slate-500 mt-2 font-medium">Access your campus dashboard</p>
+          </header>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <FormInput
+              label="Email Address"
+              icon={Mail}
+              type="email"
+              placeholder="uday.somapuram@university.edu"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+
+            <FormInput
+              label="Password"
+              icon={Lock}
+              type={showPassword ? "text" : "password"}
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              suffix={
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-600 transition-colors"
+                  className="text-slate-400 hover:text-indigo-600 transition-colors p-1"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
-              </div>
+              }
+            />
+
+            <div className="flex justify-end -mt-4">
+              <Link to="/forgot-password" title="Forgot Password" className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 uppercase tracking-widest">Forgot Account Secret?</Link>
             </div>
 
             <button
               type="submit"
               disabled={isSubmitting}
-              className="metallic-btn w-full py-4 mt-4 shadow-indigo-100"
+              className="hero-btn w-full mt-2"
             >
-              Authorize Access
+              {isSubmitting ? "Signing In..." : "Sign In"}
               <ArrowRight className="w-4 h-4" />
             </button>
 
-            <div className="pt-6 border-t border-slate-50 text-center space-y-4">
-              <p className="text-xs font-bold text-slate-400">
-                No authorized profile?{" "}
-                <Link to="/register" className="text-indigo-600 hover:underline underline-offset-4">Register Account</Link>
+            <div className="pt-6 text-center">
+              <p className="text-sm font-medium text-slate-500">
+                New member?{" "}
+                <Link to="/register" className="text-indigo-600 hover:text-indigo-700 font-bold transition-colors">Create an account</Link>
               </p>
-              <Link to="/resend-verification" className="block text-[10px] font-extrabold text-slate-300 hover:text-indigo-600 uppercase tracking-[0.15em] transition-colors">
-                Request Verification Link
-              </Link>
             </div>
           </form>
-        </div>
 
-        <div className="mt-8 flex items-center justify-center gap-6">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-emerald-500" />
-            <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">SSL Encrypted</span>
+          {/* Minimal Trust Footer */}
+          <div className="mt-12 flex items-center justify-center gap-6 border-t border-slate-100 pt-8 opacity-60">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-3 h-3 text-slate-400" />
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Secure Base</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-3 h-3 text-slate-400" />
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Campus Verified</span>
+            </div>
           </div>
-          <div className="w-1 h-1 bg-slate-300 rounded-full"></div>
-          <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Version 2.4.0</span>
         </div>
       </div>
     </div>
@@ -138,3 +151,4 @@ const Login = () => {
 };
 
 export default Login;
+

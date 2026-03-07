@@ -1,6 +1,15 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import API from "../api/axios";
+import {
+    Trash2,
+    CheckCircle2,
+    AlertTriangle,
+    XCircle,
+    ArrowLeft,
+    Loader2,
+    Mail
+} from "lucide-react";
 
 const DeleteAccount = () => {
     const { token } = useParams();
@@ -26,64 +35,81 @@ const DeleteAccount = () => {
         if (token) deleteAcc();
     }, [token]);
 
+    const ui = {
+        loading: {
+            icon: Loader2,
+            color: "text-rose-600",
+            bg: "bg-rose-50",
+            title: "Processing Request",
+            desc: "Purger protocols in effect...",
+            animate: "animate-spin"
+        },
+        success: {
+            icon: CheckCircle2,
+            color: "text-emerald-600",
+            bg: "bg-emerald-50",
+            title: "Identity Purged",
+            desc: "Your university account and data have been removed."
+        },
+        active: {
+            icon: AlertTriangle,
+            color: "text-amber-600",
+            bg: "bg-amber-50",
+            title: "Account Active",
+            desc: "This account has already been verified and is operational."
+        },
+        invalid: {
+            icon: XCircle,
+            color: "text-slate-400",
+            bg: "bg-slate-50",
+            title: "Invalid Request",
+            desc: "This removal token is no longer valid or has expired."
+        },
+    };
+
+    const current = ui[status] || ui.invalid;
+    const Icon = current.icon;
+
     return (
-        <div className="min-h-screen bg-gradient-to-br from-red-50 to-rose-100 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 max-w-md w-full p-10 text-center">
-                {status === "loading" && (
-                    <>
-                        <div className="flex justify-center mb-4">
-                            <div className="w-10 h-10 border-4 border-red-200 border-t-red-500 rounded-full animate-spin" />
+        <div className="h-screen bg-white flex flex-col items-center justify-center p-8 animate-fade-in overflow-hidden">
+            <div className="w-full max-w-sm text-center space-y-8">
+                <div className={`w-20 h-20 mx-auto rounded-3xl ${current.bg} flex items-center justify-center border border-slate-100 shadow-sm`}>
+                    <Icon className={`w-10 h-10 ${current.color} ${current.animate || ''}`} />
+                </div>
+
+                <div className="space-y-3">
+                    <span className="inline-badge">Data Control</span>
+                    <h1 className="text-3xl font-black text-slate-900 tracking-tight">{current.title}</h1>
+                    <p className="text-slate-500 font-medium leading-relaxed">
+                        {status === "success" ? message : current.desc}
+                    </p>
+                </div>
+
+                <div className="pt-4">
+                    {status === "active" ? (
+                        <div className="space-y-4">
+                            <a
+                                href="mailto:support@campuseventhub.com"
+                                className="hero-btn w-full py-4 text-sm bg-rose-600 hover:bg-rose-700 shadow-rose-200"
+                            >
+                                Contact Support
+                                <Mail className="w-4 h-4 ml-2" />
+                            </a>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
+                                If you did not initiate this, secure your email immediately.
+                            </p>
                         </div>
-                        <p className="text-gray-500">Processing your request...</p>
-                    </>
-                )}
+                    ) : (
+                        <Link to="/" className="hero-btn w-full py-4 text-sm group">
+                            Return to Homepage
+                            <ArrowLeft className="w-4 h-4 ml-2" />
+                        </Link>
+                    )}
+                </div>
 
-                {status === "success" && (
-                    <>
-                        <div className="w-20 h-20 rounded-full bg-green-50 flex items-center justify-center text-4xl mx-auto mb-6">🗑️</div>
-                        <h1 className="text-2xl font-bold text-gray-900 mb-3">Account Removed</h1>
-                        <p className="text-gray-500 mb-6">{message}</p>
-                        <p className="text-sm text-gray-400">
-                            Your email address is free to use. If you believe this was a mistake, please contact{" "}
-                            <a href="mailto:support@campuseventhub.com" className="text-indigo-500 underline">support</a>.
-                        </p>
-                    </>
-                )}
-
-                {status === "active" && (
-                    <>
-                        <div className="w-20 h-20 rounded-full bg-yellow-50 flex items-center justify-center text-4xl mx-auto mb-6">⚠️</div>
-                        <h1 className="text-2xl font-bold text-gray-900 mb-3">Account Already Active</h1>
-                        <p className="text-gray-500 mb-6">
-                            This account has already been verified and is active. If you believe someone else created it using your email,
-                            please contact support immediately.
-                        </p>
-                        <a
-                            href="mailto:support@campuseventhub.com"
-                            className="inline-block w-full py-3 bg-red-500 text-white font-semibold rounded-xl hover:bg-red-600 transition-all mb-3"
-                        >
-                            Contact Support
-                        </a>
-                    </>
-                )}
-
-                {status === "invalid" && (
-                    <>
-                        <div className="w-20 h-20 rounded-full bg-gray-50 flex items-center justify-center text-4xl mx-auto mb-6">❌</div>
-                        <h1 className="text-2xl font-bold text-gray-900 mb-3">Link Invalid</h1>
-                        <p className="text-gray-500 mb-6">{message}</p>
-                    </>
-                )}
-
-                {status !== "loading" && (
-                    <Link to="/" className="text-sm text-indigo-500 hover:underline mt-2 block">
-                        ← Back to Home
-                    </Link>
-                )}
-
-                <p className="text-xs text-gray-400 mt-6">
-                    🎓 CampusEventHub · Account Management
-                </p>
+                <div className="pt-12 border-t border-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">
+                    🎓 CampusHub Identity Protocols
+                </div>
             </div>
         </div>
     );

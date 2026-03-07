@@ -3,6 +3,32 @@ import DashboardLayout from "../components/DashboardLayout";
 import API from "../api/axios";
 import toast from "react-hot-toast";
 import { useNavigate, useParams } from "react-router-dom";
+import FormInput from "../components/FormInput";
+import ImageUpload from "../components/ImageUpload";
+import {
+    Plus,
+    MapPin,
+    Type,
+    Calendar,
+    Users,
+    ListRestart,
+    ArrowRight,
+    ChevronDown,
+    Clock,
+    FileText,
+    Target,
+    Save,
+    RotateCcw,
+    ShieldAlert,
+    Zap,
+    Image as ImageIcon,
+    Trash2,
+    Settings,
+    Activity,
+    Layers,
+    Globe,
+    CreditCard
+} from "lucide-react";
 
 const EditEvent = () => {
     const { id } = useParams();
@@ -11,14 +37,21 @@ const EditEvent = () => {
     const [form, setForm] = useState({
         title: "",
         description: "",
-        category: "workshop",
+        category: "Workshop",
         location: "",
         startDate: "",
         endDate: "",
         registrationDeadline: "",
         maxParticipants: "",
-        requirements: ""
+        requirements: "",
+        dosAndDonts: "",
+        bannerImage: "",
+        participationMode: "solo",
+        isTeamEvent: false,
+        participationRequirements: []
     });
+
+    const categories = ["Workshop", "Seminar", "Cultural", "Sports", "Technical", "Hackathon", "Other"];
 
     useEffect(() => {
         const fetchEvent = async () => {
@@ -26,8 +59,8 @@ const EditEvent = () => {
                 const res = await API.get(`/events/${id}`);
                 const event = res.data.data.event;
 
-                // Format dates for datetime-local input
                 const formatForInput = (dateStr) => {
+                    if (!dateStr) return "";
                     const d = new Date(dateStr);
                     return d.toISOString().slice(0, 16);
                 };
@@ -35,16 +68,21 @@ const EditEvent = () => {
                 setForm({
                     title: event.title,
                     description: event.description,
-                    category: event.category,
+                    category: event.category.charAt(0).toUpperCase() + event.category.slice(1),
                     location: event.location,
                     startDate: formatForInput(event.startDate),
                     endDate: formatForInput(event.endDate),
                     registrationDeadline: event.registrationDeadline ? formatForInput(event.registrationDeadline) : "",
                     maxParticipants: event.maxParticipants || "",
-                    requirements: event.requirements ? event.requirements.join(", ") : ""
+                    requirements: event.requirements ? event.requirements.join(", ") : "",
+                    dosAndDonts: event.dosAndDonts ? event.dosAndDonts.join(", ") : "",
+                    bannerImage: event.bannerImage || "",
+                    participationMode: event.participationMode || "solo",
+                    isTeamEvent: !!event.isTeamEvent,
+                    participationRequirements: event.participationRequirements || []
                 });
             } catch (err) {
-                toast.error("Failed to load event details");
+                toast.error("Failed to load event details.");
                 navigate("/manage-events");
             } finally {
                 setLoading(false);
@@ -53,219 +91,331 @@ const EditEvent = () => {
         fetchEvent();
     }, [id, navigate]);
 
+    const addRequirement = () => {
+        setForm({
+            ...form,
+            participationRequirements: [
+                ...form.participationRequirements,
+                { label: "", fieldType: "text", isRequired: true }
+            ]
+        });
+    };
+
+    const removeRequirement = (idx) => {
+        const updated = [...form.participationRequirements];
+        updated.splice(idx, 1);
+        setForm({ ...form, participationRequirements: updated });
+    };
+
+    const updateRequirement = (idx, field, value) => {
+        const updated = [...form.participationRequirements];
+        updated[idx][field] = value;
+        setForm({ ...form, participationRequirements: updated });
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
-        const loadingToast = toast.loading("Updating event...");
+        const loadingToast = toast.loading("Saving changes...");
 
         const requirementsArray = form.requirements
             ? form.requirements.split(",").map(req => req.trim()).filter(req => req !== "")
             : [];
 
+        const dosArray = form.dosAndDonts
+            ? form.dosAndDonts.split(",").map(d => d.trim()).filter(d => d !== "")
+            : [];
+
+        // Validate date ordering
+        if (form.registrationDeadline && form.startDate) {
+            if (new Date(form.registrationDeadline) >= new Date(form.startDate)) {
+                toast.error("Registration deadline must be before the event start time.", { id: loadingToast });
+                return;
+            }
+        }
+        if (form.startDate && form.endDate) {
+            if (new Date(form.startDate) >= new Date(form.endDate)) {
+                toast.error("Event start time must be before the end time.", { id: loadingToast });
+                return;
+            }
+        }
+
         try {
             await API.patch(`/events/${id}`, {
                 ...form,
+                category: form.category.toLowerCase(),
                 requirements: requirementsArray,
+                dosAndDonts: dosArray,
                 maxParticipants: form.maxParticipants ? parseInt(form.maxParticipants) : null
             });
             toast.success("Event updated successfully!", { id: loadingToast });
             navigate("/manage-events");
         } catch (err) {
-            toast.error(err.response?.data?.message || "Failed to update event", { id: loadingToast });
+            toast.error(err.response?.data?.message || "Failed to save changes. Try again.", { id: loadingToast });
         }
     };
 
     if (loading) return (
         <DashboardLayout>
-            <div className="flex justify-center py-20">
-                <div className="w-16 h-16 border-4 border-black/20 border-t-black rounded-full animate-spin"></div>
+            <div className="h-[70vh] flex items-center justify-center">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-12 h-12 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin"></div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Loading Event Details...</span>
+                </div>
             </div>
         </DashboardLayout>
     );
 
     return (
         <DashboardLayout>
-            <main className="w-full max-w-2xl space-y-8 mx-auto">
-                <header className="text-left space-y-2 mb-8">
-                    <h1 className="text-2xl text-gray-800 font-normal tracking-wide">
-                        Edit Event...
-                    </h1>
-                    <p className="text-gray-500 text-base font-light">
-                        Update the details of your campus event
-                    </p>
+            <div className="max-w-6xl mx-auto space-y-12 animate-fade-in pb-20">
+                {/* Header Section */}
+                <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+                    <div>
+                        <div className="flex items-center gap-3 mb-4">
+                            <span className="px-3 py-1 bg-amber-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg">Edit Event</span>
+                        </div>
+                        <h1 className="text-5xl font-black text-slate-900 tracking-tight italic">Update Event Details.</h1>
+                        <p className="text-slate-500 mt-3 font-medium text-lg">Adjust the specifications and information of your event.</p>
+                    </div>
+                    <div className="flex gap-4">
+                        <button onClick={() => navigate(-1)} className="px-6 py-3 border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-50 transition-all">Cancel Changes</button>
+                    </div>
                 </header>
 
-                <form onSubmit={handleSubmit} className="space-y-8">
-                    {/* Field: Event Title */}
-                    <div className="space-y-2">
-                        <label className="block text-gray-800 text-base" htmlFor="event-title">
-                            Event Title *..
-                        </label>
-                        <input
-                            required
-                            className="metallic-input w-full rounded-2xl py-3 px-5 text-gray-800 placeholder-gray-600 shadow-sm"
-                            id="event-title"
-                            placeholder="Enter event title........."
-                            type="text"
-                            value={form.title}
-                            onChange={(e) => setForm({ ...form, title: e.target.value })}
-                        />
-                    </div>
-
-                    {/* Field: Description */}
-                    <div className="space-y-2">
-                        <label className="block text-gray-800 text-base" htmlFor="description">
-                            Description *..
-                        </label>
-                        <textarea
-                            required
-                            className="metallic-input w-full rounded-2xl py-3 px-5 text-gray-800 placeholder-gray-600 shadow-sm resize-none"
-                            id="description"
-                            placeholder="Describe your event..."
-                            rows="4"
-                            value={form.description}
-                            onChange={(e) => setForm({ ...form, description: e.target.value })}
-                        ></textarea>
-                    </div>
-
-                    {/* Field: Location */}
-                    <div className="space-y-2">
-                        <label className="block text-gray-800 text-base" htmlFor="location">
-                            Location *..
-                        </label>
-                        <input
-                            required
-                            className="metallic-input w-full rounded-2xl py-3 px-5 text-gray-800 placeholder-gray-600 shadow-sm"
-                            id="location"
-                            placeholder="Where is this event happening?........."
-                            type="text"
-                            value={form.location}
-                            onChange={(e) => setForm({ ...form, location: e.target.value })}
-                        />
-                    </div>
-
-                    {/* Field: Requirements */}
-                    <div className="space-y-2">
-                        <label className="block text-gray-800 text-base" htmlFor="requirements">
-                            Requirements (Optional)..
-                        </label>
-                        <input
-                            className="metallic-input w-full rounded-2xl py-3 px-5 text-gray-800 placeholder-gray-600 shadow-sm"
-                            id="requirements"
-                            placeholder="Comma separated: Laptop, Id Card, etc........."
-                            type="text"
-                            value={form.requirements}
-                            onChange={(e) => setForm({ ...form, requirements: e.target.value })}
-                        />
-                    </div>
-
-                    {/* Row: Dates */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        {/* Field: Start Date */}
-                        <div className="space-y-2">
-                            <label className="block text-gray-800 text-base" htmlFor="start-date">
-                                Start date *..
-                            </label>
-                            <input
-                                required
-                                className="metallic-input w-full rounded-2xl py-3 px-5 text-gray-800 shadow-sm"
-                                id="start-date"
-                                type="datetime-local"
-                                value={form.startDate}
-                                onChange={(e) => setForm({ ...form, startDate: e.target.value })}
-                            />
-                        </div>
-
-                        {/* Field: End Date */}
-                        <div className="space-y-2">
-                            <label className="block text-gray-800 text-base" htmlFor="end-date">
-                                End date *..
-                            </label>
-                            <input
-                                required
-                                className="metallic-input w-full rounded-2xl py-3 px-5 text-gray-800 shadow-sm"
-                                id="end-date"
-                                type="datetime-local"
-                                value={form.endDate}
-                                onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-                            />
-                        </div>
-                    </div>
-
-                    {/* Field: Category */}
-                    <div className="space-y-2">
-                        <label className="block text-gray-800 text-base" htmlFor="category">
-                            Category *..
-                        </label>
-                        <div className="relative">
-                            <select
-                                className="metallic-input w-full rounded-2xl py-3 px-5 text-gray-800 shadow-sm appearance-none"
-                                id="category"
-                                value={form.category}
-                                onChange={(e) => setForm({ ...form, category: e.target.value })}
-                            >
-                                <option value="workshop">Workshop</option>
-                                <option value="sports">Sports</option>
-                                <option value="cultural">Cultural</option>
-                                <option value="hackathon">Hackathon</option>
-                                <option value="seminar">Seminar</option>
-                                <option value="technical">Technical</option>
-                            </select>
-                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-700">
-                                <i className="fas fa-chevron-down"></i>
+                <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+                    {/* Left Column: Visual & Configuration */}
+                    <div className="lg:col-span-2 space-y-12">
+                        {/* 1. Visual Identity */}
+                        <section className="bg-white border border-slate-100 rounded-[3rem] p-10 shadow-sm space-y-8">
+                            <div className="flex items-center gap-3 pb-6 border-b border-slate-50">
+                                <div className="p-3 rounded-2xl bg-indigo-50 text-indigo-600">
+                                    <ImageIcon className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm italic">Cover Image</h3>
+                                    <p className="text-[10px] font-bold text-slate-400 mt-0.5">Banner image for the event.</p>
+                                </div>
                             </div>
-                        </div>
+
+                            <ImageUpload
+                                label="Update Cover Image"
+                                defaultValue={form.bannerImage}
+                                onUpload={(url) => setForm({ ...form, bannerImage: url })}
+                            />
+                        </section>
+
+                        {/* 2. Primary Configuration */}
+                        <section className="bg-white border border-slate-100 rounded-[3rem] p-10 shadow-sm space-y-10">
+                            <div className="flex items-center gap-3 pb-6 border-b border-slate-50">
+                                <div className="p-3 rounded-2xl bg-slate-900 text-white">
+                                    <Layers className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm italic">Basic Information</h3>
+                                    <p className="text-[10px] font-bold text-slate-400 mt-0.5">Adjust basic event details.</p>
+                                </div>
+                            </div>
+
+                            <FormInput
+                                label="Event Title"
+                                icon={Type}
+                                required
+                                value={form.title}
+                                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                            />
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                                <FormInput
+                                    label="Classification"
+                                    icon={Target}
+                                    value={form.category}
+                                    onChange={(e) => setForm({ ...form, category: e.target.value })}
+                                    suffix={<ChevronDown className="w-4 h-4 text-slate-400" />}
+                                >
+                                    {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                </FormInput>
+
+                                <FormInput
+                                    label="Location"
+                                    icon={MapPin}
+                                    required
+                                    value={form.location}
+                                    onChange={(e) => setForm({ ...form, location: e.target.value })}
+                                />
+                            </div>
+
+                            <FormInput
+                                label="Event Description"
+                                icon={FileText}
+                                type="textarea"
+                                required
+                                value={form.description}
+                                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                                rows={6}
+                            />
+                        </section>
+
+                        {/* 3. Participation Protocol */}
+                        <section className="bg-white border border-slate-100 rounded-[3rem] p-10 shadow-sm space-y-8">
+                            <div className="flex items-center justify-between pb-6 border-b border-slate-50">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-3 rounded-2xl bg-emerald-50 text-emerald-600">
+                                        <ShieldAlert className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm italic">Additional Fields</h3>
+                                        <p className="text-[10px] font-bold text-slate-400 mt-0.5">Custom information required from students.</p>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={addRequirement}
+                                    className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2"
+                                >
+                                    <Plus className="w-3 h-3" />
+                                    Add Field
+                                </button>
+                            </div>
+
+                            <div className="space-y-4">
+                                {form.participationRequirements.map((req, idx) => (
+                                    <div key={idx} className="flex flex-col md:flex-row gap-4 p-6 bg-slate-50 rounded-[2rem] relative group">
+                                        <div className="flex-1 space-y-4">
+                                            <FormInput
+                                                label="Field Name"
+                                                value={req.label}
+                                                onChange={(e) => updateRequirement(idx, "label", e.target.value)}
+                                            />
+                                            <div className="flex gap-4">
+                                                <select
+                                                    className="flex-1 bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-black text-slate-600 uppercase tracking-tighter"
+                                                    value={req.fieldType}
+                                                    onChange={(e) => updateRequirement(idx, "fieldType", e.target.value)}
+                                                >
+                                                    <option value="text">Text</option>
+                                                    <option value="number">Number</option>
+                                                    <option value="email">Email</option>
+                                                    <option value="file">File Upload</option>
+                                                </select>
+                                                <label className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="w-3.5 h-3.5 rounded-full border-slate-300 text-indigo-600"
+                                                        checked={req.isRequired}
+                                                        onChange={(e) => updateRequirement(idx, "isRequired", e.target.checked)}
+                                                    />
+                                                    <span className="text-[10px] font-black uppercase tracking-tighter text-slate-900">Required</span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => removeRequirement(idx)}
+                                            className="p-2 text-rose-400 hover:text-rose-600"
+                                        >
+                                            <Trash2 className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
                     </div>
 
-                    {/* Additional Options */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        {/* Field: Registration Deadline */}
-                        <div className="space-y-2">
-                            <label className="block text-gray-800 text-base" htmlFor="registrationDeadline">
-                                Registration Deadline (Optional)..
-                            </label>
-                            <input
-                                className="metallic-input w-full rounded-2xl py-3 px-5 text-gray-800 shadow-sm"
-                                id="registrationDeadline"
+                    {/* Right Column */}
+                    <div className="space-y-12">
+                        <section className="bg-white border border-slate-100 rounded-[3rem] p-10 shadow-sm space-y-10 sticky top-8">
+                            <div className="flex items-center gap-3 pb-6 border-b border-slate-50">
+                                <div className="p-3 rounded-2xl bg-amber-50 text-amber-600">
+                                    <Clock className="w-5 h-5" />
+                                </div>
+                                <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm italic">Schedule</h3>
+                            </div>
+
+                            <FormInput
+                                label="Registration Closes At"
+                                icon={Clock}
                                 type="datetime-local"
                                 value={form.registrationDeadline}
                                 onChange={(e) => setForm({ ...form, registrationDeadline: e.target.value })}
                             />
-                        </div>
 
-                        {/* Field: Max Participants */}
-                        <div className="space-y-2">
-                            <label className="block text-gray-800 text-base" htmlFor="maxParticipants">
-                                Max Participants (Optional)..
-                            </label>
-                            <input
-                                className="metallic-input w-full rounded-2xl py-3 px-5 text-gray-800 shadow-sm"
-                                id="maxParticipants"
-                                type="number"
-                                placeholder="Unlimited if empty"
-                                value={form.maxParticipants}
-                                onChange={(e) => setForm({ ...form, maxParticipants: e.target.value })}
+                            <FormInput
+                                label="Event Start Date & Time"
+                                icon={Calendar}
+                                type="datetime-local"
+                                required
+                                value={form.startDate}
+                                onChange={(e) => setForm({ ...form, startDate: e.target.value })}
                             />
-                        </div>
-                    </div>
 
-                    {/* Action Button */}
-                    <div className="pt-6 flex gap-4">
-                        <button
-                            type="button"
-                            onClick={() => navigate("/manage-events")}
-                            className="flex-1 bg-gray-400 hover:bg-gray-500 text-white font-medium py-3 px-6 rounded-2xl transition duration-200 ease-in-out shadow-md text-lg"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            className="flex-2 bg-[#92a1e3] hover:bg-[#8e9cd6] text-white font-medium py-3 px-6 rounded-2xl transition duration-200 ease-in-out shadow-md text-lg"
-                            type="submit"
-                        >
-                            Update Event..
-                        </button>
+                            <FormInput
+                                label="Event End Date & Time"
+                                icon={Calendar}
+                                type="datetime-local"
+                                required
+                                value={form.endDate}
+                                onChange={(e) => setForm({ ...form, endDate: e.target.value })}
+                            />
+
+                            <div className="pt-6 space-y-6 border-t border-slate-50">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-3 rounded-2xl bg-slate-50 text-slate-600">
+                                        <Users className="w-4 h-4" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Maximum Capacity</p>
+                                        <input
+                                            type="number"
+                                            placeholder="e.g. 500 (leave blank for unlimited)"
+                                            className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 placeholder:text-slate-300 outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition"
+                                            value={form.maxParticipants}
+                                            onChange={(e) => setForm({ ...form, maxParticipants: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center justify-between mt-6">
+                                    <div>
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Participation Style</p>
+                                        <p className="text-[10px] text-slate-500 mt-1">Select team configuration</p>
+                                    </div>
+                                    <select
+                                        className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-[9px] font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-indigo-100"
+                                        value={form.participationMode}
+                                        onChange={(e) => {
+                                            const mode = e.target.value;
+                                            setForm({
+                                                ...form,
+                                                participationMode: mode,
+                                                isTeamEvent: mode !== "solo"
+                                            });
+                                        }}
+                                    >
+                                        <option value="solo">Solo (Individual)</option>
+                                        <option value="duo">Duo (2 Members)</option>
+                                        <option value="trio">Trio (3 Members)</option>
+                                        <option value="quad">Quad (4 Members)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="pt-10 space-y-4">
+                                <button type="submit" className="hero-btn w-full py-6 group shadow-3xl shadow-amber-100/50 italic bg-slate-900 text-white hover:bg-slate-800">
+                                    <Zap className="w-5 h-5 group-hover:scale-125 transition-transform" />
+                                    Save Changes
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => navigate(-1)}
+                                    className="w-full py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors"
+                                >
+                                    Cancel Changes
+                                </button>
+                            </div>
+                        </section>
                     </div>
                 </form>
-            </main>
+            </div>
         </DashboardLayout>
     );
 };

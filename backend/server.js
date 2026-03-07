@@ -5,6 +5,8 @@ import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
+import path from "path";
+import { fileURLToPath } from "url";
 import authRoutes from "./routes/auth.js";
 import collegeRoutes from "./routes/colleges.js";
 import eventRoutes from "./routes/events.js";
@@ -14,6 +16,9 @@ import registrationRoutes from "./routes/registrations.js";
 import mediaRoutes from "./routes/media.js";
 import globalErrorHandler from "./middleware/errorMiddleware.js";
 import AppError from "./utils/appError.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /*
   Environment configuration 
@@ -47,6 +52,9 @@ app.use(
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cookieParser());
+
+// Serve locally uploaded images
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Rate Limiting
 const authLimiter = rateLimit({

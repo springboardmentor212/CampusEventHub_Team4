@@ -4,7 +4,7 @@ import { College } from "../models/College.js";
 import { Registration } from "../models/Registration.js";
 import AppError from "../utils/appError.js";
 import catchAsync from "../utils/catchAsync.js";
-import sendEmail from "../utils/emailService.js";
+import sendEmail, { EmailTemplates } from "../utils/emailService.js";
 import { logAdminAction } from "../utils/logger.js";
 import { notifyUser } from "../utils/notificationService.js";
 
@@ -15,7 +15,8 @@ export const createEvent = catchAsync(async (req, res, next) => {
 
   // SECURITY: Whitelist allowed fields — prevent injection of isApproved, currentParticipants etc.
   const { title, description, category, location, startDate, endDate, maxParticipants,
-    registrationDeadline, requirements, dosAndDonts, participationRequirements, imageUrl, bannerImage } = req.body;
+    registrationDeadline, requirements, dosAndDonts, participationRequirements, imageUrl, bannerImage,
+    isTeamEvent, minTeamSize, maxTeamSize, participationMode } = req.body;
 
   // Validate: Start date must be in the future
   if (new Date(startDate) <= new Date()) {
@@ -30,6 +31,7 @@ export const createEvent = catchAsync(async (req, res, next) => {
   const event = await Event.create({
     title, description, category, location, startDate, endDate, maxParticipants,
     registrationDeadline, requirements, dosAndDonts, participationRequirements, imageUrl, bannerImage,
+    isTeamEvent, minTeamSize, maxTeamSize, participationMode: participationMode || "solo",
     college: collegeId,
     createdBy: req.userId,
     isApproved: req.userRole === "admin", // SuperAdmins bypass approval
@@ -63,8 +65,7 @@ export const createEvent = catchAsync(async (req, res, next) => {
     // Send email using branded template
     try {
       const emailPromises = superAdmins.map(admin => {
-        const tpl = sendEmail.EmailTemplates ? sendEmail.EmailTemplates.newEventPending(event.title, user.college.name) : null;
-        if (!tpl) return Promise.resolve(); // Fallback if template missing
+        const tpl = EmailTemplates.newEventPending(event.title, user.college.name);
         return sendEmail({ email: admin.email, ...tpl });
       });
       Promise.allSettled(emailPromises);
@@ -118,10 +119,8 @@ export const approveEvent = catchAsync(async (req, res, next) => {
 
   // Notify creator via email non-blocking
   try {
-    if (sendEmail.EmailTemplates) {
-      const tpl = sendEmail.EmailTemplates.eventApproved(event.createdBy.firstName, event.title);
-      sendEmail({ email: event.createdBy.email, ...tpl }).catch(err => console.error(err));
-    }
+    const tpl = EmailTemplates.eventApproved(event.createdBy.firstName, event.title);
+    sendEmail({ email: event.createdBy.email, ...tpl }).catch(err => console.error(err));
   } catch (err) {
     console.error("Event approval email setup failed:", err);
   }
@@ -136,6 +135,8 @@ export const approveEvent = catchAsync(async (req, res, next) => {
 // Reject an event (SuperAdmin only)
 export const rejectEvent = catchAsync(async (req, res, next) => {
   const { id } = req.params;
+  const { reason } = req.body;
+
   const event = await Event.findById(id).populate("createdBy", "firstName lastName email");
 
   if (!event) {
@@ -151,16 +152,14 @@ export const rejectEvent = catchAsync(async (req, res, next) => {
     performedBy: req.userId,
     targetId: event._id,
     targetType: "Event",
-    details: { title: event.title },
+    details: { title: event.title, reason },
     ipAddress: req.ip,
   });
 
   // Notify creator via email non-blocking
   try {
-    if (sendEmail.EmailTemplates) {
-      const tpl = sendEmail.EmailTemplates.eventRejected(event.createdBy.firstName, event.title);
-      sendEmail({ email: event.createdBy.email, ...tpl }).catch(err => console.error(err));
-    }
+    const tpl = EmailTemplates.eventRejected(event.createdBy.firstName, event.title, reason || "Documentation requirements not met.");
+    sendEmail({ email: event.createdBy.email, ...tpl }).catch(err => console.error(err));
   } catch (err) {
     console.error("Event rejection email setup failed:", err);
   }
@@ -458,9 +457,9 @@ export const updateEvent = catchAsync(async (req, res, next) => {
     (req.body.title && req.body.title !== event.title);
 
   // SECURITY: Whitelist allowed update fields — prevent injecting isApproved, currentParticipants, createdBy etc
-  const allowedFields = ["title", "description", "category", "location", "startDate", "endDate",
-    "maxParticipants", "registrationDeadline", "requirements", "dosAndDonts", "participationRequirements",
-    "imageUrl", "bannerImage", "status"];
+  const allowedFields = ["title", "description", "category", "location", "startDate", "endDate", "maxParticipants",
+    "registrationDeadline", "requirements", "dosAndDonts", "participationRequirements", "bannerImage", "isTeamEvent",
+    "minTeamSize", "maxTeamSize", "participationMode"];
   const sanitizedUpdate = { updatedAt: Date.now() };
   for (const key of allowedFields) {
     if (req.body[key] !== undefined) sanitizedUpdate[key] = req.body[key];
@@ -479,19 +478,38 @@ export const updateEvent = catchAsync(async (req, res, next) => {
   // If critical change occurred, notify all registered students
   if (criticalChange) {
     try {
-      const registrations = await Registration.find({ event: id, status: "approved" });
-      const notificationPromises = registrations.map(reg =>
-        notifyUser({
-          recipientId: reg.user,
+      const registrations = await Registration.find({ event: id, status: "approved" }).populate("user", "email firstName");
+      const notificationPromises = registrations.map(async (reg) => {
+        await notifyUser({
+          recipientId: reg.user._id,
           type: "EVENT_MODIFIED",
           title: "Event Details Updated",
-          message: `Important: The details for "${event.title}" have been updated. Please check the dashboard for the new schedule/location.`,
+          message: `Important: The details for "${event.title}" have been updated. Please review the updated schedule.`,
           link: "/student"
-        })
-      );
+        });
+
+        try {
+          const tpl = EmailTemplates.eventModified(event.title, event.title);
+          await sendEmail({ email: reg.user.email, ...tpl });
+        } catch (e) { console.error("Update email failed", e); }
+      });
       await Promise.allSettled(notificationPromises);
     } catch (err) {
       console.error("Failed to notify students of event update:", err);
+    }
+
+    // Also notify SuperAdmin of critical edits if it's not them
+    if (req.userRole !== 'admin') {
+      const superAdmins = await User.find({ role: "admin" }).select("email");
+      superAdmins.forEach(async (admin) => {
+        await notifyUser({
+          recipientId: admin._id,
+          type: "ADMIN_ANNOUNCEMENT",
+          title: `Event Edit: ${event.title}`,
+          message: `College Admin ${req.user.firstName} modified critical details of event "${event.title}".`,
+          link: `/admin`,
+        });
+      });
     }
   }
 
@@ -526,7 +544,30 @@ export const deleteEvent = catchAsync(async (req, res, next) => {
   }
 
   // Soft delete by setting isActive to false
-  await Event.findByIdAndUpdate(id, { isActive: false });
+  await Event.findByIdAndUpdate(id, { isActive: false, status: "cancelled" });
+
+  // Notify registered students
+  try {
+    const registrations = await Registration.find({ event: id }).populate("user", "email firstName");
+    registrations.forEach(async (reg) => {
+      const tpl = EmailTemplates.eventCancelled(event.title);
+      await sendEmail({ email: reg.user.email, ...tpl });
+    });
+  } catch (e) { console.error("Deletion notification failed", e); }
+
+  // Notify SuperAdmin
+  if (req.userRole !== 'admin') {
+    const superAdmins = await User.find({ role: "admin" }).select("email");
+    superAdmins.forEach(async (admin) => {
+      await notifyUser({
+        recipientId: admin._id,
+        type: "ADMIN_ANNOUNCEMENT",
+        title: "Event Deleted",
+        message: `Administrative Notice: Event "${event.title}" has been removed by ${req.user.firstName}.`,
+        link: `/superadmin`,
+      });
+    });
+  }
 
   res.status(200).json({
     success: true,
