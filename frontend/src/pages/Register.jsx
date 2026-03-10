@@ -2,9 +2,26 @@ import { useState, useEffect } from "react";
 import API from "../api/axios";
 import { useNavigate, Link } from "react-router-dom";
 import toast from "react-hot-toast";
+import FormInput from "../components/FormInput";
+import {
+  User,
+  Mail,
+  ShieldCheck,
+  CheckCircle2,
+  MailCheck,
+  AlertTriangle,
+  ChevronDown,
+  Lock,
+  Eye,
+  EyeOff,
+  ArrowRight,
+  Sparkles
+} from "lucide-react";
+import useAuth from "../hooks/useAuth";
 
 const Register = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [form, setForm] = useState({
     username: "",
@@ -14,19 +31,27 @@ const Register = () => {
     confirmPassword: "",
     collegeId: "",
     role: "student",
+    officialId: "",
   });
   const [colleges, setColleges] = useState([]);
   const [loadingColleges, setLoadingColleges] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState(null);
+
+  useEffect(() => {
+    if (user) {
+      if (user.role === "admin") navigate("/superadmin");
+      else if (user.role === "college_admin") navigate("/admin");
+      else navigate("/student");
+    }
+  }, [user, navigate]);
 
   useEffect(() => {
     const fetchColleges = async () => {
       try {
         setLoadingColleges(true);
         const res = await API.get("/colleges");
-        if (res.data.success) {
-          setColleges(res.data.data.colleges);
-        }
+        if (res.data.success) setColleges(res.data.data.colleges);
       } catch (err) {
         toast.error("Failed to load university list");
       } finally {
@@ -38,18 +63,16 @@ const Register = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     if (form.password !== form.confirmPassword) {
-      toast.error("Passwords do not match");
+      toast.error("Security secrets do not match");
       return;
     }
-
     if (!form.collegeId) {
-      toast.error("Please select a college");
+      toast.error("Institution selection required");
       return;
     }
 
-    const loadingToast = toast.loading("Creating account...");
+    const loadingToast = toast.loading("Creating profile...");
     const nameParts = form.fullName.trim().split(/\s+/);
     const firstName = nameParts[0] || "";
     const lastName = nameParts.slice(1).join(" ") || "";
@@ -62,246 +85,194 @@ const Register = () => {
       lastName,
       collegeId: form.collegeId,
       role: form.role,
+      officialId: form.officialId,
     };
 
     try {
-      await API.post("/auth/register", payload);
-      toast.success("Registered Successfully! Please login.", { id: loadingToast });
-      navigate("/login");
+      const res = await API.post("/auth/register", payload);
+      toast.success("Profile initialized", { id: loadingToast });
+      setRegisteredEmail(res.data.data?.email || form.email);
     } catch (err) {
       toast.error(err.response?.data?.message || "Registration failed", { id: loadingToast });
     }
   };
 
-  return (
-    <div className="bg-gradient-to-br from-[#EEF2FF] to-[#F5F3FF] dark:from-gray-950 dark:to-gray-950 min-h-screen font-display text-[#111827] flex flex-col items-center justify-center px-4 py-8 relative">
-      <div className="w-full max-w-md bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-[#E5E7EB] dark:border-white/10 overflow-hidden">
-        <div className="px-6 pt-8 pb-4 text-center">
-          <div className="flex justify-center mb-4">
-            <div className="w-12 h-12 rounded-lg bg-[#5048e5] flex items-center justify-center text-white">
-              <span className="material-symbols-outlined text-3xl">school</span>
-            </div>
+  if (registeredEmail) {
+    const isAdmin = form.role === "college_admin";
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center p-6 animate-fade-in">
+        <div className="glass-card p-10 max-w-lg w-full text-center">
+          <div className="w-20 h-20 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 mx-auto mb-8">
+            <MailCheck className="w-10 h-10" />
           </div>
-          <h1 className="text-[28px] font-bold text-[#111827] dark:text-white leading-tight">
-            Create Account
-          </h1>
-          <p className="text-[#6B7280] dark:text-gray-400 mt-2">
-            Join the CampusEventHub community today.
+          <h1 className="text-3xl font-bold text-slate-900 mb-4 italic">Verification Required.</h1>
+          <p className="text-slate-500 mb-6 leading-relaxed">
+            We've transmitted a specialized identity bridge to: <br />
+            <span className="font-bold text-slate-900">{registeredEmail}</span>
           </p>
-        </div>
 
-        <div className="px-6 pb-8 space-y-4">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-[#111827] dark:text-gray-200">
-                Username
-              </label>
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xl">
-                  account_circle
-                </span>
-                <input
-                  required
-                  className="w-full h-12 pl-10 pr-4 rounded-lg border border-[#E5E7EB] focus:border-[#5048e5] focus:ring-2 focus:ring-[#5048e5]/20 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white transition-all outline-none"
-                  placeholder="johndoe123"
-                  type="text"
-                  value={form.username}
-                  onChange={(e) =>
-                    setForm({ ...form, username: e.target.value })
-                  }
-                />
+          <div className="bg-slate-50 rounded-2xl p-6 mb-8 text-left border border-slate-100">
+            <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 italic">Next Steps Sequence</h4>
+            <div className="space-y-4">
+              <div className="flex gap-4">
+                <div className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold">1</div>
+                <p className="text-xs font-bold text-slate-600">Access your institutional inbox and verify your identity.</p>
               </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-[#111827] dark:text-gray-200">
-                Full Name
-              </label>
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xl">
-                  person
-                </span>
-                <input
-                  required
-                  className="w-full h-12 pl-10 pr-4 rounded-lg border border-[#E5E7EB] focus:border-[#5048e5] focus:ring-2 focus:ring-[#5048e5]/20 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white transition-all outline-none"
-                  placeholder="John Doe"
-                  type="text"
-                  value={form.fullName}
-                  onChange={(e) =>
-                    setForm({ ...form, fullName: e.target.value })
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-[#111827] dark:text-gray-200">
-                Email Address
-              </label>
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xl">
-                  mail
-                </span>
-                <input
-                  required
-                  className="w-full h-12 pl-10 pr-4 rounded-lg border border-[#E5E7EB] focus:border-[#5048e5] focus:ring-2 focus:ring-[#5048e5]/20 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white transition-all outline-none"
-                  placeholder="name@university.edu"
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-[#111827] dark:text-gray-200">
-                College / University
-              </label>
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xl">
-                  account_balance
-                </span>
-                <select
-                  required
-                  className="w-full h-12 pl-10 pr-10 rounded-lg border border-[#E5E7EB] focus:border-[#5048e5] focus:ring-2 focus:ring-[#5048e5]/20 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white appearance-none transition-all outline-none"
-                  value={form.collegeId}
-                  onChange={(e) =>
-                    setForm({ ...form, collegeId: e.target.value })
-                  }
-                >
-                  <option value="">
-                    {loadingColleges ? "Loading universities..." : "Select your university"}
-                  </option>
-                  {!loadingColleges && colleges.length === 0 && (
-                    <option value="" disabled>No universities found</option>
-                  )}
-                  {colleges.map((c) => (
-                    <option key={c._id} value={c._id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-                <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
-                  expand_more
-                </span>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-[#111827] dark:text-gray-200">
-                Role
-              </label>
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xl">
-                  group
-                </span>
-                <select
-                  className="w-full h-12 pl-10 pr-10 rounded-lg border border-[#E5E7EB] focus:border-[#5048e5] focus:ring-2 focus:ring-[#5048e5]/20 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white appearance-none transition-all outline-none"
-                  value={form.role}
-                  onChange={(e) => setForm({ ...form, role: e.target.value })}
-                >
-                  <option value="student">Student</option>
-                  <option value="college_admin">College Admin</option>
-                </select>
-                <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
-                  expand_more
-                </span>
-              </div>
-              {form.role === 'college_admin' && (
-                <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mt-1 flex items-center gap-1 leading-tight">
-                  <span className="material-symbols-outlined text-[14px]">info</span>
-                  College Admin accounts require verification by the SuperAdmin.
-                </p>
+              {isAdmin ? (
+                <div className="flex gap-4">
+                  <div className="w-5 h-5 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center text-[10px] font-bold">2</div>
+                  <p className="text-xs font-bold text-slate-600 leading-relaxed">The <span className="text-indigo-600">SuperAdmin</span> will then review your credentials. You'll receive a final authorization email once approved.</p>
+                </div>
+              ) : (
+                <div className="flex gap-4">
+                  <div className="w-5 h-5 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center text-[10px] font-bold">2</div>
+                  <p className="text-xs font-bold text-slate-600 leading-relaxed">Proceed to <span className="text-indigo-600">Login</span> to start exploring the campus feed.</p>
+                </div>
               )}
             </div>
+          </div>
 
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-[#111827] dark:text-gray-200">
-                Password
-              </label>
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xl">
-                  lock
-                </span>
-                <input
-                  required
-                  className="w-full h-12 pl-10 pr-10 rounded-lg border border-[#E5E7EB] focus:border-[#5048e5] focus:ring-2 focus:ring-[#5048e5]/20 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white transition-all outline-none"
-                  placeholder="••••••••"
-                  type={showPassword ? "text" : "password"}
-                  value={form.password}
-                  onChange={(e) =>
-                    setForm({ ...form, password: e.target.value })
-                  }
-                />
-                <button
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#5048e5] transition-colors"
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  <span className="material-symbols-outlined text-xl">
-                    {showPassword ? "visibility_off" : "visibility"}
-                  </span>
-                </button>
-              </div>
-            </div>
+          <div className="space-y-4">
+            <Link to="/login" className="hero-btn w-full italic">Continue to Login</Link>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">Identity record will be purged if not verified within 24 hours.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-[#111827] dark:text-gray-200">
-                Confirm Password
-              </label>
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xl">
-                  lock_reset
-                </span>
-                <input
-                  required
-                  className="w-full h-12 pl-10 pr-4 rounded-lg border border-[#E5E7EB] focus:border-[#5048e5] focus:ring-2 focus:ring-[#5048e5]/20 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white transition-all outline-none"
-                  placeholder="••••••••"
-                  type="password"
-                  value={form.confirmPassword}
-                  onChange={(e) =>
-                    setForm({ ...form, confirmPassword: e.target.value })
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="pt-4">
-              <button
-                type="submit"
-                className="w-full h-14 bg-gradient-to-r from-[#4F46E5] to-[#9333EA] text-white font-semibold rounded-lg shadow-lg shadow-[#5048e5]/20 hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-              >
-                Create Account
-                <span className="material-symbols-outlined">arrow_forward</span>
-              </button>
-            </div>
-          </form>
-
-          <p className="text-center text-sm text-[#6B7280] dark:text-gray-400 pt-2">
-            Already have an account?{" "}
-            <Link
-              className="text-[#5048e5] font-semibold hover:underline"
-              to="/login"
-            >
-              Sign In
-            </Link>
+  return (
+    <div className="h-screen bg-white flex flex-col md:flex-row overflow-hidden">
+      {/* Left Column (Visual) */}
+      <div className="hidden md:flex md:w-2/5 relative p-12 bg-slate-50 border-r border-slate-100 flex-col justify-center items-center">
+        <div className="max-w-md mx-auto">
+          <span className="inline-badge mb-6">Discovery Awaits</span>
+          <h1 className="editorial-header mb-6">Discovery Awaits.</h1>
+          <p className="text-slate-500 text-lg mb-10 leading-relaxed">
+            Join the community. Discover workshops, sports, and cultural events happening right next to you.
           </p>
+
+          <div className="rounded-2xl overflow-hidden shadow-xl border border-slate-200">
+            <img
+              src="/images/campus_life_professional.png"
+              alt="Campus Life"
+              className="w-full h-auto grayscale-[0.2] hover:grayscale-0 transition-all duration-700"
+            />
+          </div>
         </div>
       </div>
 
-      <p className="mt-8 text-xs text-center text-[#6B7280] dark:text-gray-500 max-w-xs px-4">
-        By creating an account, you agree to our{" "}
-        <a className="underline" href="#">
-          Terms of Service
-        </a>{" "}
-        and{" "}
-        <a className="underline" href="#">
-          Privacy Policy
-        </a>
-        .
-      </p>
+      {/* Right Column (Form) */}
+      <div className="flex-1 overflow-y-auto no-scrollbar bg-white p-8 md:p-16 lg:p-24 flex flex-col items-center">
+        <div className="w-full max-w-xl animate-fade-in">
+          <div className="mb-12">
+            <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Create Account</h2>
+            <p className="text-slate-500 mt-2 font-medium">Join your institution's digital ecosystem.</p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <FormInput
+                label="Username"
+                icon={User}
+                required
+                placeholder="uday.s"
+                value={form.username}
+                onChange={(e) => setForm({ ...form, username: e.target.value })}
+              />
+              <FormInput
+                label="Full Name"
+                icon={User}
+                required
+                placeholder="UDAY SOMAPURAM"
+                value={form.fullName}
+                onChange={(e) => setForm({ ...form, fullName: e.target.value })}
+              />
+              <FormInput
+                label="University Email"
+                icon={Mail}
+                required
+                type="email"
+                placeholder="uday.somapuram@university.edu"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+              />
+              <FormInput
+                label="Student/Staff ID"
+                icon={ShieldCheck}
+                required
+                placeholder="ID-2026-UDAY"
+                value={form.officialId}
+                onChange={(e) => setForm({ ...form, officialId: e.target.value })}
+              />
+
+              <FormInput
+                label="Institution"
+                icon={ChevronDown}
+                required
+                value={form.collegeId}
+                onChange={(e) => setForm({ ...form, collegeId: e.target.value })}
+                suffix={<ChevronDown className="w-4 h-4 text-slate-400" />}
+              >
+                <option value="">{loadingColleges ? "Loading..." : "Select College"}</option>
+                {colleges.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}
+              </FormInput>
+
+              <FormInput
+                label="Account Type"
+                icon={ChevronDown}
+                required
+                value={form.role}
+                onChange={(e) => setForm({ ...form, role: e.target.value })}
+                suffix={<ChevronDown className="w-4 h-4 text-slate-400" />}
+              >
+                <option value="student">Student</option>
+                <option value="college_admin">College Admin</option>
+              </FormInput>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-slate-100">
+              <FormInput
+                label="Password"
+                icon={Lock}
+                required
+                type="password"
+                placeholder="••••••••"
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+              />
+              <FormInput
+                label="Confirm Password"
+                icon={Lock}
+                required
+                type="password"
+                placeholder="••••••••"
+                value={form.confirmPassword}
+                onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+              />
+            </div>
+
+            <div className="pt-6">
+              <button type="submit" className="hero-btn w-full">
+                Create Account
+                <ArrowRight className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-center text-sm font-medium text-slate-500">
+              Already a user?{" "}
+              <Link to="/login" className="text-indigo-600 hover:text-indigo-700 font-bold transition-colors">Sign in</Link>
+            </p>
+          </form>
+
+          <p className="mt-12 text-[11px] text-center text-slate-400 uppercase tracking-widest leading-relaxed max-w-md mx-auto">
+            By signing up, you agree to our <span className="underline decoration-slate-200">System Policies</span> and <span className="underline decoration-slate-200">Code of Conduct</span>.
+          </p>
+        </div>
+      </div>
     </div>
   );
 };
 
 export default Register;
+

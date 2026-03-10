@@ -2,8 +2,10 @@ import { Navigate, useLocation } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
 
 const ProtectedRoute = ({ children, role }) => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const location = useLocation();
+
+  if (loading) return null;
 
   if (!user) return <Navigate to="/login" />;
 
@@ -11,15 +13,18 @@ const ProtectedRoute = ({ children, role }) => {
   if (user.role === 'admin') return children;
 
   // Check specific role requirement
-  if (role && user.role !== role) {
-    return <Navigate to="/login" />;
+  if (role) {
+    if (Array.isArray(role)) {
+      if (!role.includes(user.role)) return <Navigate to="/student" />;
+    } else {
+      if (user.role !== role) return <Navigate to="/student" />;
+    }
   }
 
   // Handle unapproved College Admins
   if (user.role === 'college_admin' && !user.isApproved) {
-    // Only allow them to stay on their dashboard
-    if (location.pathname !== '/college-admin') {
-      return <Navigate to="/college-admin" />;
+    if (location.pathname !== '/admin') {
+      return <Navigate to="/admin" />;
     }
   }
 

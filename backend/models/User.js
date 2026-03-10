@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
 
 const userSchema = new mongoose.Schema({
   username: {
@@ -39,10 +40,21 @@ const userSchema = new mongoose.Schema({
   },
   lastName: {
     type: String,
-    required: true,
     trim: true,
   },
   phone: {
+    type: String,
+    trim: true,
+  },
+  officialId: {
+    type: String,
+    trim: true,
+  },
+  academicClass: {
+    type: String,
+    trim: true,
+  },
+  section: {
     type: String,
     trim: true,
   },
@@ -63,6 +75,11 @@ const userSchema = new mongoose.Schema({
   isApproved: {
     type: Boolean,
     default: true,
+  },
+  accountStatus: {
+    type: String,
+    enum: ["pending", "active", "deleted"],
+    default: "pending", // All new accounts start as pending until email verified
   },
   passwordResetToken: {
     type: String,
@@ -94,12 +111,31 @@ const userSchema = new mongoose.Schema({
 });
 
 // Update the updatedAt field and ensure admin status before saving
+// Hash password before saving
 userSchema.pre("save", async function () {
   this.updatedAt = Date.now();
 
-  if (this.role === "admin") {
-    this.isApproved = true;
-    this.isActive = true;
+  // Handle role-based defaults only on creation
+  if (this.isNew) {
+    if (this.role === "admin") {
+      this.isApproved = true;
+      this.isActive = true;
+      this.accountStatus = "active"; // Seeded admins are always active
+    } else if (this.role === "college_admin") {
+      // College admins need SuperAdmin approval but email verification first
+      this.isApproved = false;
+      this.isActive = false;
+    }
+  }
+
+  // Only hash password if it's new or modified
+  if (!this.isModified("password")) return;
+
+  try {
+    const salt = await bcrypt.genSalt(12);
+    this.password = await bcrypt.hash(this.password, salt);
+  } catch (err) {
+    throw err;
   }
 });
 
@@ -128,6 +164,11 @@ userSchema.methods.isSystemAdmin = function () {
 // Method to check if user is student
 userSchema.methods.isStudent = function () {
   return this.role === "student";
+};
+
+// Method to verify password
+userSchema.methods.comparePassword = async function (candidatePassword) {
+  return await bcrypt.compare(candidatePassword, this.password);
 };
 
 export const User = mongoose.model("User", userSchema);

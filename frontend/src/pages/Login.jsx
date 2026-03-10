@@ -1,7 +1,18 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import useAuth from "../hooks/useAuth";
+import FormInput from "../components/FormInput";
+import {
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  ArrowRight,
+  ShieldCheck,
+  CheckCircle2,
+  LockKeyhole
+} from "lucide-react";
 
 const Login = () => {
   const { login, user } = useAuth();
@@ -10,160 +21,134 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      if (user.role === "admin") navigate("/superadmin");
+      else if (user.role === "college_admin") navigate("/admin");
+      else navigate("/student");
+    }
+  }, [user, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const loadingToast = toast.loading("Signing in...");
+    setIsSubmitting(true);
+    const loadingToast = toast.loading("Verifying access...");
     try {
       const loggedUser = await login(email, password);
       toast.success("Welcome back!", { id: loadingToast });
 
-      // Determine redirection based on role
-      if (loggedUser.role === "admin") {
-        navigate("/admin");
-      } else if (loggedUser.role === "college_admin") {
-        navigate("/college-admin");
-      } else {
-        navigate("/student");
-      }
+      if (loggedUser.role === "admin") navigate("/superadmin");
+      else if (loggedUser.role === "college_admin") navigate("/admin");
+      else navigate("/student");
     } catch (err) {
       toast.error(err.response?.data?.message || "Invalid credentials", { id: loadingToast });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="font-display bg-gradient-to-br from-[#EEF2FF] to-[#F5F3FF] dark:from-gray-950 dark:to-gray-950 min-h-screen flex items-center justify-center p-4">
-      <div className="w-full max-w-[440px] bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-100 dark:border-gray-800 overflow-hidden relative">
-        <div className="pt-10 pb-6 px-8 text-center">
-          <div className="flex justify-center mb-4">
-            <div className="w-12 h-12 bg-[#5048e5]/10 rounded-xl flex items-center justify-center text-[#5048e5]">
-              <span className="material-symbols-outlined text-3xl">school</span>
-            </div>
-          </div>
-
-          <h1 className="text-gray-900 dark:text-white text-2xl font-bold tracking-tight">
-            CampusEventHub
-          </h1>
-
-          <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">
-            Sign in to manage your campus events
-          </p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="px-8 pb-10 space-y-6">
-          <div className="space-y-2">
-            <label
-              htmlFor="email"
-              className="block text-sm font-medium text-gray-900 dark:text-gray-200"
-            >
-              Email Address
-            </label>
-
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
-                <span className="material-symbols-outlined text-xl">mail</span>
-              </div>
-
-              <input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="e.g. student@university.edu"
-                className="block w-full pl-10 pr-3 py-3 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg text-gray-900 dark:text-white placeholder-gray-500/60 focus:ring-[#5048e5] focus:border-[#5048e5] text-sm transition-colors"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-gray-900 dark:text-gray-200"
-              >
-                Password
-              </label>
-
-              <Link
-                to="/forgot-password"
-                className="text-xs font-semibold text-[#5048e5] hover:text-[#5048e5]/80 transition-colors"
-              >
-                Forgot?
-              </Link>
-            </div>
-
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
-                <span className="material-symbols-outlined text-xl">lock</span>
-              </div>
-
-              <input
-                id="password"
-                name="password"
-                type={showPassword ? "text" : "password"}
-                placeholder="••••••••"
-                className="block w-full pl-10 pr-12 py-3 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg text-gray-900 dark:text-white placeholder-gray-500/60 focus:ring-[#5048e5] focus:border-[#5048e5] text-sm transition-colors"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-
-              <button
-                type="button"
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors"
-                onClick={() => setShowPassword(!showPassword)}
-              >
-                <span className="material-symbols-outlined text-xl">
-                  {showPassword ? "visibility_off" : "visibility"}
-                </span>
-              </button>
-            </div>
-          </div>
-
-          <div className="flex items-center">
-            <input
-              id="remember-me"
-              name="remember-me"
-              type="checkbox"
-              className="h-4 w-4 text-[#5048e5] focus:ring-[#5048e5] border-gray-200 dark:border-gray-700 rounded"
-            />
-            <label
-              htmlFor="remember-me"
-              className="ml-2 block text-sm text-gray-500 dark:text-gray-400"
-            >
-              Remember me
-            </label>
-          </div>
-
-          <button
-            type="submit"
-            className="w-full flex justify-center py-3.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white bg-gradient-to-r from-[#4F46E5] to-[#9333EA] hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#5048e5] transition-all active:scale-[0.98]"
-          >
-            Sign In
-          </button>
-
-          <div className="text-center mt-6">
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Don't have an account?{" "}
-              <Link
-                to="/register"
-                className="font-bold text-[#5048e5] hover:underline underline-offset-4"
-              >
-                Sign up
-              </Link>
+    <div className="h-screen bg-white flex flex-col md:flex-row overflow-hidden">
+      {/* Visual Section */}
+      <div className="hidden md:flex md:w-1/2 relative p-12 bg-slate-50 border-r border-slate-100 items-center justify-center">
+        <div className="relative z-10 w-full max-w-lg mx-auto flex flex-col">
+          <div className="mb-8">
+            <span className="inline-badge">University Partner</span>
+            <h1 className="editorial-header mt-4">
+              Connect. Engage. Succeed.
+            </h1>
+            <p className="mt-4 text-slate-600 text-lg">
+              The simplest way to discover and manage campus events.
             </p>
           </div>
-        </form>
+
+          <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-slate-200">
+            <img
+              src="/images/campus_life_professional.png"
+              alt="Campus Life"
+              className="w-full h-auto object-cover"
+            />
+          </div>
+        </div>
       </div>
 
-      <div className="fixed top-0 left-0 w-full h-full -z-10 pointer-events-none opacity-40">
-        <div className="absolute top-[10%] left-[5%] w-64 h-64 bg-[#5048e5]/20 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-[10%] right-[5%] w-80 h-80 bg-purple-500/20 rounded-full blur-3xl"></div>
+      {/* Form Section */}
+      <div className="flex-1 flex flex-col items-center justify-center p-8 md:p-12 lg:p-24 bg-white overflow-y-auto no-scrollbar">
+        <div className="w-full max-w-sm">
+          <header className="mb-10">
+            <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Sign In</h2>
+            <p className="text-slate-500 mt-2 font-medium">Access your campus dashboard</p>
+          </header>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <FormInput
+              label="Email Address"
+              icon={Mail}
+              type="email"
+              placeholder="uday.somapuram@university.edu"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+
+            <FormInput
+              label="Password"
+              icon={Lock}
+              type={showPassword ? "text" : "password"}
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              suffix={
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="text-slate-400 hover:text-indigo-600 transition-colors p-1"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              }
+            />
+
+            <div className="flex justify-end -mt-4">
+              <Link to="/forgot-password" title="Forgot Password" className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 uppercase tracking-widest">Forgot Account Secret?</Link>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="hero-btn w-full mt-2"
+            >
+              {isSubmitting ? "Signing In..." : "Sign In"}
+              <ArrowRight className="w-4 h-4" />
+            </button>
+
+            <div className="pt-6 text-center">
+              <p className="text-sm font-medium text-slate-500">
+                New member?{" "}
+                <Link to="/register" className="text-indigo-600 hover:text-indigo-700 font-bold transition-colors">Create an account</Link>
+              </p>
+            </div>
+          </form>
+
+          {/* Minimal Trust Footer */}
+          <div className="mt-12 flex items-center justify-center gap-6 border-t border-slate-100 pt-8 opacity-60">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-3 h-3 text-slate-400" />
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Secure Base</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-3 h-3 text-slate-400" />
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Campus Verified</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
 };
 
 export default Login;
+

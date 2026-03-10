@@ -1,7 +1,6 @@
 import crypto from "crypto";
-import bcrypt from "bcryptjs";
 import { User } from "../models/User.js";
-import sendEmail from "../utils/emailService.js";
+import sendEmail, { EmailTemplates } from "../utils/emailService.js";
 import catchAsync from "../utils/catchAsync.js";
 import AppError from "../utils/appError.js";
 
@@ -30,13 +29,8 @@ export const requestPasswordReset = catchAsync(async (req, res, next) => {
   const message = `Forgot your password? Reset it here: ${resetUrl}. If you didn't, please ignore.`;
 
   try {
-    await sendEmail({
-      email: user.email,
-      subject: "Password Reset Request - CampusEventHub",
-      message,
-      html: `<p>Click <a href="${resetUrl}">here</a> to reset your password.</p>`,
-    });
-
+    const tpl = EmailTemplates.passwordReset(resetUrl);
+    await sendEmail({ email: user.email, ...tpl });
     res.status(200).json({
       success: true,
       message: "If the email exists, a reset link will be sent.",
@@ -62,8 +56,7 @@ export const resetPassword = catchAsync(async (req, res, next) => {
     return next(new AppError("Invalid or expired reset token", 400));
   }
 
-  const salt = await bcrypt.genSalt(12);
-  user.password = await bcrypt.hash(newPassword, salt);
+  user.password = newPassword;
   user.passwordResetToken = undefined;
   user.passwordResetExpires = undefined;
   await user.save();
@@ -80,12 +73,11 @@ export const changePassword = catchAsync(async (req, res, next) => {
   const userId = req.userId;
 
   const user = await User.findById(userId);
-  if (!user || !(await bcrypt.compare(currentPassword, user.password))) {
+  if (!user || !(await user.comparePassword(currentPassword))) {
     return next(new AppError("Current password is incorrect", 400));
   }
 
-  const salt = await bcrypt.genSalt(12);
-  user.password = await bcrypt.hash(newPassword, salt);
+  user.password = newPassword;
   await user.save();
 
   res.status(200).json({

@@ -45,6 +45,23 @@ const eventSchema = new mongoose.Schema({
     type: Number,
     default: null,
   },
+  participationMode: {
+    type: String,
+    enum: ["solo", "duo", "trio", "quad"],
+    default: "solo",
+  },
+  isTeamEvent: {
+    type: Boolean,
+    default: false,
+  },
+  minTeamSize: {
+    type: Number,
+    default: 1,
+  },
+  maxTeamSize: {
+    type: Number,
+    default: 1,
+  },
   currentParticipants: {
     type: Number,
     default: 0,
@@ -53,6 +70,10 @@ const eventSchema = new mongoose.Schema({
     type: String,
     enum: ["upcoming", "ongoing", "completed", "cancelled"],
     default: "upcoming",
+  },
+  bannerImage: {
+    type: String, // Cloudinary URL
+    default: "",
   },
   imageUrl: {
     type: String,
@@ -65,9 +86,31 @@ const eventSchema = new mongoose.Schema({
     type: [String],
     default: [],
   },
+  dosAndDonts: {
+    type: [String],
+    default: [],
+  },
+  participationRequirements: [
+    {
+      label: String,
+      fieldType: {
+        type: String,
+        enum: ["text", "file", "number", "email"],
+        default: "text",
+      },
+      isRequired: {
+        type: Boolean,
+        default: true,
+      },
+    }
+  ],
   isActive: {
     type: Boolean,
     default: true,
+  },
+  isApproved: {
+    type: Boolean,
+    default: false,
   },
   createdAt: {
     type: Date,
