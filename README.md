@@ -49,7 +49,74 @@ Each folder contains its own detailed README.
 
 ---
 
-## 🌿 Branching Strategy (Strict Policy)
+## 📚 Project Documentation
+
+CampusEventHub maintains structured technical documentation to support system design clarity, maintainability, and transparent engineering practices.
+
+The `docs/` directory contains the following resources:
+
+| Document | Description |
+|---------|-------------|
+| [API Documentation](docs/API_DOCUMENTATION.md) | Backend endpoint reference and request/response formats |
+| [API Testing Guide](docs/API_TESTING.md) | Example API requests and testing workflow |
+| [Architecture](docs/architecture.md) | System architecture and component relationships |
+| [Database Schema](docs/database-schema.md) | MongoDB collections and relationships |
+| [Workflow Guide](docs/workflow.md) | Development workflow and contribution process |
+| [Contributing Guide](docs/CONTRIBUTING.md) | Guidelines for contributing to the project |
+| [Engineering Debug Log](docs/ENGINEERING_DEBUG_LOG.md) | Recorded debugging and stabilization events |
+| [Pull Request Template](docs/PULL_REQUEST_TEMPLATE.md) | Standard template used for PR submissions |
+| [Engineering Templates](docs/templates/DEBUG_ENTRY_TEMPLATE.md) | Reusable template for adding debug/stabilization entries |
+
+This documentation is maintained alongside code changes to keep implementation and engineering context easy to navigate.
+
+---
+
+## 🚀 Getting Started
+
+For local development, you can run the project either with Docker or directly with Node.js.
+
+Local setup (without Docker):
+
+**Backend:**
+
+```
+cd backend
+npm install
+npm run dev
+
+```
+
+**Frontend:**
+
+```
+cd frontend
+npm install
+npm run dev
+
+```
+
+---
+
+## 🐳 Docker
+
+From project root:
+
+```
+docker compose up --build
+
+```
+
+Access:
+
+**Frontend** → [http://localhost:3000](https://www.google.com/search?q=http://localhost:3000)
+
+**Backend** → [http://localhost:5000](https://www.google.com/search?q=http://localhost:5000)
+
+---
+
+## 🚦 Development Workflow
+
+Branching policy:
 
 **main**
 
@@ -66,9 +133,7 @@ Each folder contains its own detailed README.
 * Individual feature branches
 * Example: feature/auth-module
 
----
-
-## 🚦 Development Workflow
+Recommended flow:
 
 1. Always start from dev:
 
@@ -93,13 +158,13 @@ git push origin feature/your-feature-name
 
 ```
 
-5. Raise Pull Request → merge into dev.
+5. Raise Pull Request and merge into dev.
 
 Never commit directly to main.
 
 ---
 
-## 🧾 Commit Message Standard
+## 🧾 Commit Standard
 
 Use structured commit format:
 
@@ -121,46 +186,7 @@ Avoid vague messages like:
 
 ---
 
-## 🐳 Running with Docker (Recommended)
-
-From project root:
-
-```
-docker compose up --build
-
-```
-
-Access:
-
-**Frontend** → [http://localhost:3000](https://www.google.com/search?q=http://localhost:3000)
-
-**Backend** → [http://localhost:5000](https://www.google.com/search?q=http://localhost:5000)
-
----
-
-## 💻 Running Without Docker
-
-**Backend:**
-
-```
-cd backend
-npm install
-npm run dev
-
-```
-
-**Frontend:**
-
-```
-cd frontend
-npm install
-npm run dev
-
-```
-
----
-
-## 🔐 Security Guidelines
+## 🔐 Security
 
 * Use `.env.local` for local secrets (preferred over `.env`)
 * Generic defaults can be placed in `.env` (but still not committed)
