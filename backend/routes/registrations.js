@@ -1,26 +1,36 @@
 import express from "express";
 import {
-    getEventRegistrations,
-    getMyRegistrations,
-    approveRegistration,
-    rejectRegistration,
-    cancelRegistration,
-    markAttendance,
-    exportRegistrations,
+  registerForEvent,
+  getMyRegistrations,
+  cancelRegistration,
+  getEventRegistrations,
+  getRegistrationStats,
+  getAllRegistrations,
+  approveRegistration,
+  rejectRegistration,
+  getRegistrationById,
 } from "../controllers/registrationController.js";
-import { authenticate, isStudent, canManageEvents } from "../middleware/auth.js";
+import { authenticate, authorize, isStudent, isCollegeAdmin, isAdmin } from "../middleware/auth.js";
 
 const router = express.Router();
 
-// Student routes
-router.get("/my", authenticate, isStudent, getMyRegistrations);
-router.delete("/:id/cancel", authenticate, isStudent, cancelRegistration);
+// Public routes
+router.get("/event/:eventId", getEventRegistrations);
 
-// Admin / College Admin routes
-router.get("/event/:eventId", authenticate, canManageEvents, getEventRegistrations);
-router.get("/event/:eventId/export", authenticate, canManageEvents, exportRegistrations);
-router.patch("/:id/approve", authenticate, canManageEvents, approveRegistration);
-router.patch("/:id/reject", authenticate, canManageEvents, rejectRegistration);
-router.patch("/:id/attendance", authenticate, canManageEvents, markAttendance);
+// Protected routes for all authenticated users
+router.get("/my-registrations", authenticate, getMyRegistrations);
+router.get("/:id", authenticate, getRegistrationById);
+router.delete("/:id", authenticate, cancelRegistration);
+
+// Student registration routes
+router.post("/register", authenticate, isStudent, registerForEvent);
+
+// Admin management routes
+router.patch("/:id/approve", authenticate, authorize("college_admin", "admin"), approveRegistration);
+router.patch("/:id/reject", authenticate, authorize("college_admin", "admin"), rejectRegistration);
+router.get("/stats/:eventId", authenticate, authorize("college_admin", "admin"), getRegistrationStats);
+
+// Super admin only routes
+router.get("/", authenticate, isAdmin, getAllRegistrations);
 
 export default router;
