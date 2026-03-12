@@ -1,219 +1,367 @@
-import Registration from "../models/Registration.js";
-import Event from "../models/Event.js";
-import User from "../models/User.js";
-import catchAsync from "../utils/catchAsync.js";
+import { Registration } from "../models/Registration.js";
+import { Event } from "../models/Event.js";
+import { User } from "../models/User.js";
 import AppError from "../utils/appError.js";
+import catchAsync from "../utils/catchAsync.js";
+import { logAdminAction } from "../utils/logger.js";
+import sendEmail, { EmailTemplates } from "../utils/emailService.js";
+import { notifyUser } from "../utils/notificationService.js";
 
-// @desc    Register for an event
-// @route   POST /api/registrations/register
-// @access  Private (students only)
+// MILESTONE 3 FEATURE START
+// Register for event via registration module endpoint.
 export const registerForEvent = catchAsync(async (req, res, next) => {
-  const { event_id, notes } = req.body;
-  const user_id = req.user._id;
+  const { event_id, notes, customRequirements } = req.body;
 
-  // Check if user is a student
-  if (req.user.role !== "student") {
+  if (!event_id) {
+    return next(new AppError("event_id is required", 400));
+  }
+
+  if (req.userRole !== "student") {
     return next(new AppError("Only students can register for events", 403));
   }
 
-  // Check if event exists
-  const event = await Event.findById(event_id);
+  const event = await Event.findById(event_id).select(
+    "_id title college status isActive registrationDeadline maxParticipants"
+  );
+
   if (!event) {
     return next(new AppError("Event not found", 404));
   }
 
-  // Check if user is from the same college or event is open to all
-  if (event.college.toString() !== req.user.college.toString() && !event.is_open_to_all) {
+  if (!event.isActive || event.status === "cancelled") {
+    return next(new AppError("Registration is not available for this event", 400));
+  }
+
+  if (event.college.toString() !== req.user.college.toString()) {
     return next(new AppError("This event is not available for your college", 403));
   }
 
-  // Check if already registered
-  const existingRegistration = await Registration.findOne({
-    event_id,
-    user_id,
-  });
-
-  if (existingRegistration) {
-    return next(new AppError("You have already registered for this event", 400));
-  }
-
-  // Check registration period
   const now = new Date();
-  if (now < event.registration_start_date || now > event.registration_end_date) {
-    return next(new AppError("Registration period is not active", 400));
+  if (event.registrationDeadline && now > event.registrationDeadline) {
+    return next(new AppError("Registration deadline has passed", 400));
   }
 
-  // Check capacity
-  if (event.max_participants > 0) {
-    const approvedCount = await Registration.countDocuments({
-      event_id,
-      status: "approved",
+  const capacityFilter =
+    event.maxParticipants !== null && event.maxParticipants !== undefined
+      ? { currentParticipants: { $lt: event.maxParticipants } }
+      : {};
+
+  const updatedEvent = await Event.findOneAndUpdate(
+    {
+      _id: event._id,
+      isActive: true,
+      status: { $ne: "cancelled" },
+      ...(event.registrationDeadline ? { registrationDeadline: { $gte: now } } : {}),
+      ...capacityFilter,
+    },
+    { $inc: { currentParticipants: 1 } },
+    { new: true }
+  );
+
+  if (!updatedEvent) {
+    return next(new AppError("Event reached capacity or registration is closed", 400));
+  }
+
+  let registration;
+  try {
+    registration = await Registration.create({
+      event: updatedEvent._id,
+      user: req.userId,
+      college: req.user.college,
+      status: "pending",
+      notes: notes || null,
+      customRequirements: customRequirements || {},
     });
-
-    if (approvedCount >= event.max_participants) {
-      return next(new AppError("Event has reached maximum capacity", 400));
+  } catch (err) {
+    await Event.findByIdAndUpdate(updatedEvent._id, { $inc: { currentParticipants: -1 } });
+    if (err.code === 11000) {
+      return next(new AppError("You have already registered for this event", 400));
     }
+    throw err;
   }
 
-  // Create registration
-  const registration = await Registration.create({
-    event_id,
-    user_id,
-    notes,
-  });
+  await User.findByIdAndUpdate(req.userId, { $addToSet: { registeredEvents: updatedEvent._id } });
 
-  // Populate registration details
   await registration.populate([
-    { path: "event_id", select: "title description category start_date end_date location" },
-    { path: "user_id", select: "username email" },
+    {
+      path: "event",
+      select: "title description category startDate endDate location",
+    },
+    {
+      path: "user",
+      select: "username email firstName lastName",
+    },
   ]);
 
   res.status(201).json({
     success: true,
     message: "Registration submitted successfully",
-    data: {
-      registration,
-    },
+    data: { registration },
   });
 });
+// MILESTONE 3 FEATURE END
 
-// @desc    Get user's registrations
-// @route   GET /api/registrations/my-registrations
-// @access  Private
-export const getMyRegistrations = catchAsync(async (req, res, next) => {
-  const { status, page = 1, limit = 10 } = req.query;
-  const user_id = req.user._id;
-
-  // Build filter
-  const filter = { user_id };
-  if (status) {
-    filter.status = status;
-  }
-
-  // Pagination
-  const skip = (page - 1) * limit;
-
-  const registrations = await Registration.find(filter)
-    .populate({
-      path: "event_id",
-      select: "title description category start_date end_date location college",
-      populate: {
-        path: "college",
-        select: "name code",
-      },
-    })
-    .sort({ created_at: -1 })
-    .skip(skip)
-    .limit(parseInt(limit));
-
-  const total = await Registration.countDocuments(filter);
-
-  res.status(200).json({
-    success: true,
-    data: {
-      registrations,
-      pagination: {
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(total / limit),
-        totalRegistrations: total,
-      },
-    },
-  });
-});
-
-// @desc    Cancel registration
-// @route   DELETE /api/registrations/:id
-// @access  Private
-export const cancelRegistration = catchAsync(async (req, res, next) => {
-  const registrationId = req.params.id;
-  const user_id = req.user._id;
-
-  const registration = await Registration.findById(registrationId);
-
-  if (!registration) {
-    return next(new AppError("Registration not found", 404));
-  }
-
-  // Check ownership or admin rights
-  if (registration.user_id.toString() !== user_id.toString() && req.user.role !== "admin") {
-    return next(new AppError("Not authorized to cancel this registration", 403));
-  }
-
-  // Check if registration can be cancelled
-  if (!registration.isModifiable()) {
-    return next(new AppError("Cannot cancel approved or rejected registration", 400));
-  }
-
-  await Registration.findByIdAndDelete(registrationId);
-
-  res.status(200).json({
-    success: true,
-    message: "Registration cancelled successfully",
-  });
-});
-
-// @desc    Get registrations for an event (public view)
-// @route   GET /api/registrations/event/:eventId
-// @access  Public
+// Get registrations for an event (College Admin who owns it OR SuperAdmin)
 export const getEventRegistrations = catchAsync(async (req, res, next) => {
   const { eventId } = req.params;
-  const { status, page = 1, limit = 10 } = req.query;
 
-  // Check if event exists
   const event = await Event.findById(eventId);
-  if (!event) {
-    return next(new AppError("Event not found", 404));
+  if (!event) return next(new AppError("Event not found", 404));
+
+  // Permission check
+  if (req.userRole !== "admin" && event.createdBy.toString() !== req.userId.toString()) {
+    return next(new AppError("Access denied. You can only view registrations for your own events.", 403));
   }
 
-  // Build filter
-  const filter = { event_id: eventId };
-  if (status) {
-    filter.status = status;
-  }
-
-  // Pagination
-  const skip = (page - 1) * limit;
-
-  const registrations = await Registration.find(filter)
-    .populate({
-      path: "user_id",
-      select: "username email fullName",
-    })
-    .sort({ created_at: -1 })
-    .skip(skip)
-    .limit(parseInt(limit));
-
-  const total = await Registration.countDocuments(filter);
+  const registrations = await Registration.find({ event: eventId })
+    .populate("user", "firstName lastName email college username")
+    .populate("college", "name code")
+    .sort({ createdAt: -1 });
 
   res.status(200).json({
     success: true,
-    data: {
-      registrations,
-      pagination: {
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(total / limit),
-        totalRegistrations: total,
-      },
-    },
+    results: registrations.length,
+    data: { registrations },
   });
 });
 
-// @desc    Get registration statistics for an event
-// @route   GET /api/registrations/stats/:eventId
-// @access  Private (event admin or college admin)
+// Get my registrations (Student)
+export const getMyRegistrations = catchAsync(async (req, res, next) => {
+  const registrations = await Registration.find({ user: req.userId })
+    .populate({
+      path: "event",
+      select: "title category startDate endDate location status college bannerImage",
+      populate: { path: "college", select: "name code" },
+    })
+    .sort({ createdAt: -1 });
+
+  res.status(200).json({
+    success: true,
+    results: registrations.length,
+    data: { registrations },
+  });
+});
+
+// Approve a single registration (College Admin or SuperAdmin)
+export const approveRegistration = catchAsync(async (req, res, next) => {
+  const { id } = req.params;
+
+  const registration = await Registration.findById(id)
+    .populate("user", "firstName lastName email")
+    .populate("event", "title createdBy");
+
+  if (!registration) return next(new AppError("Registration not found", 404));
+
+  // Permission check
+  const event = await Event.findById(registration.event._id);
+  if (req.userRole !== "admin" && event.createdBy.toString() !== req.userId.toString()) {
+    return next(new AppError("Access denied.", 403));
+  }
+
+  registration.status = "approved";
+  registration.approvalDate = new Date();
+  registration.approvedBy = req.userId;
+  await registration.save();
+
+  // Log action
+  await logAdminAction({
+    action: "REGISTRATION_APPROVE",
+    performedBy: req.userId,
+    targetId: registration._id,
+    targetType: "Registration",
+    details: { eventTitle: registration.event.title, student: registration.user.email },
+    ipAddress: req.ip,
+  });
+
+  // Notify student via in-app + branded email
+  await notifyUser({
+    recipientId: registration.user._id,
+    type: "REGISTRATION_STATUS",
+    title: "Registration Approved! 🎉",
+    message: `Your registration for "${registration.event.title}" has been approved. See you there!`,
+    link: "/student",
+  });
+  try {
+    const approvedEvent = await Event.findById(registration.event._id).select("startDate");
+    const tpl = EmailTemplates.registrationApproved(
+      registration.user.firstName,
+      registration.event.title,
+      approvedEvent?.startDate
+    );
+    await sendEmail({ email: registration.user.email, ...tpl });
+  } catch (e) {
+    console.error("Approval email failed:", e.message);
+  }
+
+  res.status(200).json({
+    success: true,
+    message: "Registration approved",
+    data: { registration },
+  });
+});
+
+// Reject a registration (College Admin or SuperAdmin)
+export const rejectRegistration = catchAsync(async (req, res, next) => {
+  const { id } = req.params;
+  const { reason } = req.body;
+
+  const registration = await Registration.findById(id)
+    .populate("user", "firstName lastName email")
+    .populate("event", "title createdBy");
+
+  if (!registration) return next(new AppError("Registration not found", 404));
+
+  const event = await Event.findById(registration.event._id);
+  if (req.userRole !== "admin" && event.createdBy.toString() !== req.userId.toString()) {
+    return next(new AppError("Access denied.", 403));
+  }
+
+  registration.status = "rejected";
+  registration.rejectionReason = reason || "No reason provided.";
+  registration.rejectedAt = new Date();
+  registration.rejectedBy = req.userId;
+  await registration.save();
+
+  // Decrement participant count
+  await Event.findByIdAndUpdate(registration.event._id, { $inc: { currentParticipants: -1 } });
+
+  // Log
+  await logAdminAction({
+    action: "REGISTRATION_REJECT",
+    performedBy: req.userId,
+    targetId: registration._id,
+    targetType: "Registration",
+    details: { eventTitle: registration.event.title, reason },
+    ipAddress: req.ip,
+  });
+
+  // Notify student via in-app + branded email
+  await notifyUser({
+    recipientId: registration.user._id,
+    type: "REGISTRATION_STATUS",
+    title: "Registration Update",
+    message: `Your registration for "${registration.event.title}" was not approved.`,
+    link: "/student",
+  });
+  try {
+    const tpl = EmailTemplates.registrationRejected(
+      registration.user.firstName,
+      registration.event.title,
+      reason
+    );
+    await sendEmail({ email: registration.user.email, ...tpl });
+  } catch (e) {
+    console.error("Rejection email failed:", e.message);
+  }
+
+  res.status(200).json({
+    success: true,
+    message: "Registration rejected",
+    data: { registration },
+  });
+});
+
+// Mark Attendance (College Admin or SuperAdmin)
+export const markAttendance = catchAsync(async (req, res, next) => {
+  const { id } = req.params;
+  const { status } = req.body; // 'attended' or 'no-show' or 'approved' (to undo)
+
+  if (!["attended", "no-show", "approved"].includes(status)) {
+    return next(new AppError("Invalid attendance status.", 400));
+  }
+
+  const registration = await Registration.findById(id).populate("event", "createdBy title");
+  if (!registration) return next(new AppError("Registration not found", 404));
+
+  // Permission check
+  if (req.userRole !== "admin" && registration.event.createdBy.toString() !== req.userId.toString()) {
+    return next(new AppError("Access denied.", 403));
+  }
+
+  registration.status = status;
+  await registration.save();
+
+  res.status(200).json({
+    success: true,
+    message: `Attendance marked as ${status}`,
+    data: { registration },
+  });
+});
+
+// Export Registrations to CSV (College Admin or SuperAdmin)
+export const exportRegistrations = catchAsync(async (req, res, next) => {
+  const { eventId } = req.params;
+
+  const event = await Event.findById(eventId);
+  if (!event) return next(new AppError("Event not found", 404));
+
+  // Permission check
+  if (req.userRole !== "admin" && event.createdBy.toString() !== req.userId.toString()) {
+    return next(new AppError("Access denied.", 403));
+  }
+
+  const registrations = await Registration.find({ event: eventId, status: { $ne: "rejected" } })
+    .populate("user", "firstName lastName email phone officialId college")
+    .populate("college", "name");
+
+  // Generate CSV string
+  let csv = "First Name,Last Name,Email,Phone,ID,College,Status,Registration Date\n";
+  registrations.forEach((reg) => {
+    csv += `"${reg.user.firstName}","${reg.user.lastName}","${reg.user.email}","${reg.user.phone || ""}","${reg.user.officialId || ""}","${reg.college?.name || reg.user.college?.name || ""}","${reg.status}","${reg.registrationDate.toISOString()}"\n`;
+  });
+
+  res.setHeader("Content-Type", "text/csv");
+  res.setHeader("Content-Disposition", `attachment; filename=registrations-${event.title.replace(/\s+/g, "_")}.csv`);
+  res.status(200).send(csv);
+});
+
+// Cancel own registration (Student only — pending anytime, approved only if event not started)
+export const cancelRegistration = catchAsync(async (req, res, next) => {
+  const { id } = req.params;
+
+  const registration = await Registration.findById(id).populate("event", "title currentParticipants startDate");
+  if (!registration) return next(new AppError("Registration not found", 404));
+
+  if (registration.user.toString() !== req.userId.toString()) {
+    return next(new AppError("You can only cancel your own registrations.", 403));
+  }
+
+  // Prevent cancellation of rejected/attended registrations
+  if (["rejected", "attended", "no-show"].includes(registration.status)) {
+    return next(new AppError("This registration cannot be cancelled.", 400));
+  }
+
+  // For approved registrations, only allow if event hasn't started
+  if (registration.status === "approved" && new Date() >= new Date(registration.event.startDate)) {
+    return next(new AppError("Cannot cancel - this event has already started.", 400));
+  }
+
+  await Registration.findByIdAndDelete(id);
+
+  // Decrement participant count
+  await Event.findByIdAndUpdate(registration.event._id, { $inc: { currentParticipants: -1 } });
+
+  // Remove from user's registered events
+  await User.findByIdAndUpdate(req.userId, { $pull: { registeredEvents: registration.event._id } });
+
+  res.status(200).json({
+    success: true,
+    message: "Registration cancelled successfully.",
+  });
+});
+
+// MILESTONE 3 FEATURE START
+// Registration analytics for event owner/admin.
 export const getRegistrationStats = catchAsync(async (req, res, next) => {
   const { eventId } = req.params;
-  const user_id = req.user._id;
 
-  // Check if event exists
   const event = await Event.findById(eventId);
   if (!event) {
     return next(new AppError("Event not found", 404));
   }
 
-  // Check authorization
-  if (req.user.role === "college_admin" && event.college.toString() !== req.user.college.toString()) {
-    return next(new AppError("Not authorized to view stats for this event", 403));
+  if (req.userRole !== "admin" && event.createdBy.toString() !== req.userId.toString()) {
+    return next(new AppError("Access denied. You can only view stats for your own events.", 403));
   }
 
   const stats = await Registration.getStats(eventId);
@@ -227,47 +375,45 @@ export const getRegistrationStats = catchAsync(async (req, res, next) => {
   });
 });
 
-// @desc    Get all registrations (admin only)
-// @route   GET /api/registrations
-// @access  Private (admin only)
+// Super admin listing for all registrations.
 export const getAllRegistrations = catchAsync(async (req, res, next) => {
   const { status, event_id, user_id, page = 1, limit = 20 } = req.query;
 
-  // Build filter
   const filter = {};
   if (status) filter.status = status;
-  if (event_id) filter.event_id = event_id;
-  if (user_id) filter.user_id = user_id;
+  if (event_id) filter.event = event_id;
+  if (user_id) filter.user = user_id;
 
-  // Pagination
-  const skip = (page - 1) * limit;
+  const pageNum = Number(page) || 1;
+  const limitNum = Number(limit) || 20;
+  const skip = (pageNum - 1) * limitNum;
 
   const registrations = await Registration.find(filter)
     .populate([
       {
-        path: "event_id",
-        select: "title description category start_date end_date location",
+        path: "event",
+        select: "title description category startDate endDate location",
         populate: {
           path: "college",
           select: "name code",
         },
       },
       {
-        path: "user_id",
-        select: "username email fullName",
+        path: "user",
+        select: "username email firstName lastName",
       },
       {
-        path: "approved_by",
+        path: "approvedBy",
         select: "username email",
       },
       {
-        path: "rejected_by",
+        path: "rejectedBy",
         select: "username email",
       },
     ])
-    .sort({ created_at: -1 })
+    .sort({ createdAt: -1 })
     .skip(skip)
-    .limit(parseInt(limit));
+    .limit(limitNum);
 
   const total = await Registration.countDocuments(filter);
 
@@ -276,149 +422,57 @@ export const getAllRegistrations = catchAsync(async (req, res, next) => {
     data: {
       registrations,
       pagination: {
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(total / limit),
+        currentPage: pageNum,
+        totalPages: Math.ceil(total / limitNum),
         totalRegistrations: total,
       },
     },
   });
 });
 
-// @desc    Approve registration
-// @route   PATCH /api/registrations/:id/approve
-// @access  Private (college admin or admin only)
-export const approveRegistration = catchAsync(async (req, res, next) => {
+// Single registration details with ownership/role checks.
+export const getRegistrationById = catchAsync(async (req, res, next) => {
   const registrationId = req.params.id;
-  const adminId = req.user._id;
 
-  const registration = await Registration.findById(registrationId)
-    .populate("event_id")
-    .populate("user_id");
+  const registration = await Registration.findById(registrationId).populate([
+    {
+      path: "event",
+      select: "title description category startDate endDate location",
+      populate: {
+        path: "college",
+        select: "name code",
+      },
+    },
+    {
+      path: "user",
+      select: "username email firstName lastName",
+    },
+    {
+      path: "approvedBy",
+      select: "username email",
+    },
+    {
+      path: "rejectedBy",
+      select: "username email",
+    },
+  ]);
 
   if (!registration) {
     return next(new AppError("Registration not found", 404));
   }
 
-  // Check authorization
-  if (req.user.role === "college_admin" && 
-      registration.event_id.college.toString() !== req.user.college.toString()) {
-    return next(new AppError("Not authorized to approve this registration", 403));
-  }
+  const canViewAsOwner = registration.user?._id?.toString() === req.userId.toString();
 
-  // Check if registration can be approved
-  if (!registration.isModifiable()) {
-    return next(new AppError("Registration cannot be approved", 400));
-  }
-
-  // Check capacity
-  const event = registration.event_id;
-  if (event.max_participants > 0) {
-    const approvedCount = await Registration.countDocuments({
-      event_id: registration.event_id._id,
-      status: "approved",
-    });
-
-    if (approvedCount >= event.max_participants) {
-      return next(new AppError("Event has reached maximum capacity", 400));
+  if (!canViewAsOwner && req.userRole !== "admin") {
+    const event = await Event.findById(registration.event?._id).select("createdBy");
+    if (!event || event.createdBy.toString() !== req.userId.toString()) {
+      return next(new AppError("Not authorized to view this registration", 403));
     }
   }
 
-  await registration.approve(adminId);
-
   res.status(200).json({
     success: true,
-    message: "Registration approved successfully",
-    data: {
-      registration,
-    },
+    data: { registration },
   });
 });
-
-// @desc    Reject registration
-// @route   PATCH /api/registrations/:id/reject
-// @access  Private (college admin or admin only)
-export const rejectRegistration = catchAsync(async (req, res, next) => {
-  const registrationId = req.params.id;
-  const { rejection_reason } = req.body;
-  const adminId = req.user._id;
-
-  const registration = await Registration.findById(registrationId)
-    .populate("event_id")
-    .populate("user_id");
-
-  if (!registration) {
-    return next(new AppError("Registration not found", 404));
-  }
-
-  // Check authorization
-  if (req.user.role === "college_admin" && 
-      registration.event_id.college.toString() !== req.user.college.toString()) {
-    return next(new AppError("Not authorized to reject this registration", 403));
-  }
-
-  // Check if registration can be rejected
-  if (!registration.isModifiable()) {
-    return next(new AppError("Registration cannot be rejected", 400));
-  }
-
-  await registration.reject(adminId, rejection_reason);
-
-  res.status(200).json({
-    success: true,
-    message: "Registration rejected successfully",
-    data: {
-      registration,
-    },
-  });
-});
-
-// @desc    Get registration by ID
-// @route   GET /api/registrations/:id
-// @access  Private
-export const getRegistrationById = catchAsync(async (req, res, next) => {
-  const registrationId = req.params.id;
-  const user_id = req.user._id;
-
-  const registration = await Registration.findById(registrationId)
-    .populate([
-      {
-        path: "event_id",
-        select: "title description category start_date end_date location",
-        populate: {
-          path: "college",
-          select: "name code",
-        },
-      },
-      {
-        path: "user_id",
-        select: "username email fullName",
-      },
-      {
-        path: "approved_by",
-        select: "username email",
-      },
-      {
-        path: "rejected_by",
-        select: "username email",
-      },
-    ]);
-
-  if (!registration) {
-    return next(new AppError("Registration not found", 404));
-  }
-
-  // Check authorization
-  if (registration.user_id._id.toString() !== user_id.toString() && 
-      req.user.role !== "admin" &&
-      (req.user.role !== "college_admin" || 
-       registration.event_id.college.toString() !== req.user.college.toString())) {
-    return next(new AppError("Not authorized to view this registration", 403));
-  }
-
-  res.status(200).json({
-    success: true,
-    data: {
-      registration,
-    },
-  });
-});
+// MILESTONE 3 FEATURE END
