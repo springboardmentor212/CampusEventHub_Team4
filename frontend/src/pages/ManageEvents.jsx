@@ -4,7 +4,6 @@ import API from "../api/axios";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 import {
-    Search,
     Edit2,
     Trash2,
     FileDown,
@@ -14,7 +13,9 @@ import {
     ChevronRight,
     Ban,
     ExternalLink,
-    Filter
+    Filter,
+    Plus,
+    ArrowRight
 } from "lucide-react";
 
 const ManageEvents = () => {
@@ -94,11 +95,10 @@ const ManageEvents = () => {
                     </div>
                     <div className="flex items-center gap-3">
                         <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                             <input
                                 type="text"
-                                placeholder="Search events..."
-                                className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/10 outline-none w-64"
+                                placeholder="Search event..."
+                                className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/10 outline-none w-64"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
@@ -156,6 +156,9 @@ const ManageEvents = () => {
                                     filteredEvents.map(event => {
                                         const isPast = new Date(event.endDate) < new Date();
                                         const isCancelled = event.status === 'cancelled';
+                                        const maxCapacity = Number(event.maxParticipants) > 0 ? Number(event.maxParticipants) : null;
+                                        const currentCount = Number(event.currentParticipants) || 0;
+                                        const occupancyPercent = maxCapacity ? Math.min(100, Math.round((currentCount / maxCapacity) * 100)) : 0;
 
                                         return (
                                             <tr key={event._id} className={`hover:bg-slate-50/50 transition-colors ${isCancelled ? 'opacity-60 grayscale' : ''}`}>
@@ -170,7 +173,7 @@ const ManageEvents = () => {
                                                             </div>
                                                             <div className="flex items-center gap-1.5 text-[10px] font-bold">
                                                                 <Users className="w-3 h-3" />
-                                                                {event.currentParticipants}/{event.maxParticipants}
+                                                                {currentCount}/{maxCapacity ?? "Open"}
                                                             </div>
                                                         </div>
                                                     </div>
@@ -178,12 +181,12 @@ const ManageEvents = () => {
                                                 <td className="px-6 py-5">
                                                     <div className="w-32 h-2 bg-slate-100 rounded-full overflow-hidden">
                                                         <div
-                                                            className={`h-full rounded-full transition-all duration-500 ${event.currentParticipants / event.maxParticipants > 0.8 ? 'bg-rose-500' : 'bg-indigo-600'}`}
-                                                            style={{ width: `${Math.min(100, (event.currentParticipants / event.maxParticipants) * 100)}%` }}
+                                                            className={`h-full rounded-full transition-all duration-500 ${occupancyPercent > 80 ? 'bg-rose-500' : 'bg-indigo-600'}`}
+                                                            style={{ width: `${occupancyPercent}%` }}
                                                         ></div>
                                                     </div>
                                                     <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mt-2">
-                                                        {Math.round((event.currentParticipants / event.maxParticipants) * 100)}% Occupancy
+                                                        {maxCapacity ? `${occupancyPercent}% Occupancy` : "Open Capacity"}
                                                     </p>
                                                 </td>
                                                 <td className="px-6 py-5">

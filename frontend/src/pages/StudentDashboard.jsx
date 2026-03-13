@@ -5,7 +5,6 @@ import useAuth from "../hooks/useAuth";
 import API from "../api/axios";
 import toast from "react-hot-toast";
 import {
-  Search,
   Filter,
   MapPin,
   Calendar,
@@ -44,6 +43,8 @@ const StudentDashboard = () => {
   const [filterCategory, setFilterCategory] = useState("All");
   const [participationFilter, setParticipationFilter] = useState("all"); // all, ongoing, upcoming, past
 
+  const featuredCount = Math.max(events.length, 0);
+
   useEffect(() => {
     fetchData();
   }, [user]);
@@ -52,8 +53,12 @@ const StudentDashboard = () => {
     try {
       setLoading(true);
 
+      const eventsRequest = user?.role === 'student'
+        ? API.get("/events")
+        : API.get("/events/my/events?status=all&limit=100");
+
       const [eventsRes] = await Promise.all([
-        API.get("/events")
+        eventsRequest
       ]);
       setEvents(eventsRes.data?.data?.events || []);
 
@@ -75,9 +80,12 @@ const StudentDashboard = () => {
   const categories = ["All", "Workshop", "Seminar", "Cultural", "Sports", "Technical"];
 
   const filteredEvents = events.filter(event => {
-    const matchesSearch = event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      event.description?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = filterCategory === "All" || (event.category || '').toLowerCase() === filterCategory.toLowerCase();
+    const title = event.title || "";
+    const description = event.description || "";
+    const category = event.category || "";
+    const query = searchQuery.toLowerCase();
+    const matchesSearch = title.toLowerCase().includes(query) || description.toLowerCase().includes(query);
+    const matchesCategory = filterCategory === "All" || category.toLowerCase() === filterCategory.toLowerCase();
     return matchesSearch && matchesCategory;
   });
 
@@ -94,7 +102,7 @@ const StudentDashboard = () => {
 
   return (
     <DashboardLayout>
-      <div className="max-w-7xl mx-auto space-y-12 animate-fade-in">
+      <div className="max-w-7xl mx-auto space-y-10 animate-fade-in">
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
           <div className="space-y-2">
             <div className="flex items-center gap-3">
@@ -107,18 +115,18 @@ const StudentDashboard = () => {
             <p className="text-slate-500 font-medium">Ready for your next campus adventure? Discover events below.</p>
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className="flex -space-x-3">
-              {[1, 2, 3].map(i => (
-                <div key={i} className="w-10 h-10 rounded-full border-2 border-white bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-400 overflow-hidden">
-                  <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${i * 3242}`} alt="User" />
-                </div>
-              ))}
-              <div className="w-10 h-10 rounded-full border-2 border-white bg-indigo-600 flex items-center justify-center text-[10px] font-bold text-white">
-                +12k
+          <div className="bg-white border border-slate-200 rounded-2xl px-5 py-4 shadow-sm min-w-[180px]">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Feed Status</p>
+            <div className="mt-2 flex items-end justify-between gap-6">
+              <div>
+                <p className="text-2xl font-black text-slate-900">{featuredCount}</p>
+                <p className="text-xs font-semibold text-slate-500">Live cards in feed</p>
               </div>
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-700 border border-emerald-100">
+                <Activity className="w-3 h-3" />
+                Active
+              </span>
             </div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Active<br />Students</p>
           </div>
         </header>
 
@@ -168,11 +176,10 @@ const StudentDashboard = () => {
 
           <div className="flex items-center gap-4 w-full md:w-auto px-4 md:px-0">
             <div className="relative flex-1 md:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search events..."
-                className="w-full bg-slate-50 border-slate-200 rounded-xl pl-9 text-xs font-medium focus:ring-2 focus:ring-indigo-100 placeholder:text-slate-400 py-2.5"
+                placeholder="Search event..."
+                className="w-full bg-slate-50 border-slate-200 rounded-xl px-4 text-xs font-medium focus:ring-2 focus:ring-indigo-100 placeholder:text-slate-400 py-2.5"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -204,12 +211,12 @@ const StudentDashboard = () => {
                 <p className="text-slate-400 text-xs mt-2">Adjust your filters or search term to see more events.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-stretch">
                 {filteredEvents.map((event, idx) => (
                   <Link
                     to={`/event/${event._id}`}
                     key={event._id}
-                    className="group bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden flex flex-col h-[520px] hover:border-indigo-100 hover:shadow-2xl hover:shadow-indigo-50 transition-all duration-700 hover:-translate-y-4"
+                    className="group bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden flex flex-col min-h-[500px] hover:border-indigo-100 hover:shadow-2xl hover:shadow-indigo-50 transition-all duration-500 hover:-translate-y-2"
                     style={{ animationDelay: `${idx * 100}ms` }}
                   >
                     <div className="relative h-64 overflow-hidden">
@@ -222,7 +229,7 @@ const StudentDashboard = () => {
 
                       <div className="absolute top-6 right-6">
                         <span className="px-4 py-1.5 bg-white/90 backdrop-blur-md rounded-full text-[9px] font-black uppercase tracking-[0.15em] text-slate-900 shadow-xl">
-                          {event.category}
+                          {event.category === 'other' ? (event.customCategory || 'other') : event.category}
                         </span>
                       </div>
 
@@ -244,7 +251,7 @@ const StudentDashboard = () => {
                           </div>
                           <div className="flex flex-col items-end">
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Spots</span>
-                            <span className="text-xs font-bold text-slate-900">{event.maxParticipants - event.currentParticipants} Left</span>
+                            <span className="text-xs font-bold text-slate-900">{event.maxParticipants ? Math.max(event.maxParticipants - event.currentParticipants, 0) : 'Open'}</span>
                           </div>
                         </div>
 
@@ -313,7 +320,7 @@ const StudentDashboard = () => {
                         <div>
                           <h3 className="font-bold text-lg text-slate-900 mb-1">{reg.event?.title}</h3>
                           <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">{reg.event?.category}</span>
+                            <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">{reg.event?.category === 'other' ? (reg.event?.customCategory || 'other') : reg.event?.category}</span>
                             {new Date(reg.event?.startDate) <= now && new Date(reg.event?.endDate) >= now && (
                               <span className="flex items-center gap-1 text-[9px] font-black text-emerald-600 uppercase animate-pulse">
                                 <Activity className="w-3 h-3" /> Live Now

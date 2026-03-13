@@ -29,6 +29,10 @@ const Profile = () => {
         section: user?.section || ""
     });
 
+    const totalParticipated = user?.participatedEvents?.length || 0;
+    const upcomingCount = user?.futureEvents?.length || 0;
+    const pendingCount = user?.pendingRegistrations?.length || 0;
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -83,14 +87,17 @@ const Profile = () => {
                             <div className="mt-8 pt-8 border-t border-slate-50 grid grid-cols-2 gap-4">
                                 <div className="p-4 bg-slate-50 rounded-2xl flex flex-col items-center">
                                     <Award className="w-5 h-5 text-amber-500 mb-2" />
-                                    <span className="text-[9px] font-black text-slate-400 uppercase">Points</span>
-                                    <span className="text-sm font-bold text-slate-900">1250</span>
+                                    <span className="text-[9px] font-black text-slate-400 uppercase">Attended</span>
+                                    <span className="text-sm font-bold text-slate-900">{totalParticipated}</span>
                                 </div>
                                 <div className="p-4 bg-slate-50 rounded-2xl flex flex-col items-center">
                                     <CreditCard className="w-5 h-5 text-indigo-500 mb-2" />
-                                    <span className="text-[9px] font-black text-slate-400 uppercase">Credits</span>
-                                    <span className="text-sm font-bold text-slate-900">42</span>
+                                    <span className="text-[9px] font-black text-slate-400 uppercase">Upcoming</span>
+                                    <span className="text-sm font-bold text-slate-900">{upcomingCount}</span>
                                 </div>
+                            </div>
+                            <div className="mt-4 p-3 rounded-xl bg-amber-50 border border-amber-100 text-center">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-amber-700">Pending Approvals: {pendingCount}</p>
                             </div>
                         </section>
 
@@ -174,7 +181,7 @@ const Profile = () => {
                                 </div>
                                 <div className="flex-1">
                                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Enrolled Institution</p>
-                                    <p className="text-sm font-bold text-slate-700">{user?.college?.name} ({user?.college?.code})</p>
+                                    <p className="text-sm font-bold text-slate-700">{user?.college?.name ? `${user.college.name} (${user.college.code || 'N/A'})` : 'Not linked to a college yet'}</p>
                                 </div>
                             </div>
 

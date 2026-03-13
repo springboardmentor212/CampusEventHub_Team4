@@ -20,3 +20,5 @@ Thumbs.db
 mongo-data
 # Environment variables
 .env.*
+uday.txt
+udays.txt

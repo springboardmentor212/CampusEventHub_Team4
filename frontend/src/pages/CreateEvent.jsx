@@ -6,7 +6,6 @@ import { useNavigate } from "react-router-dom";
 import FormInput from "../components/FormInput";
 import ImageUpload from "../components/ImageUpload";
 import {
-    Plus,
     MapPin,
     Type,
     Calendar,
@@ -33,57 +32,83 @@ const CreateEvent = () => {
     const [form, setForm] = useState({
         title: "",
         description: "",
-        category: "Workshop",
+        category: "workshop",
         location: "",
         startDate: "",
         endDate: "",
         registrationDeadline: "",
         maxParticipants: "",
-        requirements: "",
-        dosAndDonts: "",
+        requirements: [""],
+        dosAndDonts: [""],
         bannerImage: "",
+        visibilityScope: "college_only",
         isTeamEvent: false,
         minTeamSize: "1",
         maxTeamSize: "4",
-        participationMode: "solo",
-        participationRequirements: [] // Dynamic fields
+        participationMode: "solo"
     });
+    const [customCategory, setCustomCategory] = useState("");
 
-    const categories = ["Workshop", "Seminar", "Cultural", "Sports", "Technical", "Hackathon", "Other"];
+    const categories = [
+        { value: "workshop", label: "Workshop" },
+        { value: "seminar", label: "Seminar" },
+        { value: "cultural", label: "Cultural" },
+        { value: "sports", label: "Sports" },
+        { value: "technical", label: "Technical" },
+        { value: "hackathon", label: "Hackathon" },
+        { value: "other", label: "Other" },
+    ];
 
-    const addRequirement = () => {
-        setForm({
-            ...form,
-            participationRequirements: [
-                ...form.participationRequirements,
-                { label: "", fieldType: "text", isRequired: true }
-            ]
+    const addListItem = (fieldName) => {
+        setForm((prev) => ({
+            ...prev,
+            [fieldName]: [...(prev[fieldName] || []), ""]
+        }));
+    };
+
+    const updateListItem = (fieldName, index, value) => {
+        setForm((prev) => ({
+            ...prev,
+            [fieldName]: (prev[fieldName] || []).map((item, itemIndex) => (
+                itemIndex === index ? value : item
+            ))
+        }));
+    };
+
+    const removeListItem = (fieldName, index) => {
+        setForm((prev) => {
+            const nextItems = (prev[fieldName] || []).filter((_, itemIndex) => itemIndex !== index);
+            return {
+                ...prev,
+                [fieldName]: nextItems.length ? nextItems : [""]
+            };
         });
-    };
-
-    const removeRequirement = (index) => {
-        const updated = [...form.participationRequirements];
-        updated.splice(index, 1);
-        setForm({ ...form, participationRequirements: updated });
-    };
-
-    const updateRequirement = (index, field, value) => {
-        const updated = [...form.participationRequirements];
-        updated[index][field] = value;
-        setForm({ ...form, participationRequirements: updated });
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         const loadingToast = toast.loading("Creating your event...");
 
-        const requirementsArray = form.requirements
-            ? form.requirements.split(",").map(req => req.trim()).filter(req => req !== "")
-            : [];
+        const resolvedCategory = form.category;
+        const resolvedCustomCategory = form.category === "other" ? customCategory.trim() : "";
 
-        const dosArray = form.dosAndDonts
-            ? form.dosAndDonts.split(",").map(d => d.trim()).filter(d => d !== "")
-            : [];
+        if (form.category === "other" && !resolvedCustomCategory) {
+            toast.error("Please enter a custom category name.", { id: loadingToast });
+            return;
+        }
+
+        const requirementsArray = (form.requirements || []).map((req) => req.trim()).filter((req) => req !== "");
+        const dosArray = (form.dosAndDonts || []).map((item) => item.trim()).filter((item) => item !== "");
+
+        if (!requirementsArray.length) {
+            toast.error("Add at least one requirement checklist item.", { id: loadingToast });
+            return;
+        }
+
+        if (!dosArray.length) {
+            toast.error("Add at least one important rule.", { id: loadingToast });
+            return;
+        }
 
         // ─── Validate date ordering ────────────────────────────
         if (form.registrationDeadline && form.startDate) {
@@ -102,9 +127,11 @@ const CreateEvent = () => {
         try {
             await API.post("/events/create", {
                 ...form,
-                category: form.category.toLowerCase(),
+                category: resolvedCategory,
+                customCategory: resolvedCustomCategory,
                 requirements: requirementsArray,
                 dosAndDonts: dosArray,
+                participationRequirements: [],
                 maxParticipants: form.maxParticipants ? parseInt(form.maxParticipants) : null
             });
             toast.success("Event created successfully!", { id: loadingToast });
@@ -181,7 +208,7 @@ const CreateEvent = () => {
                                     onChange={(e) => setForm({ ...form, category: e.target.value })}
                                     suffix={<ChevronDown className="w-4 h-4 text-slate-400" />}
                                 >
-                                    {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                    {categories.map((cat) => <option key={cat.value} value={cat.value}>{cat.label}</option>)}
                                 </FormInput>
 
                                 <FormInput
@@ -194,6 +221,17 @@ const CreateEvent = () => {
                                 />
                             </div>
 
+                            {form.category === "other" && (
+                                <FormInput
+                                    label="Custom Category Name"
+                                    icon={Type}
+                                    required
+                                    placeholder="Enter custom category"
+                                    value={customCategory}
+                                    onChange={(e) => setCustomCategory(e.target.value)}
+                                />
+                            )}
+
                             <FormInput
                                 label="Description"
                                 icon={FileText}
@@ -204,79 +242,75 @@ const CreateEvent = () => {
                                 onChange={(e) => setForm({ ...form, description: e.target.value })}
                                 rows={6}
                             />
-                        </section>
 
-                        {/* 3. Participation Protocol (Dynamic Fields) */}
-                        <section className="bg-white border border-slate-100 rounded-[3rem] p-10 shadow-sm space-y-8">
-                            <div className="flex items-center justify-between pb-6 border-b border-slate-50">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-3 rounded-2xl bg-emerald-50 text-emerald-600">
-                                        <ShieldAlert className="w-5 h-5" />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-4 p-5 rounded-2xl border border-slate-100 bg-slate-50/40">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Important Rules</p>
+                                        <button
+                                            type="button"
+                                            onClick={() => addListItem("dosAndDonts")}
+                                            className="px-3 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-lg border border-slate-200 bg-white hover:bg-slate-50"
+                                        >
+                                            + Add Rule
+                                        </button>
                                     </div>
-                                    <div>
-                                        <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm italic">Additional Fields</h3>
-                                        <p className="text-[10px] font-bold text-slate-400 mt-0.5">Add custom questions to collect from students during registration.</p>
-                                    </div>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={addRequirement}
-                                    className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-white transition-colors"
-                                >
-                                    <Plus className="w-3 h-3" />
-                                    Add Field
-                                </button>
-                            </div>
-
-                            <div className="space-y-4">
-                                {form.participationRequirements.length === 0 ? (
-                                    <div className="py-8 text-center bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">No extra fields added. Only Student ID required by default.</p>
-                                    </div>
-                                ) : (
-                                    form.participationRequirements.map((req, idx) => (
-                                        <div key={idx} className="flex flex-col md:flex-row gap-4 p-6 bg-slate-50 rounded-[2rem] animate-fade-in relative group">
-                                            <div className="flex-1 space-y-4">
-                                                <FormInput
-                                                    label="Field Name"
-                                                    placeholder="e.g. Team Name, Year of Study, etc."
-                                                    value={req.label}
-                                                    onChange={(e) => updateRequirement(idx, "label", e.target.value)}
-                                                />
-                                                <div className="flex gap-4">
-                                                    <select
-                                                        className="flex-1 bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold font-black text-slate-600 uppercase tracking-tighter"
-                                                        value={req.fieldType}
-                                                        onChange={(e) => updateRequirement(idx, "fieldType", e.target.value)}
-                                                    >
-                                                        <option value="text">Text</option>
-                                                        <option value="number">Number</option>
-                                                        <option value="email">Email</option>
-                                                        <option value="file">File Upload</option>
-                                                    </select>
-                                                    <label className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl cursor-pointer select-none">
-                                                        <input
-                                                            type="checkbox"
-                                                            className="w-3.5 h-3.5 rounded-full border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                                                            checked={req.isRequired}
-                                                            onChange={(e) => updateRequirement(idx, "isRequired", e.target.checked)}
-                                                        />
-                                                        <span className="text-[10px] font-black uppercase tracking-tighter text-slate-900">Required</span>
-                                                    </label>
-                                                </div>
-                                            </div>
+                                    {(form.dosAndDonts || []).map((rule, idx) => (
+                                        <div key={`rule-${idx}`} className="flex items-center gap-2">
+                                            <input
+                                                type="text"
+                                                value={rule}
+                                                onChange={(e) => updateListItem("dosAndDonts", idx, e.target.value)}
+                                                placeholder={`Rule ${idx + 1}`}
+                                                className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+                                            />
                                             <button
                                                 type="button"
-                                                onClick={() => removeRequirement(idx)}
-                                                className="md:self-start p-2 text-rose-400 hover:text-rose-600 hover:bg-white rounded-xl transition-all"
+                                                onClick={() => removeListItem("dosAndDonts", idx)}
+                                                className="p-2 rounded-lg text-rose-500 hover:bg-rose-50"
                                             >
-                                                <Trash2 className="w-5 h-5" />
+                                                <Trash2 className="w-4 h-4" />
                                             </button>
                                         </div>
-                                    ))
-                                )}
+                                    ))}
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Supports 10+ items.</p>
+                                </div>
+
+                                <div className="space-y-4 p-5 rounded-2xl border border-slate-100 bg-slate-50/40">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Requirements Checklist</p>
+                                        <button
+                                            type="button"
+                                            onClick={() => addListItem("requirements")}
+                                            className="px-3 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-lg border border-slate-200 bg-white hover:bg-slate-50"
+                                        >
+                                            + Add Item
+                                        </button>
+                                    </div>
+                                    {(form.requirements || []).map((requirement, idx) => (
+                                        <div key={`requirement-${idx}`} className="flex items-center gap-2">
+                                            <input
+                                                type="text"
+                                                value={requirement}
+                                                onChange={(e) => updateListItem("requirements", idx, e.target.value)}
+                                                placeholder={`Requirement ${idx + 1}`}
+                                                className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => removeListItem("requirements", idx)}
+                                                className="p-2 rounded-lg text-rose-500 hover:bg-rose-50"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Supports 10+ items.</p>
+                                </div>
                             </div>
                         </section>
+
+                        {/* Additional Fields intentionally removed per runtime flow decision */}
                     </div>
 
                     {/* Right Column: Timeline & Authority */}
@@ -320,6 +354,21 @@ const CreateEvent = () => {
                             />
 
                             <div className="pt-6 space-y-6 border-t border-slate-50">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div>
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Event Audience</p>
+                                        <p className="text-[10px] text-slate-500 mt-1">Choose who can register for this event</p>
+                                    </div>
+                                    <select
+                                        className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-[9px] font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-indigo-100"
+                                        value={form.visibilityScope}
+                                        onChange={(e) => setForm({ ...form, visibilityScope: e.target.value })}
+                                    >
+                                        <option value="college_only">Only My College</option>
+                                        <option value="all_colleges">All Colleges</option>
+                                    </select>
+                                </div>
+
                                 <div className="flex items-center gap-3">
                                     <div className="p-3 rounded-2xl bg-slate-50 text-slate-600">
                                         <Users className="w-4 h-4" />

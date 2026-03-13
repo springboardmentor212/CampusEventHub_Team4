@@ -18,10 +18,20 @@ const eventSchema = new mongoose.Schema({
     enum: ["sports", "hackathon", "cultural", "workshop", "seminar", "technical", "other"],
     trim: true,
   },
+  customCategory: {
+    type: String,
+    default: "",
+    trim: true,
+  },
   location: {
     type: String,
     required: true,
     trim: true,
+  },
+  visibilityScope: {
+    type: String,
+    enum: ["college_only", "all_colleges"],
+    default: "college_only",
   },
   startDate: {
     type: Date,

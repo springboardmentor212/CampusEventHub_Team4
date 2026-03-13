@@ -15,7 +15,7 @@ const generateVerificationToken = () => {
 
 // Register a new user
 export const register = catchAsync(async (req, res, next) => {
-  const { username, email, password, collegeId, firstName, lastName, phone, officialId, role } = req.body;
+  const { username, email, password, collegeId, firstName, lastName, phone, department, officialId, role } = req.body;
   console.log(`[Registration] Request for ${email} with role: ${role}`);
 
   // Validate college exists
@@ -58,6 +58,7 @@ export const register = catchAsync(async (req, res, next) => {
     firstName,
     lastName,
     phone,
+    department,
     officialId,
     isEmailVerified: false,
     isApproved: false,
@@ -296,7 +297,7 @@ export const resendVerification = catchAsync(async (req, res, next) => {
 // Get current user profile with dashboard stats
 export const getProfile = catchAsync(async (req, res, next) => {
   const user = await User.findById(req.userId)
-    .populate("college", "name code email website")
+    .populate("college", "name code email website phone departments")
     .lean(); // Use lean to easily attach properties
 
   if (!user) {
@@ -358,7 +359,7 @@ export const updateProfile = catchAsync(async (req, res, next) => {
     userId,
     allowedUpdates,
     { new: true, runValidators: true }
-  ).populate("college", "name code");
+  ).populate("college", "name code phone departments");
 
   if (!user) {
     return next(new AppError("User not found", 404));
@@ -527,7 +528,7 @@ export const getAllColleges = catchAsync(async (req, res, next) => {
 
 // Admin: Manually create a student account
 export const createStudent = catchAsync(async (req, res, next) => {
-  const { username, email, password, firstName, lastName, phone, officialId, academicClass, section, collegeId } = req.body;
+  const { username, email, password, firstName, lastName, phone, department, officialId, academicClass, section, collegeId } = req.body;
 
   // Determination of college: SuperAdmin specifies collegeId, CollegeAdmin uses their own
   let targetCollegeId = collegeId;
@@ -547,6 +548,7 @@ export const createStudent = catchAsync(async (req, res, next) => {
     firstName,
     lastName,
     phone,
+    department,
     officialId,
     academicClass,
     section,

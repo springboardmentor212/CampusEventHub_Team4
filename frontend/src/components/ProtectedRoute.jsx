@@ -15,9 +15,9 @@ const ProtectedRoute = ({ children, role }) => {
   // Check specific role requirement
   if (role) {
     if (Array.isArray(role)) {
-      if (!role.includes(user.role)) return <Navigate to="/student" />;
+      if (!role.includes(user.role)) return <Navigate to="/campus-feed" />;
     } else {
-      if (user.role !== role) return <Navigate to="/student" />;
+      if (user.role !== role) return <Navigate to="/campus-feed" />;
     }
   }
 

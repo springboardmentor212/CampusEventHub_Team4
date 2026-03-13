@@ -12,6 +12,35 @@ import {
     FileText, UserCircle
 } from "lucide-react";
 
+const normalizeList = (value) => {
+    if (Array.isArray(value)) {
+        return value.filter(Boolean);
+    }
+
+    if (typeof value === "string") {
+        return value
+            .split(/\r?\n|,/)
+            .map((item) => item.trim())
+            .filter(Boolean);
+    }
+
+    return [];
+};
+
+const normalizeRequirements = (requirements) => {
+    if (!Array.isArray(requirements)) {
+        return [];
+    }
+
+    return requirements
+        .map((requirement) => ({
+            ...requirement,
+            fieldType: requirement.fieldType || requirement.type || "text",
+            label: requirement.label || "Additional field",
+        }))
+        .filter((requirement) => requirement.label);
+};
+
 const EventDetails = () => {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -28,7 +57,7 @@ const EventDetails = () => {
                 setEvent(res.data.data.event);
             } catch (err) {
                 toast.error("Event retrieval failure. Asset might be archived.");
-                navigate("/student");
+                navigate("/campus-feed");
             } finally {
                 setLoading(false);
             }
@@ -37,7 +66,9 @@ const EventDetails = () => {
     }, [id, navigate]);
 
     const handleRegister = async () => {
-        if (event.participationRequirements?.length > 0 && !showRegModal) {
+        const requiresRegistrationDetails = event.isTeamEvent || event.participationRequirements?.length > 0;
+
+        if (requiresRegistrationDetails && !showRegModal) {
             setShowRegModal(true);
             return;
         }
@@ -49,7 +80,7 @@ const EventDetails = () => {
                 customResponses
             });
             toast.success("Registration protocol complete. Check your dashboard.", { id: loadingToast });
-            navigate("/student");
+            navigate("/campus-feed");
         } catch (err) {
             toast.error(err.response?.data?.message || "Registration conflict detected.", { id: loadingToast });
         } finally {
@@ -74,6 +105,14 @@ const EventDetails = () => {
     const startDate = new Date(event.startDate);
     const endDate = new Date(event.endDate);
     const isFull = event.maxParticipants && event.currentParticipants >= event.maxParticipants;
+    const rules = normalizeList(event.dosAndDonts);
+    const requirements = normalizeList(event.requirements);
+    const participationRequirements = normalizeRequirements(event.participationRequirements);
+    const categoryLabel = event.category === "other" ? (event.customCategory || "Other") : event.category;
+    const spotsLeft = event.maxParticipants ? Math.max(event.maxParticipants - event.currentParticipants, 0) : null;
+    const registrationClosed = event.registrationDeadline ? new Date(event.registrationDeadline) < new Date() : false;
+    const actionDisabled = registering || event.status === "cancelled" || registrationClosed;
+    const actionLabel = isFull ? "Join Waitlist" : "Secure Entry";
 
     return (
         <DashboardLayout>
@@ -107,12 +146,12 @@ const EventDetails = () => {
                             <div className="absolute top-8 left-8 flex gap-3">
                                 <span className="bg-white/95 backdrop-blur-md px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest text-slate-900 border border-slate-100 shadow-xl flex items-center gap-2 italic">
                                     <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                                    {event.category}
+                                    {categoryLabel}
                                 </span>
                                 {event.isTeamEvent && (
                                     <span className="bg-indigo-600 text-white px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest shadow-xl flex items-center gap-2 italic">
                                         <Users className="w-3.5 h-3.5" />
-                                        {event.participationMode.toUpperCase()} Admission
+                                        {(event.participationMode || "team").toUpperCase()} Admission
                                     </span>
                                 )}
                             </div>
@@ -155,7 +194,7 @@ const EventDetails = () => {
                                 <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm italic">About Event</h3>
                             </div>
                             <p className="text-slate-600 leading-relaxed text-xl font-medium whitespace-pre-wrap">
-                                {event.description}
+                                {event.description || "Event details will be announced by the organizing college."}
                             </p>
                         </section>
 
@@ -169,7 +208,7 @@ const EventDetails = () => {
                                     <h3 className="font-black text-slate-900 uppercase tracking-widest text-xs italic">Important Rules</h3>
                                 </div>
                                 <ul className="space-y-5">
-                                    {event.dosAndDonts?.length > 0 ? event.dosAndDonts.map((item, idx) => (
+                                    {rules.length > 0 ? rules.map((item, idx) => (
                                         <li key={idx} className="flex gap-4 text-sm font-semibold text-slate-500">
                                             <div className="w-2 h-2 rounded-full bg-emerald-400 mt-1.5 shrink-0 shadow-sm shadow-emerald-200"></div>
                                             {item}
@@ -186,7 +225,7 @@ const EventDetails = () => {
                                     <h3 className="font-black text-slate-900 uppercase tracking-widest text-xs italic">Requirements</h3>
                                 </div>
                                 <ul className="space-y-5">
-                                    {event.requirements?.length > 0 ? event.requirements.map((item, idx) => (
+                                    {requirements.length > 0 ? requirements.map((item, idx) => (
                                         <li key={idx} className="flex gap-4 text-sm font-semibold text-slate-500">
                                             <div className="w-2 h-2 rounded-full bg-amber-400 mt-1.5 shrink-0 shadow-sm shadow-amber-200"></div>
                                             {item}
@@ -197,20 +236,21 @@ const EventDetails = () => {
                         </div>
 
                         {/* Custom Participation Fields Preview */}
-                        {event.participationRequirements?.length > 0 && (
+                        {participationRequirements.length > 0 && (
                             <section className="bg-indigo-600 rounded-[3rem] p-12 text-white shadow-2xl shadow-indigo-200">
                                 <div className="flex items-center gap-4 mb-8">
                                     <Rocket className="w-8 h-8 opacity-80" />
                                     <div>
-                                        <h3 className="text-xl font-black italic tracking-tight">Active Requirement.</h3>
+                                        <h3 className="text-xl font-black italic tracking-tight">Additional Fields.</h3>
                                         <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-60">Admission requires dynamic data</p>
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 opacity-90">
-                                    {event.participationRequirements.map((req, idx) => (
+                                    {participationRequirements.map((req, idx) => (
                                         <div key={idx} className="flex items-center gap-3 bg-white/10 backdrop-blur-md px-6 py-4 rounded-2xl border border-white/10">
                                             <div className="w-2 h-2 rounded-full bg-white/40"></div>
                                             <span className="text-xs font-black uppercase tracking-widest">{req.label}</span>
+                                            <span className="text-[8px] rounded-full border border-white/15 px-2 py-1 uppercase tracking-[0.2em] opacity-75">{req.fieldType}</span>
                                             {req.isRequired && <span className="text-[8px] bg-white text-indigo-600 px-1.5 py-0.5 rounded font-black italic ml-auto">REQ</span>}
                                         </div>
                                     ))}
@@ -253,7 +293,7 @@ const EventDetails = () => {
                                         <div>
                                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Event Capacity</p>
                                             <p className="font-extrabold text-slate-900 mt-2 text-lg leading-tight">
-                                                {event.maxParticipants ? `${event.maxParticipants - event.currentParticipants} Spots Open` : "Open Admission"}
+                                                {spotsLeft !== null ? `${spotsLeft} Spots Open` : "Open Admission"}
                                             </p>
                                             {event.isTeamEvent && (
                                                 <p className="text-[10px] text-indigo-500 font-bold uppercase tracking-widest mt-1 italic">Teams of {event.minTeamSize}—{event.maxTeamSize} members</p>
@@ -261,7 +301,7 @@ const EventDetails = () => {
                                             <div className="w-full h-1.5 bg-slate-100 rounded-full mt-4 overflow-hidden">
                                                 <div
                                                     className="h-full bg-indigo-600 rounded-full"
-                                                    style={{ width: event.maxParticipants ? `${(event.currentParticipants / event.maxParticipants) * 100}%` : '15%' }}
+                                                    style={{ width: event.maxParticipants ? `${Math.min((event.currentParticipants / event.maxParticipants) * 100, 100)}%` : '15%' }}
                                                 ></div>
                                             </div>
                                         </div>
@@ -271,12 +311,12 @@ const EventDetails = () => {
                                 <div className="pt-10 border-t border-slate-100 space-y-6">
                                     <button
                                         onClick={handleRegister}
-                                        disabled={registering || isFull}
-                                        className={`w-full premium-btn py-6 flex flex-col gap-1 items-center justify-center relative group overflow-hidden ${isFull ? 'bg-slate-200 cursor-not-allowed opacity-70' : 'bg-slate-900 text-white'}`}
+                                        disabled={actionDisabled}
+                                        className={`w-full premium-btn py-6 flex flex-col gap-1 items-center justify-center relative group overflow-hidden ${actionDisabled ? 'bg-slate-200 cursor-not-allowed opacity-70' : 'bg-slate-900 text-white'}`}
                                     >
                                         <div className="flex items-center gap-2 relative z-10 transition-transform group-hover:scale-110">
                                             <Zap className={`w-5 h-5 ${registering ? 'animate-spin' : ''}`} />
-                                            <span className="font-black uppercase tracking-widest text-sm italic">{isFull ? "Threshold Reached" : "Secure Entry"}</span>
+                                            <span className="font-black uppercase tracking-widest text-sm italic">{actionLabel}</span>
                                         </div>
                                         <div className="absolute inset-0 bg-indigo-600 translate-y-full group-hover:translate-y-0 transition-transform duration-500"></div>
                                     </button>
@@ -284,9 +324,12 @@ const EventDetails = () => {
                                     <div className="flex items-center gap-3 justify-center">
                                         <AlertCircle className="w-4 h-4 text-amber-500" />
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">
-                                            Deadline: {new Date(event.registrationDeadline).toLocaleDateString()}
+                                            Deadline: {event.registrationDeadline ? new Date(event.registrationDeadline).toLocaleDateString() : 'Open until capacity is reached'}
                                         </p>
                                     </div>
+                                    {isFull && (
+                                        <p className="text-center text-xs font-bold text-indigo-600">This event is full. New submissions will be added to the waitlist automatically.</p>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -326,7 +369,7 @@ const EventDetails = () => {
                                             className="w-full bg-indigo-50/30 border border-indigo-100 rounded-2xl px-6 py-4 text-sm font-bold text-slate-700 focus:ring-4 focus:ring-indigo-100 outline-none transition-all"
                                             placeholder="Enter your team's name..."
                                             required
-                                            onChange={(e) => setCustomResponses({ ...customResponses, "Team Name": e.target.value })}
+                                            onChange={(e) => setCustomResponses((prev) => ({ ...prev, "Team Name": e.target.value }))}
                                         />
                                     </div>
                                     <div className="space-y-3">
@@ -338,12 +381,12 @@ const EventDetails = () => {
                                             placeholder={`Emails of exactly ${event.maxTeamSize - 1} other members`}
                                             required
                                             rows={2}
-                                            onChange={(e) => setCustomResponses({ ...customResponses, "Team Members": e.target.value })}
+                                            onChange={(e) => setCustomResponses((prev) => ({ ...prev, "Team Members": e.target.value }))}
                                         />
                                     </div>
                                 </>
                             )}
-                            {event.participationRequirements.map((req, idx) => (
+                            {participationRequirements.map((req, idx) => (
                                 <div key={idx} className="space-y-3">
                                     <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
                                         {req.label}
@@ -356,7 +399,7 @@ const EventDetails = () => {
                                                 className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-bold text-slate-700 focus:ring-4 focus:ring-indigo-100 outline-none transition-all"
                                                 placeholder={`Enter ${req.label.toLowerCase()}...`}
                                                 required={req.isRequired}
-                                                onChange={(e) => setCustomResponses({ ...customResponses, [req.label]: e.target.value })}
+                                                onChange={(e) => setCustomResponses((prev) => ({ ...prev, [req.label]: e.target.value }))}
                                             />
                                         )}
                                         {req.fieldType === 'number' && (
@@ -364,7 +407,7 @@ const EventDetails = () => {
                                                 type="number"
                                                 className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-bold text-slate-700 focus:ring-4 focus:ring-indigo-100 outline-none transition-all"
                                                 required={req.isRequired}
-                                                onChange={(e) => setCustomResponses({ ...customResponses, [req.label]: e.target.value })}
+                                                onChange={(e) => setCustomResponses((prev) => ({ ...prev, [req.label]: e.target.value }))}
                                             />
                                         )}
                                         {req.fieldType === 'email' && (
@@ -373,7 +416,7 @@ const EventDetails = () => {
                                                 className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-bold text-slate-700 focus:ring-4 focus:ring-indigo-100 outline-none transition-all"
                                                 placeholder="institutional@domain.com"
                                                 required={req.isRequired}
-                                                onChange={(e) => setCustomResponses({ ...customResponses, [req.label]: e.target.value })}
+                                                onChange={(e) => setCustomResponses((prev) => ({ ...prev, [req.label]: e.target.value }))}
                                             />
                                         )}
                                         {req.fieldType === 'file' && (
@@ -382,7 +425,7 @@ const EventDetails = () => {
                                                     type="file"
                                                     className="w-full opacity-0 absolute inset-0 cursor-pointer z-10"
                                                     required={req.isRequired}
-                                                    onChange={(e) => setCustomResponses({ ...customResponses, [req.label]: e.target.files[0]?.name })}
+                                                    onChange={(e) => setCustomResponses((prev) => ({ ...prev, [req.label]: e.target.files[0]?.name }))}
                                                 />
                                                 <div className="bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 flex items-center justify-between group-hover:bg-slate-100 transition-colors">
                                                     <span className="text-slate-400 text-xs font-bold">{customResponses[req.label] || "Select File Asset"}</span>

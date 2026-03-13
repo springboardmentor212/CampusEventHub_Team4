@@ -127,27 +127,30 @@ const CollegeAdminDashboard = () => {
             icon={Briefcase}
             label="Total Events"
             value={stats.totalEvents}
-            trend={`${stats.upcomingCount} Upcoming`}
+            trend={`${stats.ongoingCount || 0} Ongoing`}
+            trendTone="info"
             accent="text-indigo-600 bg-indigo-50 border-indigo-100"
           />
           <MetricCard
             icon={Users}
             label="Total Registrations"
             value={stats.totalRegistrations}
-            trend={`${stats.totalParticipants} Total`}
+            trend={`${stats.totalParticipants} Participants`}
+            trendTone="success"
             accent="text-emerald-600 bg-emerald-50 border-emerald-100"
           />
           <MetricCard
             icon={Clock}
             label="Pending Approvals"
             value={stats.pendingRegistrations}
-            trend="Needs Action"
+            trend={stats.pendingRegistrations > 0 ? "Needs Action" : "All Clear"}
+            trendTone={stats.pendingRegistrations > 0 ? "warning" : "success"}
             accent="text-amber-600 bg-amber-50 border-amber-100"
           />
           <MetricCard
             icon={Zap}
             label="Average Capacity"
-            value={`${Math.round((stats.totalParticipants / (stats.totalEvents * 50 || 1)) * 100)}%`}
+            value={`${stats.averageCapacityPercent || 0}%`}
             trend="Current Avg"
             accent="text-purple-600 bg-purple-50 border-purple-100"
           />
@@ -221,6 +224,15 @@ const CollegeAdminDashboard = () => {
                       <span className="text-[10px] text-rose-600 font-bold uppercase">Near Maximum Capacity</span>
                     </div>
                     <Activity className="w-4 h-4 text-rose-500" />
+                  </div>
+                )}
+                {stats.pendingRegistrations === 0 && stats.pendingApprovalCount === 0 && stats.capacityAlerts.length === 0 && (
+                  <div className="p-4 bg-white rounded-2xl border border-emerald-100 flex items-center justify-between shadow-sm">
+                    <div className="flex flex-col">
+                      <span className="text-sm font-bold text-emerald-900">All Clear</span>
+                      <span className="text-[10px] text-emerald-600 font-bold uppercase">No pending actions</span>
+                    </div>
+                    <Check className="w-4 h-4 text-emerald-500" />
                   </div>
                 )}
               </div>
@@ -308,7 +320,7 @@ const CollegeAdminDashboard = () => {
                       <td className="px-8 py-5">
                         <div className="flex flex-col">
                           <span className="text-sm text-slate-700 font-bold">{reg.event?.title}</span>
-                          <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">{reg.event?.category}</span>
+                          <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">{reg.event?.category === 'other' ? (reg.event?.customCategory || 'other') : reg.event?.category}</span>
                         </div>
                       </td>
                       <td className="px-8 py-5">
@@ -337,22 +349,32 @@ const CollegeAdminDashboard = () => {
   );
 };
 
-const MetricCard = ({ icon: Icon, label, value, trend, accent }) => (
-  <div className="bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-md transition-shadow duration-300 overflow-hidden relative">
-    <div className="flex justify-between items-start relative z-10">
-      <div className={`p-2.5 rounded-xl border ${accent}`}>
-        <Icon className="w-5 h-5" />
+const MetricCard = ({ icon: Icon, label, value, trend, accent, trendTone = "neutral" }) => {
+  const trendClass = trendTone === "warning"
+    ? "bg-amber-50 text-amber-700 border-amber-100"
+    : trendTone === "success"
+      ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+      : trendTone === "info"
+        ? "bg-indigo-50 text-indigo-700 border-indigo-100"
+        : "bg-slate-50 text-slate-500 border-slate-100";
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-md transition-shadow duration-300 overflow-hidden relative">
+      <div className="flex justify-between items-center relative z-10">
+        <div className={`p-2.5 rounded-xl border ${accent}`}>
+          <Icon className="w-5 h-5" />
+        </div>
+        <div className={`flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full border uppercase tracking-widest ${trendClass}`}>
+          {trend}
+        </div>
       </div>
-      <div className="flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full bg-slate-50 text-slate-500 border border-slate-100 uppercase tracking-widest">
-        {trend}
+      <div className="mt-6 relative z-10">
+        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">{label}</p>
+        <p className="text-3xl font-bold text-slate-900 tracking-tight">{value}</p>
       </div>
     </div>
-    <div className="mt-6 relative z-10">
-      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">{label}</p>
-      <p className="text-3xl font-bold text-slate-900 tracking-tight">{value}</p>
-    </div>
-  </div>
-);
+  );
+};
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {

@@ -19,7 +19,7 @@ router.get("/", async (req, res) => {
     }
 
     const colleges = await College.find(query)
-      .select("name code email website description type logo")
+      .select("name code email website description type logo phone departments")
       .limit(limit * 1)
       .skip((page - 1) * limit)
       .sort({ name: 1 });
@@ -82,6 +82,7 @@ router.post("/", authenticate, isSuperAdmin, async (req, res) => {
       code,
       email,
       phone,
+      departments,
       address,
       website,
       description,
@@ -114,6 +115,11 @@ router.post("/", authenticate, isSuperAdmin, async (req, res) => {
       code: code.toUpperCase(),
       email,
       phone,
+      departments: Array.isArray(departments)
+        ? departments.map((item) => item.trim()).filter(Boolean)
+        : typeof departments === "string"
+          ? departments.split(",").map((item) => item.trim()).filter(Boolean)
+          : [],
       address,
       website,
       description,
@@ -146,6 +152,7 @@ router.put("/:id", authenticate, canManageEvents, async (req, res) => {
       name,
       email,
       phone,
+      departments,
       address,
       website,
       description,
@@ -159,6 +166,13 @@ router.put("/:id", authenticate, canManageEvents, async (req, res) => {
     if (name) updateData.name = name;
     if (email) updateData.email = email;
     if (phone) updateData.phone = phone;
+    if (departments !== undefined) {
+      updateData.departments = Array.isArray(departments)
+        ? departments.map((item) => item.trim()).filter(Boolean)
+        : typeof departments === "string"
+          ? departments.split(",").map((item) => item.trim()).filter(Boolean)
+          : [];
+    }
     if (address) updateData.address = address;
     if (website) updateData.website = website;
     if (description) updateData.description = description;

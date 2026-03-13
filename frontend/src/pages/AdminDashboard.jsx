@@ -20,7 +20,10 @@ import {
   Globe,
   Settings,
   Shield,
-  ArrowRight
+  ArrowRight,
+  Plus,
+  Phone,
+  Mail
 } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area,
@@ -34,8 +37,11 @@ const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [pendingAdmins, setPendingAdmins] = useState([]);
   const [pendingEvents, setPendingEvents] = useState([]);
+  const [selectedPendingEvent, setSelectedPendingEvent] = useState(null);
   const [detailPanel, setDetailPanel] = useState(null); // { type, data, title }
   const [panelLoading, setPanelLoading] = useState(false);
+  const [creatingCollege, setCreatingCollege] = useState(false);
+  const [collegeForm, setCollegeForm] = useState({ name: '', code: '', email: '', phone: '', departments: '' });
 
   const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f59e0b', '#10b981'];
 
@@ -54,8 +60,8 @@ const AdminDashboard = () => {
       ]);
       setStats(statsRes.data.data);
       setAnalytics(analyticsRes.data.data);
-      setPendingAdmins(adminsRes.data.data.users);
-      setPendingEvents(eventsRes.data.data.events);
+      setPendingAdmins(adminsRes.data.data.users || []);
+      setPendingEvents(eventsRes.data.data.events || []);
     } catch (err) {
       toast.error("Failed to load dashboard data.");
     } finally {
@@ -98,14 +104,29 @@ const AdminDashboard = () => {
   };
 
   const handleRejectEvent = async (id) => {
-    if (!window.confirm("Reject this event proposal?")) return;
+    const reason = window.prompt("Enter rejection reason (will be sent in rejection email):", "Missing required details");
+    if (reason === null) return;
+    if (!reason.trim()) {
+      toast.error("Rejection reason is required.");
+      return;
+    }
     try {
-      await API.delete(`/events/${id}/reject`);
+      await API.delete(`/events/${id}/reject`, { data: { reason: reason.trim() } });
       toast.success("Proposal rejected");
       setPendingEvents(prev => prev.filter(e => e._id !== id));
+      if (selectedPendingEvent?._id === id) setSelectedPendingEvent(null);
       fetchData();
     } catch (err) {
       toast.error("Operation failed");
+    }
+  };
+
+  const handleViewPendingEvent = async (eventId) => {
+    try {
+      const res = await API.get(`/events/${eventId}`);
+      setSelectedPendingEvent(res.data.data.event);
+    } catch (error) {
+      toast.error("Failed to fetch full event details");
     }
   };
 
@@ -133,6 +154,44 @@ const AdminDashboard = () => {
       setPanelLoading(false);
     }
   };
+
+  const handleCreateCollege = async (event) => {
+    event.preventDefault();
+    try {
+      setCreatingCollege(true);
+      await API.post('/colleges', {
+        name: collegeForm.name,
+        code: collegeForm.code,
+        email: collegeForm.email,
+        phone: collegeForm.phone,
+        departments: collegeForm.departments,
+      });
+      toast.success('College created');
+      setCollegeForm({ name: '', code: '', email: '', phone: '', departments: '' });
+      await openDetailPanel('colleges');
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to create college');
+    } finally {
+      setCreatingCollege(false);
+    }
+  };
+
+  const totalApprovalQueue = (stats?.pendingAdmins || 0) + (stats?.pendingEvents || 0);
+  const approvalRate = stats?.totalRegistrations
+    ? Math.round(((stats.approvedRegistrations || 0) / stats.totalRegistrations) * 100)
+    : 0;
+  const activeEventsRatio = stats?.totalEvents
+    ? Math.round(((stats.ongoingEvents || 0) / stats.totalEvents) * 100)
+    : 0;
+  const avgRegistrationsPerEvent = stats?.totalEvents
+    ? Math.round((stats.totalRegistrations || 0) / stats.totalEvents)
+    : 0;
+  const detailRecordCount = detailPanel
+    ? detailPanel.type === 'approvals'
+      ? (detailPanel.data?.admins?.length || 0) + (detailPanel.data?.events?.length || 0)
+      : (detailPanel.data?.length || 0)
+    : 0;
 
   if (loading || !stats || !analytics) return (
     <DashboardLayout>
@@ -195,8 +254,8 @@ const AdminDashboard = () => {
               <ExecutiveMetric
                 icon={Clock} label="Pending Approvals" value={stats.pendingAdmins + stats.pendingEvents}
                 trend={stats.pendingAdmins + stats.pendingEvents > 0 ? 'Needs Action' : 'All Clear'}
-                trendType={stats.pendingAdmins + stats.pendingEvents > 0 ? 'neutral' : 'up'}
-                accent="text-slate-600 bg-slate-50 border-slate-100"
+                trendType={stats.pendingAdmins + stats.pendingEvents > 0 ? 'down' : 'up'}
+                accent={stats.pendingAdmins + stats.pendingEvents > 0 ? 'text-amber-600 bg-amber-50 border-amber-100' : 'text-emerald-600 bg-emerald-50 border-emerald-100'}
                 onClick={() => openDetailPanel('approvals')}
               />
             </div>
@@ -247,9 +306,9 @@ const AdminDashboard = () => {
                     System Performance
                   </h3>
                   <div className="space-y-6">
-                    <EfficiencyRow label="Server Uptime" value="99.9%" progress={100} />
-                    <EfficiencyRow label="API Response" value="120ms" progress={90} />
-                    <EfficiencyRow label="Active Sessions" value="234" progress={85} />
+                    <EfficiencyRow label="Approval Rate" value={`${approvalRate}%`} progress={approvalRate} />
+                    <EfficiencyRow label="Active Events Ratio" value={`${activeEventsRatio}%`} progress={activeEventsRatio} />
+                    <EfficiencyRow label="Avg Regs / Event" value={`${avgRegistrationsPerEvent}`} progress={Math.min(100, avgRegistrationsPerEvent)} />
                   </div>
                 </div>
               </div>
@@ -324,17 +383,23 @@ const AdminDashboard = () => {
                 <Building2 className="w-5 h-5 text-indigo-500" />
                 Top Colleges
               </h3>
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={analytics?.collegeParticipation} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                    <XAxis type="number" hide />
-                    <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 10, fontBold: 'bold', fill: '#64748b' }} axisLine={false} tickLine={false} />
-                    <Tooltip cursor={{ fill: '#f8fafc' }} content={<CustomTooltip />} />
-                    <Bar dataKey="count" fill="#6366f1" radius={[0, 8, 8, 0]} barSize={24} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+              {analytics?.collegeParticipation?.length ? (
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={analytics?.collegeParticipation} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                      <XAxis type="number" hide />
+                      <YAxis dataKey="name" type="category" width={140} tick={{ fontSize: 10, fontBold: 'bold', fill: '#64748b' }} axisLine={false} tickLine={false} />
+                      <Tooltip cursor={{ fill: '#f8fafc' }} content={<CustomTooltip />} />
+                      <Bar dataKey="count" fill="#6366f1" radius={[0, 8, 8, 0]} barSize={24} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="h-80 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 flex items-center justify-center text-center px-8">
+                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400">No participation data yet. College ranking will appear after registrations start.</p>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -465,6 +530,7 @@ const AdminDashboard = () => {
                             </div>
                           </div>
                           <div className="pt-2 flex gap-3">
+                            <button onClick={() => handleViewPendingEvent(event._id)} className="px-4 py-2.5 bg-slate-50 text-slate-700 text-[10px] font-black uppercase rounded-xl border border-slate-200 hover:bg-slate-100 active:scale-95 transition-all">View</button>
                             <button onClick={() => handleApproveEvent(event._id)} className="flex-1 py-2.5 bg-slate-900 text-white text-[10px] font-black uppercase rounded-xl hover:bg-slate-800 shadow-xl shadow-slate-200/50 active:scale-95 transition-all">Approve</button>
                             <button onClick={() => handleRejectEvent(event._id)} className="px-5 py-2.5 bg-white text-rose-600 text-[10px] font-black uppercase rounded-xl border border-rose-100 hover:bg-rose-50 active:scale-95 transition-all">Reject</button>
                           </div>
@@ -478,15 +544,68 @@ const AdminDashboard = () => {
           </div>
         )}
 
+        {selectedPendingEvent && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-slate-900/30">
+            <div className="w-full max-w-3xl bg-white rounded-3xl border border-slate-200 shadow-2xl max-h-[85vh] overflow-y-auto">
+              <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <h3 className="text-2xl font-black text-slate-900">{selectedPendingEvent.title}</h3>
+                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mt-1">Pending Event Full Details</p>
+                </div>
+                <button onClick={() => setSelectedPendingEvent(null)} className="p-2 rounded-xl hover:bg-slate-100">
+                  <XCircle className="w-6 h-6 text-slate-500" />
+                </button>
+              </div>
+
+              <div className="p-8 space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <p><span className="font-bold text-slate-700">Category:</span> {selectedPendingEvent.category === 'other' ? (selectedPendingEvent.customCategory || 'other') : selectedPendingEvent.category}</p>
+                  <p><span className="font-bold text-slate-700">Location:</span> {selectedPendingEvent.location}</p>
+                  <p><span className="font-bold text-slate-700">Start:</span> {new Date(selectedPendingEvent.startDate).toLocaleString()}</p>
+                  <p><span className="font-bold text-slate-700">End:</span> {new Date(selectedPendingEvent.endDate).toLocaleString()}</p>
+                  <p><span className="font-bold text-slate-700">Registration Deadline:</span> {selectedPendingEvent.registrationDeadline ? new Date(selectedPendingEvent.registrationDeadline).toLocaleString() : 'Not set'}</p>
+                  <p><span className="font-bold text-slate-700">Audience:</span> {selectedPendingEvent.visibilityScope === 'all_colleges' ? 'All Colleges' : 'Only Organizer College'}</p>
+                  <p><span className="font-bold text-slate-700">Organizer College:</span> {selectedPendingEvent.college?.name || 'N/A'}</p>
+                  <p><span className="font-bold text-slate-700">Created By:</span> {selectedPendingEvent.createdBy ? `${selectedPendingEvent.createdBy.firstName || ''} ${selectedPendingEvent.createdBy.lastName || ''}`.trim() : 'N/A'}</p>
+                </div>
+
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-2">Description</p>
+                  <p className="text-sm text-slate-700 whitespace-pre-wrap">{selectedPendingEvent.description}</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div>
+                    <p className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-2">Important Rules</p>
+                    <ul className="space-y-1 text-sm text-slate-700 list-disc pl-5">
+                      {(selectedPendingEvent.dosAndDonts || []).length ? selectedPendingEvent.dosAndDonts.map((rule, idx) => <li key={`rule-${idx}`}>{rule}</li>) : <li>No rules provided</li>}
+                    </ul>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-2">Requirements</p>
+                    <ul className="space-y-1 text-sm text-slate-700 list-disc pl-5">
+                      {(selectedPendingEvent.requirements || []).length ? selectedPendingEvent.requirements.map((req, idx) => <li key={`req-${idx}`}>{req}</li>) : <li>No requirements provided</li>}
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                  <button onClick={() => setSelectedPendingEvent(null)} className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50">Close</button>
+                  <button onClick={() => handleRejectEvent(selectedPendingEvent._id)} className="px-4 py-2.5 rounded-xl border border-rose-200 bg-white text-xs font-black uppercase tracking-widest text-rose-600 hover:bg-rose-50">Reject</button>
+                  <button onClick={() => handleApproveEvent(selectedPendingEvent._id)} className="px-4 py-2.5 rounded-xl bg-slate-900 text-xs font-black uppercase tracking-widest text-white hover:bg-slate-800">Approve</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Slide-over Detail Panel */}
         {detailPanel && (
-          <div className="fixed inset-0 z-[100] flex justify-end">
-            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" onClick={() => setDetailPanel(null)} />
-            <div className="relative w-full max-w-2xl bg-white h-full shadow-2xl flex flex-col animate-slide-left">
+          <div className="fixed inset-y-0 right-0 z-[100] w-full max-w-2xl bg-white h-full shadow-2xl flex flex-col border-l border-slate-200 animate-slide-left">
               <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-bold text-slate-900">{detailPanel.title}</h2>
-                  <p className="text-xs font-medium text-slate-400 mt-1">{detailPanel.data.length} Records found</p>
+                  <p className="text-xs font-medium text-slate-400 mt-1">{detailRecordCount} Records found</p>
                 </div>
                 <button onClick={() => setDetailPanel(null)} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
                   <XCircle className="w-6 h-6 text-slate-400" />
@@ -501,20 +620,50 @@ const AdminDashboard = () => {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {detailPanel.type === 'colleges' && detailPanel.data.map(college => (
-                      <div key={college._id} className="p-4 border border-slate-100 rounded-2xl flex items-center justify-between hover:border-indigo-100 transition-colors">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center">
-                            <Building2 className="w-6 h-6 text-indigo-600" />
+                    {detailPanel.type === 'colleges' && (
+                      <>
+                        <form onSubmit={handleCreateCollege} className="p-5 border border-slate-100 rounded-3xl bg-slate-50/60 space-y-4">
+                          <div className="flex items-center gap-2">
+                            <Plus className="w-4 h-4 text-indigo-600" />
+                            <p className="text-sm font-bold text-slate-900">Add College</p>
                           </div>
-                          <div>
-                            <p className="font-bold text-slate-900">{college.name}</p>
-                            <p className="text-xs text-slate-500">{college.location || 'Location not set'}</p>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <input className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium outline-none focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100" placeholder="College name" value={collegeForm.name} onChange={(e) => setCollegeForm((prev) => ({ ...prev, name: e.target.value }))} required />
+                            <input className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium outline-none focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100" placeholder="Code" value={collegeForm.code} onChange={(e) => setCollegeForm((prev) => ({ ...prev, code: e.target.value }))} required />
+                            <input className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium outline-none focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100" placeholder="College email" value={collegeForm.email} onChange={(e) => setCollegeForm((prev) => ({ ...prev, email: e.target.value }))} required />
+                            <input className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium outline-none focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100" placeholder="Phone number" value={collegeForm.phone} onChange={(e) => setCollegeForm((prev) => ({ ...prev, phone: e.target.value }))} />
                           </div>
-                        </div>
-                        <span className="text-[10px] font-black text-indigo-500 bg-indigo-50 px-2 py-1 rounded-lg uppercase">{college.code}</span>
-                      </div>
-                    ))}
+                          <input className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium outline-none focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100" placeholder="Departments, comma separated" value={collegeForm.departments} onChange={(e) => setCollegeForm((prev) => ({ ...prev, departments: e.target.value }))} />
+                          <button type="submit" disabled={creatingCollege} className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-5 py-3 text-xs font-black uppercase tracking-widest text-white disabled:opacity-60">
+                            <Plus className="w-4 h-4" />
+                            {creatingCollege ? 'Creating...' : 'Add College'}
+                          </button>
+                        </form>
+                        {detailPanel.data.map(college => (
+                          <div key={college._id} className="p-4 border border-slate-100 rounded-2xl flex items-center justify-between hover:border-indigo-100 transition-colors">
+                            <div className="flex items-center gap-4">
+                              <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center">
+                                <Building2 className="w-6 h-6 text-indigo-600" />
+                              </div>
+                              <div>
+                                <p className="font-bold text-slate-900">{college.name}</p>
+                                <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                                  <span className="inline-flex items-center gap-1"><Mail className="w-3 h-3" />{college.email || 'Email not set'}</span>
+                                  <span className="inline-flex items-center gap-1"><Phone className="w-3 h-3" />{college.phone || 'Phone not set'}</span>
+                                </div>
+                                {college.departments?.length > 0 && <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-2">Departments: {college.departments.join(', ')}</p>}
+                              </div>
+                            </div>
+                            <span className="text-[10px] font-black text-indigo-500 bg-indigo-50 px-2 py-1 rounded-lg uppercase">{college.code}</span>
+                          </div>
+                        ))}
+                        {detailPanel.data.length === 0 && (
+                          <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 p-10 text-center">
+                            <p className="text-xs font-bold uppercase tracking-widest text-slate-400">No colleges found yet.</p>
+                          </div>
+                        )}
+                      </>
+                    )}
 
                     {detailPanel.type === 'events' && detailPanel.data.map(event => (
                       <div key={event._id} className="p-4 border border-slate-100 rounded-2xl flex items-center gap-4 hover:border-indigo-100 transition-colors">
@@ -524,7 +673,7 @@ const AdminDashboard = () => {
                         <div className="flex-1">
                           <p className="font-bold text-slate-900 line-clamp-1">{event.title}</p>
                           <div className="flex items-center gap-3 mt-1">
-                            <span className="text-[9px] font-black text-indigo-500 uppercase">{event.category}</span>
+                            <span className="text-[9px] font-black text-indigo-500 uppercase">{event.category === 'other' ? (event.customCategory || 'other') : event.category}</span>
                             <span className="text-[10px] text-slate-400 flex items-center gap-1">
                               <Calendar className="w-3 h-3" />
                               {new Date(event.startDate).toLocaleDateString()}
@@ -536,6 +685,11 @@ const AdminDashboard = () => {
                         </span>
                       </div>
                     ))}
+                    {detailPanel.type === 'events' && detailPanel.data.length === 0 && (
+                      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 p-10 text-center">
+                        <p className="text-xs font-bold uppercase tracking-widest text-slate-400">No events found.</p>
+                      </div>
+                    )}
 
                     {detailPanel.type === 'students' && detailPanel.data.map(student => (
                       <div key={student._id} className="p-4 border border-slate-100 rounded-2xl flex items-center gap-4 hover:border-indigo-100 transition-colors">
@@ -551,6 +705,11 @@ const AdminDashboard = () => {
                         </div>
                       </div>
                     ))}
+                    {detailPanel.type === 'students' && detailPanel.data.length === 0 && (
+                      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 p-10 text-center">
+                        <p className="text-xs font-bold uppercase tracking-widest text-slate-400">No students found.</p>
+                      </div>
+                    )}
 
                     {detailPanel.type === 'approvals' && (
                       <div className="space-y-8">
@@ -582,7 +741,6 @@ const AdminDashboard = () => {
                 )}
               </div>
             </div>
-          </div>
         )}
       </div>
     </DashboardLayout>
@@ -594,25 +752,26 @@ const ExecutiveMetric = ({ icon: Icon, label, value, trend, trendType, accent, o
     onClick={onClick}
     className="bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-xl hover:border-indigo-200 transition-all duration-300 overflow-hidden relative group cursor-pointer active:scale-[0.98]"
   >
-    <div className="flex justify-between items-start">
+    <div className="flex items-center justify-between">
       <div className={`p-2.5 rounded-xl border group-hover:scale-110 transition-transform ${accent}`}>
         <Icon className="w-5 h-5" />
       </div>
-      <div className={`flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full border border-slate-100 uppercase tracking-widest ${trendType === 'up' ? 'text-emerald-600 bg-emerald-50' :
+      <div className="p-1 px-2 bg-slate-50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+        <ArrowRight className="w-4 h-4 text-indigo-600" />
+      </div>
+    </div>
+    <div className="mt-6 relative z-10 space-y-3">
+      <div>
+        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">{label}</p>
+        <p className="text-3xl font-black text-slate-900 tracking-tight">{value}</p>
+      </div>
+      <div className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full border border-slate-100 uppercase tracking-widest ${trendType === 'up' ? 'text-emerald-600 bg-emerald-50' :
         trendType === 'down' ? 'text-rose-600 bg-rose-50' :
           'text-slate-500 bg-slate-50'
         }`}>
         {trendType === 'up' && <ArrowUpRight className="w-3 h-3" />}
+        {trendType === 'down' && <ArrowDownRight className="w-3 h-3" />}
         {trend}
-      </div>
-    </div>
-    <div className="mt-6 relative z-10">
-      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">{label}</p>
-      <div className="flex items-end justify-between">
-        <p className="text-3xl font-black text-slate-900 tracking-tight">{value}</p>
-        <div className="p-1 px-2 bg-slate-50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
-          <ArrowRight className="w-4 h-4 text-indigo-600" />
-        </div>
       </div>
     </div>
     <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-indigo-50 rounded-full opacity-0 group-hover:opacity-20 transition-all duration-500" />

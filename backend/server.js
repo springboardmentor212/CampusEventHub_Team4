@@ -19,6 +19,9 @@ import AppError from "./utils/appError.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const PORT = process.env.PORT || 5000;
+const BACKEND_BASE_URL = process.env.BACKEND_URL || `http://localhost:${PORT}`;
+const uploadsPath = path.join(__dirname, "uploads");
 
 /*
   Environment configuration
@@ -44,7 +47,9 @@ app.use(helmet());
 // CORS Hardening
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(",") : ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175"],
+    origin: process.env.FRONTEND_URL
+      ? process.env.FRONTEND_URL.split(",").map((origin) => origin.trim()).filter(Boolean)
+      : ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175"],
     credentials: true,
   })
 );
@@ -54,7 +59,7 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cookieParser());
 
 // Serve locally uploaded images
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use("/uploads", express.static(uploadsPath));
 
 // Rate Limiting
 const authLimiter = rateLimit({
@@ -90,6 +95,15 @@ app.get("/", (req, res) => {
   });
 });
 
+app.get("/api/health", (req, res) => {
+  res.status(200).json({
+    success: true,
+    service: "campus-event-hub-backend",
+    uptime: process.uptime(),
+    sampleBannerImage: `${BACKEND_BASE_URL}/uploads/test.png`,
+  });
+});
+
 // Handling Unhandled Routes
 app.use((req, res, next) => {
   next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
@@ -120,9 +134,9 @@ if (MONGO_URI) {
 /*
   Start Server
 */
-const PORT = process.env.PORT || 5000;
-
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`Uploads static path: ${uploadsPath}`);
+  console.log(`Seed image URL: ${BACKEND_BASE_URL}/uploads/test.png`);
 });
 

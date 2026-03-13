@@ -23,6 +23,7 @@ router.delete("/:id/cancel", authenticate, isStudent, cancelRegistration);
 // MILESTONE 3 FEATURE START
 // Student-facing aliases for registration module.
 router.post("/register", authenticate, isStudent, registerForEvent);
+router.post("/register/:eventId", authenticate, isStudent, registerForEvent);
 router.get("/my-registrations", authenticate, isStudent, getMyRegistrations);
 router.get("/:id", authenticate, getRegistrationById);
 router.delete("/:id", authenticate, isStudent, cancelRegistration);

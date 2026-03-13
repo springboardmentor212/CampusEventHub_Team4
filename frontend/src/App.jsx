@@ -1,5 +1,5 @@
 import { Toaster } from "react-hot-toast";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -76,12 +76,16 @@ function App() {
             }
           />
           <Route
-            path="/student"
+            path="/campus-feed"
             element={
               <ProtectedRoute role={["student", "college_admin", "admin"]}>
                 <StudentDashboard />
               </ProtectedRoute>
             }
+          />
+          <Route
+            path="/student"
+            element={<Navigate to="/campus-feed" replace />}
           />
           <Route
             path="/profile"

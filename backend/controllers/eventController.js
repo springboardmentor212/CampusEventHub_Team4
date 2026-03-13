@@ -16,7 +16,7 @@ export const createEvent = catchAsync(async (req, res, next) => {
   // SECURITY: Whitelist allowed fields — prevent injection of isApproved, currentParticipants etc.
   const { title, description, category, location, startDate, endDate, maxParticipants,
     registrationDeadline, requirements, dosAndDonts, participationRequirements, imageUrl, bannerImage,
-    isTeamEvent, minTeamSize, maxTeamSize, participationMode } = req.body;
+    isTeamEvent, minTeamSize, maxTeamSize, participationMode, customCategory, visibilityScope } = req.body;
 
   // Validate: Start date must be in the future
   if (new Date(startDate) <= new Date()) {
@@ -32,6 +32,8 @@ export const createEvent = catchAsync(async (req, res, next) => {
     title, description, category, location, startDate, endDate, maxParticipants,
     registrationDeadline, requirements, dosAndDonts, participationRequirements, imageUrl, bannerImage,
     isTeamEvent, minTeamSize, maxTeamSize, participationMode: participationMode || "solo",
+    visibilityScope: visibilityScope || "college_only",
+    customCategory: category === "other" ? (customCategory || "") : "",
     college: collegeId,
     createdBy: req.userId,
     isApproved: req.userRole === "admin", // SuperAdmins bypass approval
@@ -183,6 +185,10 @@ export const registerForEvent = catchAsync(async (req, res, next) => {
     return next(new AppError("This event is not open for registration", 400));
   }
 
+  if ((event.visibilityScope || "college_only") !== "all_colleges" && event.college.toString() !== req.user.college.toString()) {
+    return next(new AppError("This event is not available for your college", 403));
+  }
+
   // Check capacity
   if (event.maxParticipants && event.currentParticipants >= event.maxParticipants) {
     return next(new AppError("Event is at maximum capacity", 400));
@@ -249,7 +255,7 @@ export const registerForEvent = catchAsync(async (req, res, next) => {
     type: "REGISTRATION_STATUS",
     title: "Registration Received",
     message: `You have successfully applied for "${updatedEvent.title}". Status: Pending Approval.`,
-    link: `/student`,
+    link: `/campus-feed`,
     email: req.user.email,
     shouldSendEmail: true,
   });
@@ -359,8 +365,9 @@ export const getEvents = catchAsync(async (req, res, next) => {
   if (status && status !== "all") {
     filter.status = status;
   } else if (!status) {
-    // Default: Show upcoming and ongoing events for students
-    filter.status = { $in: ["upcoming", "ongoing"] };
+    // Default feed behavior: show events that have not ended yet.
+    // This avoids stale status drift from hiding valid upcoming/ongoing events.
+    filter.endDate = { $gte: new Date() };
   }
   // if status is "all", we don't add status filter
 
@@ -457,7 +464,7 @@ export const updateEvent = catchAsync(async (req, res, next) => {
     (req.body.title && req.body.title !== event.title);
 
   // SECURITY: Whitelist allowed update fields — prevent injecting isApproved, currentParticipants, createdBy etc
-  const allowedFields = ["title", "description", "category", "location", "startDate", "endDate", "maxParticipants",
+  const allowedFields = ["title", "description", "category", "customCategory", "location", "visibilityScope", "startDate", "endDate", "maxParticipants",
     "registrationDeadline", "requirements", "dosAndDonts", "participationRequirements", "bannerImage", "isTeamEvent",
     "minTeamSize", "maxTeamSize", "participationMode"];
   const sanitizedUpdate = { updatedAt: Date.now() };
@@ -485,7 +492,7 @@ export const updateEvent = catchAsync(async (req, res, next) => {
           type: "EVENT_MODIFIED",
           title: "Event Details Updated",
           message: `Important: The details for "${event.title}" have been updated. Please review the updated schedule.`,
-          link: "/student"
+          link: "/campus-feed"
         });
 
         try {

@@ -90,9 +90,15 @@ export const getCollegeAdminStats = catchAsync(async (req, res) => {
     ]);
 
     const upcomingEvents = events.filter(e => new Date(e.startDate) > now);
+    const ongoingEvents = events.filter(e => new Date(e.startDate) <= now && new Date(e.endDate) >= now);
     const pastEvents = events.filter(e => new Date(e.endDate) < now);
     const pendingApproval = events.filter(e => !e.isApproved);
     const totalParticipants = events.reduce((s, e) => s + (e.currentParticipants || 0), 0);
+    const eventsWithCapacity = events.filter(e => typeof e.maxParticipants === "number" && e.maxParticipants > 0);
+    const totalConfiguredCapacity = eventsWithCapacity.reduce((s, e) => s + (e.maxParticipants || 0), 0);
+    const averageCapacityPercent = totalConfiguredCapacity > 0
+        ? Math.round((totalParticipants / totalConfiguredCapacity) * 100)
+        : 0;
 
     // Deadline alerts for their own events
     const deadlineAlerts = events.filter(e =>
@@ -111,6 +117,7 @@ export const getCollegeAdminStats = catchAsync(async (req, res) => {
         data: {
             totalEvents,
             upcomingCount: upcomingEvents.length,
+            ongoingCount: ongoingEvents.length,
             pastCount: pastEvents.length,
             pendingApprovalCount: pendingApproval.length,
             totalRegistrations,
@@ -118,6 +125,8 @@ export const getCollegeAdminStats = catchAsync(async (req, res) => {
             approvedRegistrations,
             pendingStudents,
             totalParticipants,
+            totalConfiguredCapacity,
+            averageCapacityPercent,
             recentEvents: events.slice(0, 5),
             deadlineAlerts,
             capacityAlerts,
@@ -226,6 +235,29 @@ export const getAnalytics = catchAsync(async (req, res) => {
             { $sort: { count: -1 } },
             { $limit: 10 }
         ]);
+
+        // Fallback: if no registrations yet, rank by active event count per college
+        if (!collegeParticipation.length) {
+            collegeParticipation = await Event.aggregate([
+                { $match: { isActive: true } },
+                {
+                    $group: {
+                        _id: "$college",
+                        count: { $sum: 1 }
+                    }
+                },
+                { $lookup: { from: "colleges", localField: "_id", foreignField: "_id", as: "collegeDetails" } },
+                { $unwind: "$collegeDetails" },
+                {
+                    $project: {
+                        name: "$collegeDetails.name",
+                        count: 1
+                    }
+                },
+                { $sort: { count: -1 } },
+                { $limit: 10 }
+            ]);
+        }
 
     } else if (role === 'college_admin') {
         // College Admin Analytics

@@ -27,9 +27,11 @@ const Register = () => {
     username: "",
     fullName: "",
     email: "",
+    phone: "",
     password: "",
     confirmPassword: "",
     collegeId: "",
+    department: "",
     role: "student",
     officialId: "",
   });
@@ -42,7 +44,7 @@ const Register = () => {
     if (user) {
       if (user.role === "admin") navigate("/superadmin");
       else if (user.role === "college_admin") navigate("/admin");
-      else navigate("/student");
+      else navigate("/campus-feed");
     }
   }, [user, navigate]);
 
@@ -60,6 +62,8 @@ const Register = () => {
     };
     fetchColleges();
   }, []);
+
+  const selectedCollege = colleges.find((college) => college._id === form.collegeId);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -83,6 +87,8 @@ const Register = () => {
       password: form.password,
       firstName,
       lastName,
+      phone: form.phone,
+      department: form.department,
       collegeId: form.collegeId,
       role: form.role,
       officialId: form.officialId,
@@ -176,7 +182,7 @@ const Register = () => {
                 label="Username"
                 icon={User}
                 required
-                placeholder="uday.s"
+                placeholder="Choose a username"
                 value={form.username}
                 onChange={(e) => setForm({ ...form, username: e.target.value })}
               />
@@ -184,7 +190,7 @@ const Register = () => {
                 label="Full Name"
                 icon={User}
                 required
-                placeholder="UDAY SOMAPURAM"
+                placeholder="Enter your full name"
                 value={form.fullName}
                 onChange={(e) => setForm({ ...form, fullName: e.target.value })}
               />
@@ -193,15 +199,22 @@ const Register = () => {
                 icon={Mail}
                 required
                 type="email"
-                placeholder="uday.somapuram@university.edu"
+                placeholder="Enter university email"
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
+              />
+              <FormInput
+                label="Phone Number"
+                icon={User}
+                placeholder="Enter phone number"
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
               />
               <FormInput
                 label="Student/Staff ID"
                 icon={ShieldCheck}
                 required
-                placeholder="ID-2026-UDAY"
+                placeholder="Enter institutional ID"
                 value={form.officialId}
                 onChange={(e) => setForm({ ...form, officialId: e.target.value })}
               />
@@ -211,11 +224,25 @@ const Register = () => {
                 icon={ChevronDown}
                 required
                 value={form.collegeId}
-                onChange={(e) => setForm({ ...form, collegeId: e.target.value })}
+                onChange={(e) => setForm({ ...form, collegeId: e.target.value, department: "" })}
                 suffix={<ChevronDown className="w-4 h-4 text-slate-400" />}
               >
                 <option value="">{loadingColleges ? "Loading..." : "Select College"}</option>
                 {colleges.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}
+              </FormInput>
+
+              <FormInput
+                label="Department"
+                icon={ChevronDown}
+                value={form.department}
+                onChange={(e) => setForm({ ...form, department: e.target.value })}
+                suffix={<ChevronDown className="w-4 h-4 text-slate-400" />}
+                disabled={!selectedCollege || !selectedCollege.departments?.length}
+              >
+                <option value="">{selectedCollege?.departments?.length ? "Select Department" : "No departments configured"}</option>
+                {(selectedCollege?.departments || []).map((department) => (
+                  <option key={department} value={department}>{department}</option>
+                ))}
               </FormInput>
 
               <FormInput

@@ -29,6 +29,7 @@ export const registerSchema = Joi.object({
     firstName: Joi.string().required(),
     lastName: Joi.string().required(),
     phone: Joi.string().allow(""),
+    department: Joi.string().allow(""),
     officialId: Joi.string().required().messages({
         "any.required": "Official University ID is required for verification."
     }),
@@ -73,6 +74,7 @@ export const createEventSchema = Joi.object({
     description: Joi.string().required(),
     category: Joi.string().valid("sports", "hackathon", "cultural", "workshop", "seminar", "technical", "other").required(),
     location: Joi.string().required(),
+    visibilityScope: Joi.string().valid("college_only", "all_colleges").default("college_only"),
     startDate: Joi.date().required(),
     endDate: Joi.date().greater(Joi.ref('startDate')).required(),
     maxParticipants: Joi.number().min(1).allow(null),
@@ -86,6 +88,11 @@ export const createEventSchema = Joi.object({
     })),
     imageUrl: Joi.string().allow(""),
     bannerImage: Joi.string().allow(""),
+    customCategory: Joi.string().trim().allow(""),
+    isTeamEvent: Joi.boolean().default(false),
+    minTeamSize: Joi.number().integer().min(1),
+    maxTeamSize: Joi.number().integer().min(1),
+    participationMode: Joi.string().valid("solo", "duo", "trio", "quad").default("solo"),
     college: Joi.string().optional(),
 });
 
@@ -94,6 +101,7 @@ export const updateEventSchema = Joi.object({
     description: Joi.string(),
     category: Joi.string().valid("sports", "hackathon", "cultural", "workshop", "seminar", "technical", "other"),
     location: Joi.string(),
+    visibilityScope: Joi.string().valid("college_only", "all_colleges"),
     startDate: Joi.date(),
     endDate: Joi.date().greater(Joi.ref('startDate')),
     maxParticipants: Joi.number().min(1).allow(null),
@@ -107,6 +115,11 @@ export const updateEventSchema = Joi.object({
     })),
     imageUrl: Joi.string().allow(""),
     bannerImage: Joi.string().allow(""),
+    customCategory: Joi.string().trim().allow(""),
+    isTeamEvent: Joi.boolean(),
+    minTeamSize: Joi.number().integer().min(1),
+    maxTeamSize: Joi.number().integer().min(1),
+    participationMode: Joi.string().valid("solo", "duo", "trio", "quad"),
 });
 
 export default validateRequest;

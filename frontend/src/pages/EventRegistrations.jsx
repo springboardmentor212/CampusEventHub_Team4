@@ -10,7 +10,6 @@ import {
     XCircle,
     FileDown,
     Clock,
-    Search,
     UserCheck,
     MoreHorizontal,
     Mail,
@@ -142,11 +141,10 @@ const EventRegistrations = () => {
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                     <div className="p-6 bg-slate-50 border-b border-slate-100 flex flex-col md:flex-row justify-between gap-4">
                         <div className="relative flex-1 max-w-md">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                             <input
                                 type="text"
                                 placeholder="Filter: e.g. UDAY SOMAPURAM or ID-2026..."
-                                className="pl-14 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/10 outline-none w-full"
+                                className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/10 outline-none w-full"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />

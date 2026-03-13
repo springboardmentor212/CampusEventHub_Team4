@@ -27,7 +27,7 @@ const Login = () => {
     if (user) {
       if (user.role === "admin") navigate("/superadmin");
       else if (user.role === "college_admin") navigate("/admin");
-      else navigate("/student");
+      else navigate("/campus-feed");
     }
   }, [user, navigate]);
 
@@ -41,7 +41,7 @@ const Login = () => {
 
       if (loggedUser.role === "admin") navigate("/superadmin");
       else if (loggedUser.role === "college_admin") navigate("/admin");
-      else navigate("/student");
+      else navigate("/campus-feed");
     } catch (err) {
       toast.error(err.response?.data?.message || "Invalid credentials", { id: loadingToast });
     } finally {

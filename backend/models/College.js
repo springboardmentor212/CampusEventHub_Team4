@@ -25,6 +25,10 @@ const collegeSchema = new mongoose.Schema({
     type: String,
     trim: true,
   },
+  departments: {
+    type: [String],
+    default: [],
+  },
   address: {
     street: { type: String, trim: true },
     city: { type: String, trim: true },

@@ -7,21 +7,68 @@ import { logAdminAction } from "../utils/logger.js";
 import sendEmail, { EmailTemplates } from "../utils/emailService.js";
 import { notifyUser } from "../utils/notificationService.js";
 
+const resequenceWaitlist = async (eventId) => {
+  const waitlisted = await Registration.find({ event: eventId, status: "waitlisted" })
+    .sort({ waitlistPosition: 1, createdAt: 1 });
+
+  await Promise.all(waitlisted.map((registration, index) => {
+    registration.waitlistPosition = index + 1;
+    return registration.save();
+  }));
+};
+
+const promoteNextWaitlistedRegistration = async (eventId) => {
+  const nextRegistration = await Registration.findOne({ event: eventId, status: "waitlisted" })
+    .sort({ waitlistPosition: 1, createdAt: 1 })
+    .populate("user", "firstName email")
+    .populate("event", "title");
+
+  if (!nextRegistration) {
+    return null;
+  }
+
+  nextRegistration.status = "pending";
+  nextRegistration.waitlistPosition = null;
+  nextRegistration.registrationDate = new Date();
+  await nextRegistration.save();
+
+  await Event.findByIdAndUpdate(eventId, { $inc: { currentParticipants: 1 } });
+  await resequenceWaitlist(eventId);
+
+  await notifyUser({
+    recipientId: nextRegistration.user._id,
+    type: "REGISTRATION_STATUS",
+    title: "Waitlist Promotion",
+    message: `A slot opened for "${nextRegistration.event.title}". Your registration is now pending review.`,
+    link: "/campus-feed",
+  });
+
+  try {
+    const tpl = EmailTemplates.waitlistPromoted(nextRegistration.user.firstName, nextRegistration.event.title);
+    await sendEmail({ email: nextRegistration.user.email, ...tpl });
+  } catch (err) {
+    console.error("Waitlist promotion email failed:", err.message);
+  }
+
+  return nextRegistration;
+};
+
 // MILESTONE 3 FEATURE START
 // Register for event via registration module endpoint.
 export const registerForEvent = catchAsync(async (req, res, next) => {
-  const { event_id, notes, customRequirements } = req.body;
+  const eventId = req.params.eventId || req.body.event_id;
+  const { notes, customRequirements, customResponses } = req.body;
 
-  if (!event_id) {
-    return next(new AppError("event_id is required", 400));
+  if (!eventId) {
+    return next(new AppError("eventId is required", 400));
   }
 
   if (req.userRole !== "student") {
     return next(new AppError("Only students can register for events", 403));
   }
 
-  const event = await Event.findById(event_id).select(
-    "_id title college status isActive registrationDeadline maxParticipants"
+  const event = await Event.findById(eventId).select(
+    "_id title college visibilityScope status isActive registrationDeadline maxParticipants currentParticipants startDate"
   );
 
   if (!event) {
@@ -32,13 +79,63 @@ export const registerForEvent = catchAsync(async (req, res, next) => {
     return next(new AppError("Registration is not available for this event", 400));
   }
 
-  if (event.college.toString() !== req.user.college.toString()) {
+  if (event.visibilityScope !== "all_colleges" && event.college.toString() !== req.user.college.toString()) {
     return next(new AppError("This event is not available for your college", 403));
   }
 
   const now = new Date();
   if (event.registrationDeadline && now > event.registrationDeadline) {
     return next(new AppError("Registration deadline has passed", 400));
+  }
+
+  if (event.startDate && now >= new Date(event.startDate)) {
+    return next(new AppError("This event has already started", 400));
+  }
+
+  const existingRegistration = await Registration.findOne({ event: eventId, user: req.userId });
+  if (existingRegistration) {
+    return next(new AppError("You have already registered for this event", 400));
+  }
+
+  const customPayload = customResponses || customRequirements || {};
+
+  if (event.maxParticipants !== null && event.maxParticipants !== undefined && event.currentParticipants >= event.maxParticipants) {
+    const waitlistPosition = await Registration.countDocuments({ event: eventId, status: "waitlisted" }) + 1;
+    const registration = await Registration.create({
+      event: event._id,
+      user: req.userId,
+      college: req.user.college,
+      status: "waitlisted",
+      waitlistPosition,
+      notes: notes || null,
+      customRequirements: customPayload,
+    });
+
+    await registration.populate([
+      { path: "event", select: "title description category startDate endDate location customCategory" },
+      { path: "user", select: "username email firstName lastName" },
+    ]);
+
+    await notifyUser({
+      recipientId: req.userId,
+      type: "REGISTRATION_STATUS",
+      title: "Added to Waitlist",
+      message: `"${event.title}" is full. You have been added to the waitlist at position ${waitlistPosition}.`,
+      link: "/campus-feed",
+    });
+
+    try {
+      const tpl = EmailTemplates.waitlistAdded(req.user.firstName, event.title, waitlistPosition);
+      await sendEmail({ email: req.user.email, ...tpl });
+    } catch (err) {
+      console.error("Waitlist email failed:", err.message);
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: `Event is full. You have been added to the waitlist at position ${waitlistPosition}.`,
+      data: { registration, waitlistPosition },
+    });
   }
 
   const capacityFilter =
@@ -70,7 +167,7 @@ export const registerForEvent = catchAsync(async (req, res, next) => {
       college: req.user.college,
       status: "pending",
       notes: notes || null,
-      customRequirements: customRequirements || {},
+      customRequirements: customPayload,
     });
   } catch (err) {
     await Event.findByIdAndUpdate(updatedEvent._id, { $inc: { currentParticipants: -1 } });
@@ -85,7 +182,7 @@ export const registerForEvent = catchAsync(async (req, res, next) => {
   await registration.populate([
     {
       path: "event",
-      select: "title description category startDate endDate location",
+      select: "title description category customCategory startDate endDate location",
     },
     {
       path: "user",
@@ -179,7 +276,7 @@ export const approveRegistration = catchAsync(async (req, res, next) => {
     type: "REGISTRATION_STATUS",
     title: "Registration Approved! 🎉",
     message: `Your registration for "${registration.event.title}" has been approved. See you there!`,
-    link: "/student",
+    link: "/campus-feed",
   });
   try {
     const approvedEvent = await Event.findById(registration.event._id).select("startDate");
@@ -216,6 +313,7 @@ export const rejectRegistration = catchAsync(async (req, res, next) => {
     return next(new AppError("Access denied.", 403));
   }
 
+  const previousStatus = registration.status;
   registration.status = "rejected";
   registration.rejectionReason = reason || "No reason provided.";
   registration.rejectedAt = new Date();
@@ -223,7 +321,12 @@ export const rejectRegistration = catchAsync(async (req, res, next) => {
   await registration.save();
 
   // Decrement participant count
-  await Event.findByIdAndUpdate(registration.event._id, { $inc: { currentParticipants: -1 } });
+  if (previousStatus !== "waitlisted") {
+    await Event.findByIdAndUpdate(registration.event._id, { $inc: { currentParticipants: -1 } });
+    await promoteNextWaitlistedRegistration(registration.event._id);
+  } else {
+    await resequenceWaitlist(registration.event._id);
+  }
 
   // Log
   await logAdminAction({
@@ -241,7 +344,7 @@ export const rejectRegistration = catchAsync(async (req, res, next) => {
     type: "REGISTRATION_STATUS",
     title: "Registration Update",
     message: `Your registration for "${registration.event.title}" was not approved.`,
-    link: "/student",
+    link: "/campus-feed",
   });
   try {
     const tpl = EmailTemplates.registrationRejected(
@@ -336,10 +439,17 @@ export const cancelRegistration = catchAsync(async (req, res, next) => {
     return next(new AppError("Cannot cancel - this event has already started.", 400));
   }
 
+  const wasWaitlisted = registration.status === "waitlisted";
+
   await Registration.findByIdAndDelete(id);
 
-  // Decrement participant count
-  await Event.findByIdAndUpdate(registration.event._id, { $inc: { currentParticipants: -1 } });
+  if (wasWaitlisted) {
+    await resequenceWaitlist(registration.event._id);
+  } else {
+    // Decrement participant count
+    await Event.findByIdAndUpdate(registration.event._id, { $inc: { currentParticipants: -1 } });
+    await promoteNextWaitlistedRegistration(registration.event._id);
+  }
 
   // Remove from user's registered events
   await User.findByIdAndUpdate(req.userId, { $pull: { registeredEvents: registration.event._id } });
@@ -438,6 +548,7 @@ export const getRegistrationById = catchAsync(async (req, res, next) => {
     {
       path: "event",
       select: "title description category startDate endDate location",
+      select: "title description category customCategory startDate endDate location",
       populate: {
         path: "college",
         select: "name code",

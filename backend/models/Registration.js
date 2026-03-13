@@ -19,8 +19,12 @@ const registrationSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["pending", "approved", "rejected", "attended", "no-show"],
+      enum: ["pending", "approved", "rejected", "attended", "no-show", "waitlisted"],
       default: "pending",
+    },
+    waitlistPosition: {
+      type: Number,
+      default: null,
     },
     registrationDate: {
       type: Date,
@@ -105,6 +109,7 @@ registrationSchema.statics.getStats = async function (eventId) {
     rejected: 0,
     attended: 0,
     "no-show": 0,
+    waitlisted: 0,
   };
 
   stats.forEach((stat) => {

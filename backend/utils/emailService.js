@@ -111,6 +111,30 @@ export const EmailTemplates = {
     ),
   }),
 
+  waitlistAdded: (firstName, eventTitle, position) => ({
+    subject: `Waitlist Update: ${eventTitle}`,
+    html: baseTemplate(
+      "You Have Joined the Waitlist",
+      `<p>Hello ${firstName}, <strong>${eventTitle}</strong> is currently at capacity.</p>
+       <p>You have been added to the waitlist at position <strong>#${position}</strong>.</p>
+       <div class="action-row">
+         <a href="${getBaseUrl()}/student" class="btn">Track Waitlist Status</a>
+       </div>`
+    ),
+  }),
+
+  waitlistPromoted: (firstName, eventTitle) => ({
+    subject: `Waitlist Promotion: ${eventTitle}`,
+    html: baseTemplate(
+      "A Slot Opened For You",
+      `<p>Hello ${firstName}, a slot opened for <strong>${eventTitle}</strong>.</p>
+       <p>Your entry has been promoted from the waitlist and is now pending review in the active registration queue.</p>
+       <div class="action-row">
+         <a href="${getBaseUrl()}/student" class="btn">Review Registration</a>
+       </div>`
+    ),
+  }),
+
   eventApproved: (adminName, eventTitle) => ({
     subject: `Event Publication: ${eventTitle}`,
     html: baseTemplate(
