@@ -1,205 +1,184 @@
-# 🎓 CampusEventHub
+# CampusEventHub
 
-### Inter-College Event Management Platform
-
----
-
-## 📌 Overview
-
-CampusEventHub is a full-stack MERN application designed to manage inter-college events efficiently.
-
-The platform enables:
-
-* Students to browse and register for events
-* College admins to create and manage events
-* Real-time registration tracking
-* Feedback and interaction system
-
-The system follows a role-based architecture to ensure secure and structured access control.
+Inter-college event management platform built with MERN stack.
+Students discover and register for events across colleges.
+College admins manage events and students.
+Superadmin governs the platform.
 
 ---
 
-## 🏗 Architecture
+## What It Does
 
-**Frontend** → React (Vite)
-
-**Backend** → Node.js + Express
-
-**Database** → MongoDB
-
-**Containerization** → Docker
+- Students browse and register for events from their college
+  and other colleges on the platform
+- College admins create events, manage registrations,
+  and approve student accounts
+- Superadmin approves college admins, reviews events before
+  they go live, and monitors platform health
 
 ---
 
-## 📁 Repository Structure
+## Three Roles
+
+| Role | DB Value | Route | Responsibility |
+|------|----------|-------|----------------|
+| Superadmin | `admin` | `/superadmin` | Platform governance, approvals, analytics |
+| College Admin | `college_admin` | `/admin` | Events, registrations, student management |
+| Student | `student` | `/campus-feed` | Browse events, register, feedback |
+
+Superadmin is seeded directly — no UI signup.
+College admins and students sign up via `/register`.
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Frontend | React, Vite, Tailwind CSS, Recharts |
+| Backend | Node.js, Express.js |
+| Database | MongoDB, Mongoose |
+| Auth | JWT tokens |
+| Email | Nodemailer (Gmail SMTP) |
+
+---
+
+## Repository Structure
 
 ```
 CampusEventHub_Team4/
-│
-├── frontend/
-├── backend/
-├── docs/
-├── docker-compose.yml
-├── .gitignore
-└── README.md
-
+├── frontend/          React + Vite app
+├── backend/           Express API + MongoDB
+│   ├── controllers/
+│   ├── models/
+│   ├── routes/
+│   ├── middleware/
+│   ├── utils/
+│   └── jobs/          Scheduled jobs (reminders, no-show)
+└── docs/              Technical documentation
 ```
-
-Each folder contains its own detailed README.
 
 ---
 
-## 📚 Project Documentation
+## Environment Variables
 
-CampusEventHub maintains structured technical documentation to support system design clarity, maintainability, and transparent engineering practices.
+Create `backend/.env`:
 
-The `docs/` directory contains the following resources:
+```
+PORT=5000
+MONGO_URI=mongodb://localhost:27017/campuseventhub
+JWT_SECRET=your_random_secret_here
+JWT_EXPIRES_IN=7d
+FRONTEND_URL=http://localhost:5173
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USER=your_gmail@gmail.com
+EMAIL_PASS=your_gmail_app_password
+EMAIL_FROM=CampusEventHub <your_gmail@gmail.com>
+```
 
-| Document | Description |
-|---------|-------------|
-| [API Documentation](docs/API_DOCUMENTATION.md) | Backend endpoint reference and request/response formats |
-| [API Testing Guide](docs/API_TESTING.md) | Example API requests and testing workflow |
-| [Architecture](docs/architecture.md) | System architecture and component relationships |
-| [Database Schema](docs/database-schema.md) | MongoDB collections and relationships |
-| [Workflow Guide](docs/workflow.md) | Development workflow and contribution process |
-| [Contributing Guide](docs/CONTRIBUTING.md) | Guidelines for contributing to the project |
-| [Engineering Debug Log](docs/ENGINEERING_DEBUG_LOG.md) | Recorded debugging and stabilization events |
-| [Pull Request Template](docs/PULL_REQUEST_TEMPLATE.md) | Standard template used for PR submissions |
-| [Engineering Templates](docs/templates/DEBUG_ENTRY_TEMPLATE.md) | Reusable template for adding debug/stabilization entries |
+Create `frontend/.env`:
 
-This documentation is maintained alongside code changes to keep implementation and engineering context easy to navigate.
+```
+VITE_API_URL=http://localhost:5000/api
+```
+
+For Gmail: enable 2FA on your Google account,
+then generate an App Password and use that as EMAIL_PASS.
+Without this, email features fail silently but the
+app still works.
 
 ---
 
-## 🚀 Getting Started
+## Local Development
 
-For local development, you can run the project either with Docker or directly with Node.js.
+```bash
+# 1. Clone the repo
+git clone [repo url]
+cd CampusEventHub_Team4
 
-Local setup (without Docker):
+# 2. Install dependencies
+cd backend && npm install
+cd ../frontend && npm install
 
-**Backend:**
+# 3. Set up environment files (see above)
 
-```
-cd backend
-npm install
+# 4. Seed the database
+cd backend && node seed.js
+
+# 5. Start backend
 npm run dev
 
+# 6. In a new terminal, start frontend
+cd frontend && npm run dev
 ```
 
-**Frontend:**
-
-```
-cd frontend
-npm install
-npm run dev
-
-```
+Frontend: http://localhost:5173
+Backend:  http://localhost:5000
+Health:   http://localhost:5000/api/health
 
 ---
 
-## 🐳 Docker
+## Seed Credentials (local dev only)
 
-From project root:
-
-```
-docker compose up --build
+After running seed.js:
 
 ```
+Superadmin:    [read email from seed.js output] / pass123
+College Admin: [read email from seed.js output] / pass123
+```
 
-Access:
-
-**Frontend** → [http://localhost:3000](https://www.google.com/search?q=http://localhost:3000)
-
-**Backend** → [http://localhost:5000](https://www.google.com/search?q=http://localhost:5000)
+Note: These credentials are for local development only.
+Run `node seed.js` and copy the printed credentials.
 
 ---
 
-## 🚦 Development Workflow
-
-Branching policy:
-
-**main**
-
-* Production branch
-* Never push directly
-
-**dev**
-
-* Root development branch
-* All feature branches merge here
-
-**feature/**
-
-* Individual feature branches
-* Example: feature/auth-module
-
-Recommended flow:
-
-1. Always start from dev:
+## Branch Strategy
 
 ```
-git checkout dev
-git pull origin dev
-
+main    — protected, production only
+dev     — integration branch, merge here before demo
+name/feature-branch — your work
 ```
 
-2. Create your feature branch:
+Current active branch: `uday/role-security-flow-fix`
+If contributing to Milestone 3 or 4, branch off this
+and raise PR back to it. See CONTRIBUTING.md.
 
+Commit style:
 ```
-git checkout -b feature/your-feature-name
-
-```
-
-3. Work and commit cleanly.
-4. Push branch:
-
-```
-git push origin feature/your-feature-name
-
-```
-
-5. Raise Pull Request and merge into dev.
-
-Never commit directly to main.
-
----
-
-## 🧾 Commit Standard
-
-Use structured commit format:
-
-```
-feat(auth): implement login controller
-fix(events): resolve date validation bug
+feat(auth): add role-aware login redirect
+fix(registrations): correct waitlist position calculation
 docs(readme): update setup instructions
-refactor(user): optimize password hashing
-chore(docker): update container config
-
+chore(config): update env variable names
 ```
 
-Avoid vague messages like:
+---
 
-* update
-* final
-* changes
-* done
+## Documentation
+
+| File | Purpose |
+|------|---------|
+| [docs/SETUP.md](docs/SETUP.md) | Detailed local setup guide |
+| [docs/ROLE_GUIDE.md](docs/ROLE_GUIDE.md) | Role definitions and flows |
+| [docs/database-schema.md](docs/database-schema.md) | All models and fields |
+| [docs/API_DOCUMENTATION.md](docs/API_DOCUMENTATION.md) | All API endpoints |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute |
+
+Note: The `docs/` folder reflects the latest implementation.
+When in doubt, go by the code.
 
 ---
 
-## 🔐 Security
+## Security
 
-* Use `.env.local` for local secrets (preferred over `.env`)
-* Generic defaults can be placed in `.env` (but still not committed)
-* Review PR before merging to ensure no secrets were accidentally committed
+- Never commit `.env` files
+- Backend requires: MONGO_URI, JWT_SECRET, FRONTEND_URL
+- Email features require valid Gmail App Password
+- Superadmin credentials must be changed before production
 
 ---
 
-## 📅 Project Milestones
+## Team
 
-**Milestone 1** → Authentication & Role System
-
-**Milestone 2** → Event Creation & Listing
-
-**Milestone 3** → Registration & Slot Management
-
-**Milestone 4** → Feedback & Admin Analytics
+[List team member names and GitHub handles here]
