@@ -21,6 +21,7 @@ import {
 const StudentDashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const isCollegeAdminFeed = user?.role === "college_admin";
   const [myCollegeEvents, setMyCollegeEvents] = useState([]);
   const [otherCollegeEvents, setOtherCollegeEvents] = useState([]);
   const [stats, setStats] = useState(null);
@@ -42,31 +43,45 @@ const StudentDashboard = () => {
     try {
       setLoading(true);
 
-      if (user?.role === 'student') {
-        const params = {
-          search: searchQuery || undefined,
-          category: filterCategory !== "All" ? filterCategory.toLowerCase() : undefined,
-          availability: availabilityFilter !== "all" ? availabilityFilter : undefined,
-        };
+      const params = {
+        search: searchQuery || undefined,
+        category: filterCategory !== "All" ? filterCategory.toLowerCase() : undefined,
+        availability: availabilityFilter !== "all" ? availabilityFilter : undefined,
+      };
 
-        if (dateFilter !== "all") {
-          const now = new Date();
-          params.startDate = now.toISOString();
-          if (dateFilter === "today") {
-            const end = new Date();
-            end.setHours(23, 59, 59, 999);
-            params.endDate = end.toISOString();
-          } else if (dateFilter === "week") {
-            const end = new Date();
-            end.setDate(now.getDate() + 7);
-            params.endDate = end.toISOString();
-          } else if (dateFilter === "month") {
-            const end = new Date();
-            end.setMonth(now.getMonth() + 1);
-            params.endDate = end.toISOString();
-          }
+      if (dateFilter !== "all") {
+        const now = new Date();
+        params.startDate = now.toISOString();
+        if (dateFilter === "today") {
+          const end = new Date();
+          end.setHours(23, 59, 59, 999);
+          params.endDate = end.toISOString();
+        } else if (dateFilter === "week") {
+          const end = new Date();
+          end.setDate(now.getDate() + 7);
+          params.endDate = end.toISOString();
+        } else if (dateFilter === "month") {
+          const end = new Date();
+          end.setMonth(now.getMonth() + 1);
+          params.endDate = end.toISOString();
         }
+      }
 
+      if (user?.role === "college_admin") {
+        const [feedRes, statsRes] = await Promise.allSettled([
+          API.get("/events", { params }),
+          API.get("/dashboards/college-admin")
+        ]);
+
+        setMyCollegeEvents(feedRes.status === "fulfilled" ? (feedRes.value?.data?.data?.events || []) : []);
+        setOtherCollegeEvents([]);
+        setStats(statsRes.status === "fulfilled" ? (statsRes.value?.data?.data || null) : null);
+        setRegistrations([]);
+        setFeedbackHistory([]);
+        return;
+      }
+
+      if (user?.role === 'student') {
         const [myCollegeRes, otherCollegesRes, statsRes, regRes, feedbackRes] = await Promise.allSettled([
           API.get("/events", { params: { ...params, scope: "my_college" } }),
           API.get("/events", { params: { ...params, scope: "other_colleges" } }),
@@ -90,12 +105,13 @@ const StudentDashboard = () => {
 
   const categories = ["All", "Workshop", "Seminar", "Cultural", "Sports", "Technical"];
 
-  const renderEventCards = (eventList) => (
+  const renderEventCards = (eventList, showPreviewStatus = false) => (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
       {eventList.map((event) => (
         <Link
           to={`/event/${event._id}`}
           key={event._id}
+          title={showPreviewStatus ? "Edit in My Events" : undefined}
           className="group bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden flex flex-col min-h-[480px] hover:border-indigo-100 hover:shadow-2xl hover:shadow-indigo-50 transition-all duration-500 hover:-translate-y-2"
         >
           <div className="relative h-60 overflow-hidden">
@@ -104,6 +120,21 @@ const StudentDashboard = () => {
               alt={event.title}
               className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000"
             />
+            {showPreviewStatus && (
+              <div className="absolute top-4 left-4">
+                {event.hasPendingUpdate ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-blue-50 text-blue-600 border border-blue-100">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+                    Update Pending
+                  </span>
+                ) : (event.isApproved && event.isVisible) ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-600 border border-emerald-100">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+                    Live
+                  </span>
+                ) : null}
+              </div>
+            )}
             <div className="absolute top-6 right-6">
               <span className="px-4 py-1.5 bg-white/90 backdrop-blur-md rounded-full text-[9px] font-black uppercase tracking-[0.15em] text-slate-900 shadow-xl">
                 {event.category === 'other' ? (event.customCategory || 'other') : event.category}
@@ -175,6 +206,113 @@ const StudentDashboard = () => {
         <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
           <div className="w-12 h-12 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin"></div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Fetching Events...</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (isCollegeAdminFeed) {
+    return (
+      <DashboardLayout>
+        <div className="max-w-7xl mx-auto space-y-12 animate-fade-in pb-20">
+          <header className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6">
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <span className="h-[2px] w-8 bg-indigo-600 rounded-full"></span>
+                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-600">Campus Feed Preview</span>
+              </div>
+              <h1 className="text-4xl font-black text-slate-900 tracking-tight italic">Campus Feed Preview</h1>
+              <p className="text-slate-500 font-medium max-w-2xl">
+                This is what your students currently see.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={() => navigate("/create-event")}
+                className="px-6 py-3 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-colors"
+              >
+                Create Event
+              </button>
+              <button
+                onClick={() => navigate("/manage-events")}
+                className="px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-colors"
+              >
+                Manage Events
+              </button>
+            </div>
+          </header>
+
+          {stats && (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="px-4 py-3 rounded-2xl bg-white border border-slate-200">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Visible Events</p>
+                <p className="text-xl font-black text-slate-900 mt-1">{myCollegeEvents.length}</p>
+              </div>
+              <div className="px-4 py-3 rounded-2xl bg-white border border-slate-200">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Events</p>
+                <p className="text-xl font-black text-slate-900 mt-1">{stats.totalEvents || 0}</p>
+              </div>
+              <div className="px-4 py-3 rounded-2xl bg-white border border-slate-200">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Live Now</p>
+                <p className="text-xl font-black text-slate-900 mt-1">{stats.ongoingCount || 0}</p>
+              </div>
+              <div className="px-4 py-3 rounded-2xl bg-white border border-slate-200">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Registrations</p>
+                <p className="text-xl font-black text-slate-900 mt-1">{stats.totalRegistrations || 0}</p>
+              </div>
+            </div>
+          )}
+
+          <div className="sticky top-24 z-[100] flex flex-col lg:flex-row justify-between items-center bg-white/80 backdrop-blur-xl p-3 rounded-[2rem] border border-slate-200 shadow-xl shadow-slate-200/50 gap-4">
+            <div className="flex flex-wrap gap-3 w-full lg:w-auto">
+              {categories.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setFilterCategory(cat)}
+                  className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border ${filterCategory === cat ? 'bg-indigo-600 border-indigo-600 text-white shadow-xl shadow-indigo-100' : 'bg-white border-slate-100 text-slate-500 hover:bg-slate-50'}`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+
+            <div className="relative flex-1 w-full lg:max-w-xs text-slate-400">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4" />
+              <input
+                type="text"
+                placeholder="Search your feed..."
+                className="w-full bg-slate-100/50 border-none rounded-xl pl-11 pr-4 py-3 text-xs font-medium focus:ring-2 focus:ring-indigo-100 placeholder:text-slate-400 text-slate-900"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <section className="space-y-8">
+            <div className="flex items-center justify-between border-b border-slate-50 pb-6">
+              <div>
+                <h2 className="text-2xl font-black text-slate-900 tracking-tight italic">What students can see</h2>
+                <p className="text-slate-500 text-xs font-medium mt-1">Approved events from your institution that are currently visible in the feed.</p>
+              </div>
+              <div className="text-right">
+                <p className="text-2xl font-black text-slate-900 italic">{myCollegeEvents.length}</p>
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Visible Events</p>
+              </div>
+            </div>
+
+            {myCollegeEvents.length === 0 ? (
+              <div className="p-16 bg-slate-50 border border-dashed border-slate-200 rounded-[3rem] text-center space-y-4">
+                <Activity className="w-12 h-12 text-slate-200 mx-auto" />
+                <p className="text-sm font-black text-slate-400 uppercase tracking-widest">No approved events in the feed yet</p>
+                <p className="text-sm text-slate-500 max-w-xl mx-auto">
+                  If you just created an event, check Manage Events. It will appear here only after approval and once it is active.
+                </p>
+              </div>
+            ) : (
+              renderEventCards(myCollegeEvents, true)
+            )}
+          </section>
         </div>
       </DashboardLayout>
     );

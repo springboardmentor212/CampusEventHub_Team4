@@ -87,6 +87,16 @@ const Profile = () => {
     };
 
     const initials = `${user?.firstName?.[0] || ""}${user?.lastName?.[0] || ""}`.toUpperCase();
+    const isCollegeAdmin = user?.role === 'college_admin';
+    const collegeName = typeof user?.college === 'object' ? user?.college?.name : (user?.collegeName || user?.college || "Assigned College");
+
+    const passwordErrors = {
+        minLength: passwordForm.newPassword.length > 0 && passwordForm.newPassword.length < 8,
+        sameAsCurrent: passwordForm.newPassword.length > 0 && passwordForm.newPassword === passwordForm.oldPassword,
+        mismatch: passwordForm.confirmPassword.length > 0 && passwordForm.newPassword !== passwordForm.confirmPassword,
+    };
+
+    const hasPasswordErrors = passwordErrors.minLength || passwordErrors.sameAsCurrent || passwordErrors.mismatch;
 
     return (
         <DashboardLayout>
@@ -99,102 +109,49 @@ const Profile = () => {
                     <h1 className="text-4xl font-black text-slate-900 tracking-tight italic">Your Profile</h1>
                 </header>
 
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-                    {/* Left Column: Summary Card */}
-                    <div className="lg:col-span-4 space-y-8">
-                        <div className="bg-white border border-slate-100 rounded-[3rem] p-10 shadow-slate-200/50 shadow-2xl text-center space-y-6">
-                            <div className="w-32 h-32 bg-slate-900 text-white rounded-[2.5rem] flex items-center justify-center text-4xl font-black mx-auto shadow-2xl shadow-slate-300">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+                    <div className="lg:col-span-4">
+                        <div className="lg:sticky lg:top-28 bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm">
+                            <div className="w-24 h-24 rounded-[2rem] bg-indigo-600 text-white flex items-center justify-center text-3xl font-black mx-auto">
                                 {initials}
                             </div>
-                            <div>
-                                <h2 className="text-2xl font-black text-slate-900 italic">{user?.firstName} {user?.lastName}</h2>
-                                <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mt-2 px-4 py-1.5 bg-indigo-50 rounded-full inline-block">
-                                    {user?.role === 'admin' ? 'Superadmin' : user?.role?.replace('_', ' ')}
-                                </p>
+                            <h2 className="text-2xl font-black text-slate-900 text-center mt-4">{user?.firstName} {user?.lastName}</h2>
+                            <div className="text-center mt-3">
+                                <span className="inline-flex px-3 py-1 rounded-full bg-indigo-50 text-indigo-600 text-[10px] font-black uppercase tracking-widest">
+                                    {isCollegeAdmin ? 'College Admin' : user?.role === 'admin' ? 'Superadmin' : 'Student'}
+                                </span>
                             </div>
-                            
-                            <div className="space-y-4 text-left pt-6 border-t border-slate-50">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400">
-                                        <Calendar className="w-4 h-4" />
+                            <p className="text-sm text-slate-500 text-center mt-3">{collegeName}</p>
+                            <p className="text-xs text-slate-400 text-center mt-1">Member since {new Date(user?.createdAt).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</p>
+
+                            {isCollegeAdmin && (
+                                <div className="mt-6 grid grid-cols-3 gap-2">
+                                    <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-center">
+                                        <p className="text-lg font-black text-slate-900">—</p>
+                                        <p className="text-[9px] uppercase tracking-widest font-black text-slate-400">Live Events</p>
                                     </div>
-                                    <div>
-                                        <p className="text-[9px] font-black text-slate-400 uppercase">Member Since</p>
-                                        <p className="text-xs font-bold text-slate-700">{new Date(user?.createdAt).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</p>
+                                    <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-center">
+                                        <p className="text-lg font-black text-slate-900">—</p>
+                                        <p className="text-[9px] uppercase tracking-widest font-black text-slate-400">Total Registrations</p>
+                                    </div>
+                                    <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-center">
+                                        <p className="text-lg font-black text-slate-900">—</p>
+                                        <p className="text-[9px] uppercase tracking-widest font-black text-slate-400">Avg Rating</p>
                                     </div>
                                 </div>
-                            </div>
+                            )}
                         </div>
-
-
-                        {user?.role === 'college_admin' && (
-                            <div className="bg-indigo-600 border border-indigo-500 rounded-[2.5rem] p-8 shadow-2xl text-white space-y-6">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-white rounded-xl">
-                                        <ShieldCheck className="w-5 h-5 text-indigo-600" />
-                                    </div>
-                                    <div>
-                                        <p className="text-[9px] font-black text-white/60 uppercase tracking-widest">Commission</p>
-                                        <h4 className="text-lg font-black italic">Campus Authority</h4>
-                                    </div>
-                                </div>
-                                <div className="space-y-3">
-                                    {[
-                                        "Manage your college events",
-                                        "Approve event requests",
-                                        "Manage student accounts",
-                                        "Maintain campus standards"
-                                    ].map((p, i) => (
-                                        <div key={i} className="flex items-center gap-3 text-xs font-bold text-white/70">
-                                            <div className="w-1.5 h-1.5 rounded-full bg-white/40"></div>
-                                            {p}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {user?.role === 'student' && (
-                            <div className="bg-emerald-600 border border-emerald-500 rounded-[2.5rem] p-8 shadow-2xl text-white space-y-6">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-white rounded-xl">
-                                        <Award className="w-5 h-5 text-emerald-600" />
-                                    </div>
-                                    <div>
-                                        <p className="text-[9px] font-black text-white/60 uppercase tracking-widest">Protocol</p>
-                                        <h4 className="text-lg font-black italic">Academic Dossier</h4>
-                                    </div>
-                                </div>
-                                <div className="space-y-3">
-                                    {[
-                                        "Official student profile",
-                                        "Account approval status",
-                                        "Track your event activity",
-                                        "System usage history"
-                                    ].map((p, i) => (
-                                        <div key={i} className="flex items-center gap-3 text-xs font-bold text-white/70">
-                                            <div className="w-1.5 h-1.5 rounded-full bg-white/40"></div>
-                                            {p}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-
                     </div>
 
-                    {/* Right Column: Forms */}
-                    <div className="lg:col-span-8 space-y-12">
+                    <div className="lg:col-span-8 space-y-6">
                         {/* Profile Info Form */}
-                        <form onSubmit={handleProfileSubmit} className="bg-white border border-slate-100 rounded-[3rem] p-12 shadow-sm space-y-10">
-                            <div className="flex items-center justify-between border-b border-slate-50 pb-8">
+                        <form onSubmit={handleProfileSubmit} className="bg-white border border-slate-100 rounded-[2.5rem] p-8 md:p-10 shadow-sm space-y-8">
+                            <div className="flex items-center justify-between border-b border-slate-50 pb-6">
                                 <div className="flex items-center gap-4">
                                     <div className="p-3 bg-slate-900 rounded-2xl text-white">
                                         <User className="w-5 h-5" />
                                     </div>
                                     <div>
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Personal</p>
                                         <h3 className="text-lg font-black text-slate-900 italic">Personal Information</h3>
                                     </div>
                                 </div>
@@ -203,48 +160,67 @@ const Profile = () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                 <FormInput label="First Name" icon={User} required value={form.firstName} onChange={(e) => setForm({...form, firstName: e.target.value})} />
                                 <FormInput label="Last Name" icon={User} required value={form.lastName} onChange={(e) => setForm({...form, lastName: e.target.value})} />
-                                <FormInput label="Email Address" icon={Mail} value={form.email || user?.email || ""} onChange={(e) => setForm({...form, email: e.target.value})} />
+                            </div>
+
+                            <div className="space-y-5">
+                                <div>
+                                    <FormInput label="Email Address" icon={Mail} value={form.email || user?.email || ""} onChange={(e) => setForm({...form, email: e.target.value})} />
+                                    <p className="text-xs text-amber-600 font-medium mt-2">Changing your email will require re-verification</p>
+                                </div>
                                 <FormInput label="Phone Number" icon={Phone} required value={form.phone} onChange={(e) => setForm({...form, phone: e.target.value})} />
+
+                                {isCollegeAdmin && (
+                                    <div>
+                                        <FormInput label="College" icon={LayoutGrid} value={collegeName} disabled />
+                                        <p className="text-xs text-slate-400 font-medium mt-2">College cannot be changed</p>
+                                    </div>
+                                )}
+
                                 {user?.role === 'student' && (
-                                    <>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                         <FormInput label="College ID" icon={Hash} value={user?.officialId || ""} disabled />
                                         <FormInput label="Department" icon={LayoutGrid} value={user?.department || "General"} disabled />
-                                    </>
+                                    </div>
                                 )}
                             </div>
 
-                            <div className="pt-6 flex justify-end">
-                                <button type="submit" disabled={loading} className="hero-btn px-10 py-5 italic text-lg shadow-xl shadow-indigo-100">
-                                    <Save className="w-5 h-5" />
+                            <div className="pt-2 flex justify-end">
+                                <button type="submit" disabled={loading} className="px-6 py-3 rounded-xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-slate-800 transition-colors">
                                     {loading ? "Saving..." : "Save Changes"}
                                 </button>
                             </div>
                         </form>
 
                         {/* Password Change Form */}
-                        <form onSubmit={handlePasswordSubmit} className="bg-white border border-slate-100 rounded-[3rem] p-12 shadow-sm space-y-10">
-                            <div className="flex items-center justify-between border-b border-slate-50 pb-8">
+                        <form onSubmit={handlePasswordSubmit} className="bg-white border border-slate-100 rounded-[2.5rem] p-8 md:p-10 shadow-sm space-y-8">
+                            <div className="flex items-center justify-between border-b border-slate-50 pb-6">
                                 <div className="flex items-center gap-4">
                                     <div className="p-3 bg-amber-50 rounded-2xl text-amber-600">
                                         <KeyRound className="w-5 h-5" />
                                     </div>
                                     <div>
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Security</p>
                                         <h3 className="text-lg font-black text-slate-900 italic">Change Password</h3>
+                                        <p className="text-sm text-slate-500 font-medium mt-1">Keep your account secure with a strong password</p>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                            <div className="grid grid-cols-1 gap-6">
                                 <FormInput label="Current Password" type="password" icon={Lock} required value={passwordForm.oldPassword} onChange={(e) => setPasswordForm({...passwordForm, oldPassword: e.target.value})} />
-                                <FormInput label="New Password" type="password" icon={Lock} required value={passwordForm.newPassword} onChange={(e) => setPasswordForm({...passwordForm, newPassword: e.target.value})} />
-                                <FormInput label="Confirm Password" type="password" icon={Lock} required value={passwordForm.confirmPassword} onChange={(e) => setPasswordForm({...passwordForm, confirmPassword: e.target.value})} />
+                                <div>
+                                    <FormInput label="New Password" type="password" icon={Lock} required value={passwordForm.newPassword} onChange={(e) => setPasswordForm({...passwordForm, newPassword: e.target.value})} />
+                                    {passwordErrors.minLength && <p className="text-xs text-rose-500 mt-2">Must be at least 8 characters</p>}
+                                    {passwordErrors.sameAsCurrent && <p className="text-xs text-rose-500 mt-2">Choose a different password</p>}
+                                </div>
+                                <div>
+                                    <FormInput label="Confirm New Password" type="password" icon={Lock} required value={passwordForm.confirmPassword} onChange={(e) => setPasswordForm({...passwordForm, confirmPassword: e.target.value})} />
+                                    {passwordErrors.mismatch && <p className="text-xs text-rose-500 mt-2">Passwords do not match</p>}
+                                </div>
                             </div>
 
-                            <div className="pt-6 flex justify-end">
-                                <button type="submit" disabled={passwordLoading} className="hero-btn hover:bg-slate-800 bg-slate-900 border-none px-10 py-5 italic text-lg shadow-xl shadow-slate-200">
-                                    <KeyRound className="w-5 h-5" />
-                                    {passwordLoading ? "Updating..." : "Change Password"}
+                            <div className="pt-2 flex justify-end">
+                                <button type="submit" disabled={passwordLoading || hasPasswordErrors} className="px-6 py-3 rounded-xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-slate-800 transition-colors disabled:opacity-50">
+                                    {passwordLoading ? "Updating..." : "Update Password"}
                                 </button>
                             </div>
                         </form>

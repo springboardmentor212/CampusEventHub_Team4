@@ -18,6 +18,7 @@ import {
   FileText,
   Settings,
   UserCheck,
+  ClipboardList,
   LayoutDashboard,
   AlertCircle,
   Check,
@@ -34,6 +35,9 @@ import {
   Mail,
   Phone,
   AlertTriangle,
+  Star,
+  MessageSquare,
+  Trophy,
   X,
   Loader2
 } from "lucide-react";
@@ -60,6 +64,10 @@ const CollegeAdminDashboard = () => {
   const [selectionDetail, setSelectionDetail] = useState({ show: false, type: null, data: null });
   const [regSearch, setRegSearch] = useState("");
   const [regStatusFilter, setRegStatusFilter] = useState("all");
+  const [regEventFilter, setRegEventFilter] = useState("all");
+  const [eventSearch, setEventSearch] = useState("");
+  const [eventStatusFilter, setEventStatusFilter] = useState("all");
+  const [expandedFeedbackId, setExpandedFeedbackId] = useState(null);
 
   // Rejection Modal State
   const [rejectionModal, setRejectionModal] = useState({ show: false, id: null, type: null });
@@ -84,6 +92,39 @@ const CollegeAdminDashboard = () => {
       setFeedbackRows([]);
       setFeedbackSummaries([]);
     }
+  };
+
+  const fetchManagedRegistrations = async (events) => {
+    if (!events.length) {
+      setRegistrations([]);
+      return;
+    }
+
+    const registrationResults = await Promise.allSettled(
+      events.map((event) => API.get(`/registrations/event/${event._id}`))
+    );
+
+    const nextRegistrations = registrationResults.flatMap((result, index) => {
+      if (result.status !== "fulfilled") {
+        return [];
+      }
+
+      const sourceEvent = events[index];
+      const rows = result.value?.data?.data?.registrations || [];
+
+      return rows.map((registration) => ({
+        ...registration,
+        event: registration.event && typeof registration.event === "object"
+          ? registration.event
+          : {
+              _id: sourceEvent._id,
+              title: sourceEvent.title,
+              category: sourceEvent.category,
+            },
+      }));
+    });
+
+    setRegistrations(nextRegistrations);
   };
 
   const fetchPendingStudents = async () => {
@@ -151,8 +192,10 @@ const CollegeAdminDashboard = () => {
 
       const events = eventsRes.status === "fulfilled" ? (eventsRes.value?.data?.data?.events || []) : [];
       setMyEvents(events);
+      await fetchManagedRegistrations(events);
     } catch (err) {
       toast.error("Failed to load dashboard data.");
+      setRegistrations([]);
     } finally {
       setLoading(false);
     }
@@ -180,9 +223,131 @@ const CollegeAdminDashboard = () => {
     setSelectionDetail({ show: true, type: 'user', data: student });
   };
 
+  const pendingRegistrations = registrations.filter(r => r.status === 'pending');
+  const averageRating = feedbackSummaries.length
+    ? (feedbackSummaries.reduce((acc, curr) => acc + (curr.avgRating || 0), 0) / feedbackSummaries.length)
+    : null;
+  const ratingDisplay = averageRating ? `${averageRating.toFixed(1)} ★` : "—";
+  const registrationsThisMonth = (analytics?.registrationTrend || []).reduce((acc, row) => acc + (row.count || 0), 0);
+
+  const filteredActivity = (stats?.recentActivity || [])
+    .filter((activity) => {
+      const msg = (activity.displayMessage || activity.message || "").toLowerCase();
+      const title = (activity.title || "").toLowerCase();
+      const type = (activity.type || "").toLowerCase();
+
+      if (title === "account approved") return false;
+      if (msg.includes("you can now log in")) return false;
+      if (type === "success" && msg.includes("approved")) return false;
+
+      return (
+        msg.includes("student") ||
+        msg.includes("registration") ||
+        msg.includes("event") ||
+        msg.includes("application")
+      );
+    })
+    .slice(0, 5);
+
+  const recentEvents = [...myEvents].slice(0, 3);
+
+  const getEventStatusLabel = (event) => {
+    if (event.status === "cancelled") return "Cancelled";
+    if (event.hasPendingUpdate) return "Update Pending";
+    if (!event.isApproved || event.status === "pending_approval") return "Pending Approval";
+    if (event.status === "rejected") return "Rejected";
+    if (event.status === "paused") return "Paused";
+    return "Live";
+  };
+
+  const getMyEventStatusKey = (event) => {
+    if (event.status === "cancelled") return "cancelled";
+    if (event.status === "rejected") return "rejected";
+    if (event.status === "paused") return "paused";
+    if (event.hasPendingUpdate || !event.isApproved || event.status === "pending_approval") return "pending";
+    return "live";
+  };
+
+  const getEventStatusClass = (event) => {
+    if (event.status === "cancelled") return "bg-slate-100 text-slate-600";
+    if (event.hasPendingUpdate) return "bg-blue-50 text-blue-600";
+    if (!event.isApproved || event.status === "pending_approval") return "bg-amber-50 text-amber-600";
+    if (event.status === "rejected") return "bg-rose-50 text-rose-600";
+    if (event.status === "paused") return "bg-orange-50 text-orange-600";
+    return "bg-emerald-50 text-emerald-600";
+  };
+
+  const feedbackByEvent = feedbackSummaries.reduce((acc, row) => {
+    acc[String(row.eventId)] = row;
+    return acc;
+  }, {});
+
+  const eventStatusCounts = {
+    all: myEvents.length,
+    live: myEvents.filter((event) => getMyEventStatusKey(event) === "live").length,
+    pending: myEvents.filter((event) => getMyEventStatusKey(event) === "pending").length,
+    paused: myEvents.filter((event) => getMyEventStatusKey(event) === "paused").length,
+    rejected: myEvents.filter((event) => getMyEventStatusKey(event) === "rejected").length,
+  };
+
+  const filteredMyEvents = myEvents
+    .filter((event) => event.title?.toLowerCase().includes(eventSearch.toLowerCase()))
+    .filter((event) => eventStatusFilter === "all" || getMyEventStatusKey(event) === eventStatusFilter);
+
+  const normalizeRegistrationStatus = (status) => {
+    if (status === "confirmed") return "approved";
+    return status;
+  };
+
+  const registrationsWithMeta = registrations.map((registration) => ({
+    ...registration,
+    normalizedStatus: normalizeRegistrationStatus(registration.status),
+  }));
+
+  const registrationCounts = {
+    all: registrationsWithMeta.length,
+    pending: registrationsWithMeta.filter((r) => r.normalizedStatus === "pending").length,
+    approved: registrationsWithMeta.filter((r) => r.normalizedStatus === "approved").length,
+    rejected: registrationsWithMeta.filter((r) => r.normalizedStatus === "rejected").length,
+  };
+
+  const filteredRegistrations = registrationsWithMeta
+    .filter((r) => regStatusFilter === "all" || r.normalizedStatus === regStatusFilter)
+    .filter((r) => regEventFilter === "all" || String(r.event?._id) === regEventFilter)
+    .filter((r) => {
+      if (!regSearch) return true;
+      const haystack = `${r.user?.firstName || ""} ${r.user?.lastName || ""} ${r.user?.email || ""} ${r.event?.title || ""}`.toLowerCase();
+      return haystack.includes(regSearch.toLowerCase());
+    });
+
+  const registrationEmptyLabel = regStatusFilter === "pending"
+    ? "No pending registrations."
+    : regStatusFilter === "approved"
+      ? "No approved registrations yet."
+      : regStatusFilter === "rejected"
+        ? "No rejected registrations."
+        : "No registrations yet.";
+
+  const participationStyleLabel = (registration) => {
+    const teamSize = Number(registration.teamSize || registration.customRequirements?.teamSize || registration.customResponses?.teamSize || 1);
+    if (teamSize === 2) return "Duo";
+    if (teamSize === 3) return "Trio";
+    if (teamSize >= 4) return "Quad";
+    return "Solo";
+  };
+
+  const topRatedEvent = feedbackSummaries.length
+    ? [...feedbackSummaries].sort((a, b) => (b.avgRating || 0) - (a.avgRating || 0))[0]
+    : null;
+
+  const renderStars = (rating = 0) => {
+    const rounded = Math.round(Number(rating));
+    return "★★★★★".slice(0, rounded) + "☆☆☆☆☆".slice(0, 5 - rounded);
+  };
+
   if (!user?.isVerified) {
     return (
-      <DashboardLayout>
+      <DashboardLayout pendingRegistrations={pendingRegistrations.length} pendingStudents={pendingStudents.length}>
         <div className="flex flex-col items-center justify-center h-[70vh] text-center px-4">
           <div className="w-20 h-20 bg-amber-50 rounded-[2rem] flex items-center justify-center mb-8 border border-amber-100 shadow-xl shadow-amber-50">
             <Mail className="w-10 h-10 text-amber-500" />
@@ -199,7 +364,7 @@ const CollegeAdminDashboard = () => {
 
   if (!user?.isApproved) {
     return (
-      <DashboardLayout>
+      <DashboardLayout pendingRegistrations={pendingRegistrations.length} pendingStudents={pendingStudents.length}>
         <div className="flex flex-col items-center justify-center h-[70vh] text-center px-4">
           <div className="w-20 h-20 bg-indigo-50 rounded-[2rem] flex items-center justify-center mb-8 border border-indigo-100 shadow-xl shadow-indigo-50 animate-pulse">
             <Shield className="w-10 h-10 text-indigo-600" />
@@ -216,7 +381,7 @@ const CollegeAdminDashboard = () => {
 
   if (loading || !stats) {
     return (
-      <DashboardLayout>
+      <DashboardLayout pendingRegistrations={pendingRegistrations.length} pendingStudents={pendingStudents.length}>
         <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
           <div className="w-12 h-12 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin"></div>
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Loading Dashboard...</p>
@@ -225,135 +390,57 @@ const CollegeAdminDashboard = () => {
     );
   }
 
-  const pendingRegistrations = registrations.filter(r => r.status === 'pending');
-
   return (
-    <DashboardLayout>
+    <DashboardLayout pendingRegistrations={pendingRegistrations.length} pendingStudents={pendingStudents.length}>
       <div className="max-w-7xl mx-auto space-y-10 animate-fade-in relative">
         {/* Admin Header */}
         <header className="flex flex-col gap-1 pb-4 border-b border-slate-100">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
             <div>
               <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight italic">
-                {activeTab === 'overview' && 'Overview'}
+                {activeTab === 'overview' && 'Dashboard'}
+                {activeTab === 'events' && 'My Events'}
                 {activeTab === 'registrations' && 'Registrations'}
-                {activeTab === 'approvals' && 'Student Approvals'}
+                {activeTab === 'approvals' && 'Students'}
                 {activeTab === 'feedback' && 'Feedback'}
               </h1>
               <p className="text-slate-500 font-medium text-sm mt-1">
-                {activeTab === 'overview' && 'Manage your college and events.'}
-                {activeTab === 'registrations' && 'Manage event registrations and attendance.'}
-                {activeTab === 'approvals' && 'Approve or reject student signups.'}
-                {activeTab === 'feedback' && 'Analyze participant feedback and event reviews.'}
+                {activeTab === 'overview' && 'Your college at a glance'}
+                {activeTab === 'events' && "All events you've created"}
+                {activeTab === 'registrations' && 'Manage registration requests'}
+                {activeTab === 'approvals' && 'Review student applications'}
+                {activeTab === 'feedback' && 'What students are saying'}
               </p>
             </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => navigate("/create-event")}
-                className="hero-btn px-6 py-3 text-sm italic shadow-xl shadow-indigo-100"
-              >
-                <Plus className="w-4 h-4" />
-                Create Event
-              </button>
-            </div>
+            {(activeTab === 'overview' || activeTab === 'events') && (
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => navigate("/create-event")}
+                  className="hero-btn px-6 py-3 text-sm italic shadow-xl shadow-indigo-100"
+                >
+                  <Plus className="w-4 h-4" />
+                  Create Event
+                </button>
+              </div>
+            )}
           </div>
         </header>
 
-        {/* Tab Navigation */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
-          {[
-            { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-            { id: 'events', label: 'Events Feed', icon: Calendar },
-            { id: 'registrations', label: 'Registrations', icon: UserCheck, count: pendingRegistrations.length },
-            { id: 'approvals', label: 'Approvals', icon: Shield, count: pendingStudents.length },
-            { id: 'feedback', label: 'Feedback', icon: FileText }
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => navigate(`/admin?tab=${tab.id}`)}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === tab.id
-                ? 'bg-slate-900 text-white shadow-lg shadow-slate-200'
-                : 'bg-white border border-slate-100 text-slate-400 hover:border-indigo-200 hover:text-slate-600'
-                }`}
-            >
-              <tab.icon className="w-3.5 h-3.5" />
-              {tab.label}
-              {tab.count > 0 && (
-                <span className={`ml-1 px-1.5 py-0.5 rounded-md text-[8px] ${activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-indigo-600 text-white'}`}>
-                  {tab.count}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-
         {activeTab === 'overview' && (
-          <div className="space-y-10">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <MetricCard
-                icon={Briefcase}
-                label="Total Events"
-                value={stats.totalEvents}
-                trend={`${stats.ongoingCount || 0} Live Events`}
-                trendTone="info"
-                accent="text-indigo-600 bg-indigo-50 border-indigo-100"
-              />
-              <MetricCard
-                icon={Users}
-                label="Total Registrations"
-                value={stats.totalRegistrations}
-                trend={`${stats.totalParticipants} Check-ins`}
-                trendTone="success"
-                accent="text-emerald-600 bg-emerald-50 border-emerald-100"
-              />
-              <MetricCard
-                icon={StarIcon}
-                label="Avg Rating"
-                value={(feedbackSummaries.reduce((acc, curr) => acc + (curr.avgRating || 0), 0) / (feedbackSummaries.length || 1)).toFixed(1)}
-                trend={`${feedbackRows.length} Reviews`}
-                trendTone="warning"
-                accent="text-amber-600 bg-amber-50 border-amber-100"
-              />
-              <MetricCard
-                icon={Zap}
-                label="Avg Capacity"
-                value={`${stats.averageCapacityPercent || 0}%`}
-                trend="Capacity Use"
-                accent="text-slate-700 bg-slate-100 border-slate-200"
-              />
+          <div className="space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6">
+              <MetricCard icon={Calendar} label="Live Events" value={stats.totalEvents || 0} trend={`${stats.pendingApprovalCount || 0} pending approval`} trendTone="info" accent="text-indigo-600 bg-indigo-50 border-indigo-100" />
+              <MetricCard icon={Users} label="Total Registrations" value={stats.totalRegistrations || 0} trend={`${registrationsThisMonth} this month`} trendTone="success" accent="text-emerald-600 bg-emerald-50 border-emerald-100" />
+              <MetricCard icon={UserCheck} label="Pending Students" value={pendingStudents.length} trend="Needs review" trendTone={pendingStudents.length > 0 ? "warning" : "neutral"} accent="text-amber-600 bg-amber-50 border-amber-100" />
+              <MetricCard icon={ClipboardList} label="Pending Registrations" value={pendingRegistrations.length} trend="Needs review" trendTone={pendingRegistrations.length > 0 ? "warning" : "neutral"} accent="text-orange-600 bg-orange-50 border-orange-100" />
+              <MetricCard icon={Star} label="Avg Rating" value={ratingDisplay} trend={`${feedbackRows.length} reviews`} trendTone="warning" accent="text-yellow-600 bg-yellow-50 border-yellow-100" />
             </div>
 
-            <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm">
-              <h3 className="font-bold text-slate-900 mb-4">Quick Actions</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <button onClick={() => navigate('/create-event')}
-                  className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl text-xs font-bold hover:bg-indigo-100 transition-colors">
-                  Create Event
-                </button>
-                <button onClick={() => navigate('/manage-events')}
-                  className="p-4 bg-slate-50 text-slate-600 rounded-2xl text-xs font-bold hover:bg-slate-100 transition-colors">
-                  Manage Events
-                </button>
-                <button onClick={() => navigate('/admin?tab=approvals')}
-                  className="p-4 bg-amber-50 text-amber-600 rounded-2xl text-xs font-bold hover:bg-amber-100 transition-colors">
-                  Student Approvals
-                </button>
-                <button onClick={() => navigate('/admin?tab=registrations')}
-                  className="p-4 bg-emerald-50 text-emerald-600 rounded-2xl text-xs font-bold hover:bg-emerald-100 transition-colors">
-                  Registrations
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-              <div className="lg:col-span-2 bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm flex flex-col">
-                <div className="flex items-center justify-between mb-10">
-                  <div className="flex flex-col">
-                    <h3 className="font-black text-xl text-slate-900 tracking-tight italic">Registration Activity</h3>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">30-Day Volume Analysis</p>
-                  </div>
-                </div>
-                <div className="flex-1 min-h-[300px]">
+            <div className="flex flex-col xl:flex-row gap-8">
+              <section className="flex-[3] bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm">
+                <h3 className="font-black text-xl text-slate-900 tracking-tight italic">Registration Activity</h3>
+                <p className="text-xs text-slate-500 font-medium mt-1 mb-8">Registrations over the last 30 days</p>
+                <div className="min-h-[300px] h-[320px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={analytics?.registrationTrend || []}>
                       <defs>
@@ -370,155 +457,237 @@ const CollegeAdminDashboard = () => {
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
-              </div>
+              </section>
 
-              <div className="bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm">
-                <h3 className="text-sm font-black uppercase tracking-[0.2em] text-slate-400 mb-6 flex items-center gap-2 italic">
-                  <Activity className="w-4 h-4 text-indigo-500" />
-                  Recent Activity
-                </h3>
-                <div className="space-y-6">
-                  {(stats?.recentActivity || []).length > 0 ? (
-                    stats.recentActivity.map((activity, i) => (
-                      <div key={activity._id || i} className="flex items-center gap-3 group">
-                        <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors text-lg">
+              <section className="flex-[2] bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm flex flex-col">
+                <h3 className="font-black text-lg text-slate-900 tracking-tight italic">Recent Activity</h3>
+                <div className="space-y-5 mt-6 flex-1">
+                  {filteredActivity.length > 0 ? (
+                    filteredActivity.map((activity, index) => (
+                      <div key={activity._id || index} className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-500 text-lg">
                           {activity.icon || "📌"}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-bold text-slate-900 truncate">{activity.displayMessage}</p>
-                          <p className="text-[10px] text-slate-400 font-medium">Platform Activity</p>
-                        </div>
-                        <div className="text-[9px] font-black text-slate-300 uppercase italic">
-                          {new Date(activity.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-bold text-slate-900 line-clamp-2">{activity.displayMessage || activity.message}</p>
+                          <p className="text-xs text-slate-400 mt-1">{timeAgo(activity.createdAt)}</p>
                         </div>
                       </div>
                     ))
                   ) : (
-                    <div className="py-10 text-center opacity-40">
-                      <Clock className="w-8 h-8 mx-auto mb-3 text-slate-300" />
-                      <p className="text-[10px] font-black uppercase tracking-widest">No recent activity</p>
+                    <div className="h-full min-h-40 flex items-center justify-center text-slate-400 text-sm font-medium">
+                      No activity yet.
                     </div>
                   )}
                 </div>
-                <button onClick={() => navigate('/admin?tab=registrations')} className="w-full mt-8 py-3 bg-slate-50 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-100 transition-colors">View All Registrations</button>
-              </div>
+                <button onClick={() => navigate('/admin?tab=registrations')} className="mt-6 text-xs font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-700 text-left">
+                  View all
+                </button>
+              </section>
+            </div>
 
-              <div className="bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm group">
-                <h3 className="font-black text-slate-900 mb-6 flex items-center gap-2 uppercase tracking-widest text-[10px] italic">
-                  <PieIcon className="w-4 h-4 text-indigo-500" />
-                  Events by Category
-                </h3>
-                <div className="h-48 group-hover:scale-105 transition-transform duration-500">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={analytics?.categoryDistribution || []}
-                        dataKey="count"
-                        nameKey="_id"
-                        innerRadius={50}
-                        outerRadius={70}
-                        paddingAngle={8}
-                      >
-                        {analytics?.categoryDistribution?.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="rgba(255,255,255,0.1)" strokeWidth={2} />
-                        ))}
-                      </Pie>
-                      <Tooltip content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
-                          return (
-                            <div className="bg-slate-900 text-white p-3 rounded-xl shadow-2xl text-[10px] font-black uppercase tracking-widest">
-                              {payload[0].name}: {payload[0].value} Events
-                            </div>
-                          );
-                        }
-                        return null;
-                      }} />
-                    </PieChart>
-                  </ResponsiveContainer>
+            <div className="flex flex-col xl:flex-row gap-8">
+              <section className="flex-[3] bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="font-black text-lg text-slate-900 tracking-tight italic">Recent Events</h3>
                 </div>
-              </div>
+
+                {recentEvents.length === 0 ? (
+                  <div className="text-sm text-slate-500 font-medium py-10">No events yet. Create your first one.</div>
+                ) : (
+                  <div className="space-y-4">
+                    {recentEvents.map((event) => (
+                      <div key={event._id} className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-2xl border border-slate-100 bg-slate-50/40">
+                        <div className="min-w-0">
+                          <p className="text-sm font-black text-slate-900 truncate">{event.title}</p>
+                          <p className="text-xs text-slate-500 mt-1">{new Date(event.startDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase ${getEventStatusClass(event)}`}>
+                            {getEventStatusLabel(event)}
+                          </span>
+                          <span className="text-xs font-bold text-slate-600">{event.registrationsCount || 0} regs</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <button onClick={() => navigate('/admin?tab=events')} className="mt-6 text-xs font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-700">
+                  View all events →
+                </button>
+              </section>
+
+              <section className="flex-[2] space-y-6">
+                <div className="bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm">
+                  <h3 className="font-black text-lg text-slate-900 tracking-tight italic mb-6">Quick Actions</h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button onClick={() => navigate('/create-event')} className="p-4 rounded-2xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-slate-800 transition-colors">Create Event</button>
+                    <button onClick={() => navigate('/admin?tab=events')} className="p-4 rounded-2xl bg-white border border-slate-200 text-slate-600 text-xs font-black uppercase tracking-widest hover:bg-slate-50 transition-colors">Manage Events</button>
+                    <button onClick={() => navigate('/admin?tab=approvals')} className="p-4 rounded-2xl bg-amber-50 text-amber-600 text-xs font-black uppercase tracking-widest hover:bg-amber-100 transition-colors">Student Approvals</button>
+                    <button onClick={() => navigate('/manage-events')} className="p-4 rounded-2xl bg-emerald-50 text-emerald-600 text-xs font-black uppercase tracking-widest hover:bg-emerald-100 transition-colors">Export Data</button>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm">
+                  <h3 className="font-black text-slate-900 mb-6 flex items-center gap-2 uppercase tracking-widest text-[10px] italic">
+                    <PieIcon className="w-4 h-4 text-indigo-500" />
+                    Events by Category
+                  </h3>
+                  <div className="h-48">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={analytics?.categoryDistribution || []}
+                          dataKey="count"
+                          nameKey="_id"
+                          innerRadius={50}
+                          outerRadius={70}
+                          paddingAngle={8}
+                        >
+                          {analytics?.categoryDistribution?.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="rgba(255,255,255,0.1)" strokeWidth={2} />
+                          ))}
+                        </Pie>
+                        <Tooltip content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            return (
+                              <div className="bg-slate-900 text-white p-3 rounded-xl shadow-2xl text-[10px] font-black uppercase tracking-widest">
+                                {payload[0].name}: {payload[0].value} Events
+                              </div>
+                            );
+                          }
+                          return null;
+                        }} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </section>
             </div>
           </div>
         )}
 
         {activeTab === 'events' && (
           <div className="space-y-8 animate-fade-in">
-            <section className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm">
-              <div className="px-8 py-6 border-b border-slate-50 bg-slate-50/50 flex justify-between items-center">
-                <div className="flex flex-col">
-                  <h3 className="font-black text-slate-900 flex items-center gap-3 text-lg italic">
-                    <Calendar className="w-5 h-5 text-indigo-600" />
-                    Your Events
-                  </h3>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Manage all events hosted by your institution.</p>
-                </div>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div>
+                <h3 className="text-2xl font-black text-slate-900 italic">My Events</h3>
+                <p className="text-sm text-slate-500 font-medium">All events you've created</p>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead className="text-[10px] text-slate-400 uppercase tracking-widest bg-slate-50/20 border-b border-slate-50">
-                    <tr>
-                      <th className="px-8 py-5 font-bold">Event</th>
-                      <th className="px-8 py-5 font-bold">Timeline</th>
-                      <th className="px-8 py-5 font-bold">Capacity</th>
-                      <th className="px-8 py-5 font-bold">Status</th>
-                      <th className="px-8 py-5 font-bold text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {myEvents.length === 0 ? (
-                      <tr>
-                        <td colSpan="5" className="px-8 py-20 text-center opacity-40 grayscale">
-                          <Calendar className="w-12 h-12 mx-auto mb-4 text-slate-300" />
-                          <p className="text-sm font-black text-slate-400 uppercase tracking-widest">No events in portfolio</p>
-                        </td>
-                      </tr>
-                    ) : (
-                      myEvents.map(event => (
-                        <tr key={event._id} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="px-8 py-5">
-                            <div className="flex items-center gap-4">
-                              <div className="w-12 h-12 rounded-xl bg-slate-100 overflow-hidden border border-slate-100">
-                                <img src={event.bannerImage || "/images/campus_life_professional.png"} className="w-full h-full object-cover" alt="" />
-                              </div>
-                              <div>
-                                <p className="font-black text-slate-900 italic line-clamp-1">{event.title}</p>
-                                <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest">{event.category}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-8 py-5">
-                            <div className="flex flex-col">
-                              <span className="text-xs font-bold text-slate-700">{new Date(event.startDate).toLocaleDateString()}</span>
-                              <span className="text-[9px] font-black text-slate-400 uppercase">{new Date(event.startDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                            </div>
-                          </td>
-                          <td className="px-8 py-5">
-                            <div className="flex flex-col">
-                              <span className="text-xs font-bold text-slate-700">{event.registrationsCount || 0} / {event.maxParticipants || '∞'}</span>
-                              <div className="w-16 h-1 bg-slate-100 rounded-full mt-1.5 overflow-hidden">
-                                <div className="h-full bg-indigo-500" style={{ width: `${Math.min(((event.registrationsCount || 0) / (event.maxParticipants || 100)) * 100, 100)}%` }}></div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-8 py-5">
-                            <span className={`text-[9px] font-black px-2.5 py-1 rounded-lg uppercase ${event.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
-                              event.status === 'pending' ? 'bg-amber-50 text-amber-600' : 'bg-rose-50 text-rose-600'
-                              }`}>
-                              {event.status}
-                            </span>
-                          </td>
-                          <td className="px-8 py-5 text-right">
-                            <button onClick={() => handleViewEvent(event)} className="p-2.5 border border-slate-100 text-slate-400 rounded-xl hover:bg-slate-50 hover:text-indigo-600 transition-all">
-                              <Info className="w-4 h-4" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+              <button onClick={() => navigate('/create-event')} className="px-5 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-slate-800 transition-colors">
+                New Event
+              </button>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-slate-100 p-4 md:p-5 flex flex-col lg:flex-row gap-4 lg:items-center lg:justify-between">
+              <div className="w-full lg:max-w-sm">
+                <input
+                  type="text"
+                  value={eventSearch}
+                  onChange={(e) => setEventSearch(e.target.value)}
+                  placeholder="Search events..."
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-indigo-100"
+                />
               </div>
-            </section>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { key: 'all', label: 'All' },
+                  { key: 'live', label: 'Live' },
+                  { key: 'pending', label: 'Pending' },
+                  { key: 'paused', label: 'Paused' },
+                  { key: 'rejected', label: 'Rejected' },
+                ].map((pill) => (
+                  <button
+                    key={pill.key}
+                    onClick={() => setEventStatusFilter(pill.key)}
+                    className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest transition-all border ${eventStatusFilter === pill.key ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'}`}
+                  >
+                    {pill.label}
+                    <span className={`ml-2 px-1.5 py-0.5 rounded-full text-[9px] ${eventStatusFilter === pill.key ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                      {eventStatusCounts[pill.key] || 0}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {filteredMyEvents.length === 0 ? (
+              <div className="bg-white rounded-[2.5rem] border border-slate-100 p-16 text-center">
+                <Calendar className="w-14 h-14 mx-auto text-slate-300 mb-4" />
+                <h4 className="text-xl font-black text-slate-900 mb-2">No events yet.</h4>
+                <p className="text-sm text-slate-500 mb-8">Create your first event to get started.</p>
+                <button onClick={() => navigate('/create-event')} className="px-6 py-3 rounded-xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-slate-800 transition-colors">
+                  Create Event
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {filteredMyEvents.map((event) => {
+                  const currentParticipants = Number(event.currentParticipants || event.registrationsCount || 0);
+                  const hasUnlimited = Number(event.maxParticipants) === 0 || event.maxParticipants === null;
+                  const maxParticipants = hasUnlimited ? 0 : Number(event.maxParticipants || 0);
+                  const progress = hasUnlimited || maxParticipants === 0 ? 0 : Math.min(100, Math.round((currentParticipants / maxParticipants) * 100));
+                  const summary = feedbackByEvent[String(event._id)];
+
+                  return (
+                    <article key={event._id} className="bg-white rounded-[2rem] border border-slate-100 overflow-hidden shadow-sm hover:shadow-lg transition-all">
+                      <div className="relative h-40 bg-gradient-to-r from-indigo-100 to-slate-200 overflow-hidden">
+                        {event.bannerImage ? (
+                          <img src={event.bannerImage} alt={event.title} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-indigo-200 via-indigo-100 to-slate-100" />
+                        )}
+                        <span className="absolute top-3 right-3 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-white/90 text-slate-700">
+                          {event.category}
+                        </span>
+                      </div>
+
+                      <div className="p-4 space-y-3">
+                        <h4 className="font-black text-slate-900 line-clamp-1">{event.title}</h4>
+                        <p className="text-xs text-slate-500 line-clamp-1">
+                          {new Date(event.startDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} · {event.location || 'Location TBA'}
+                        </p>
+
+                        <div className="space-y-1">
+                          <p className="text-xs font-bold text-slate-600">
+                            {hasUnlimited ? 'Unlimited' : `${currentParticipants} / ${maxParticipants} registered`}
+                          </p>
+                          <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                            <div className="h-full bg-indigo-500" style={{ width: `${progress}%` }} />
+                          </div>
+                        </div>
+
+                        <span className={`inline-flex text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest ${getEventStatusClass(event)}`}>
+                          {getEventStatusLabel(event)}
+                        </span>
+
+                        <p className="text-xs font-bold text-slate-600">
+                          {summary ? `${Number(summary.avgRating).toFixed(1)} ★` : 'No feedback yet'}
+                        </p>
+                      </div>
+
+                      <div className="border-t border-slate-100 p-4 flex items-center justify-between gap-2">
+                        <button
+                          onClick={() => navigate(`/edit-event/${event._id}`)}
+                          disabled={event.hasPendingUpdate}
+                          title={event.hasPendingUpdate ? 'Update under review' : 'Edit event'}
+                          className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors ${event.hasPendingUpdate ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => navigate(`/event-registrations/${event._id}`)}
+                          className="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-slate-900 text-white hover:bg-slate-800 transition-colors"
+                        >
+                          Registrations
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
@@ -529,9 +698,9 @@ const CollegeAdminDashboard = () => {
                 <div className="flex flex-col">
                   <h3 className="font-black text-slate-900 flex items-center gap-3 text-lg italic">
                     <Shield className="w-5 h-5 text-indigo-600" />
-                    Student Approvals
+                    Student Applications
                   </h3>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Approve or reject students waiting to join your college.</p>
+                  <p className="text-sm text-slate-500 font-medium mt-1">Students waiting to join your college</p>
                 </div>
                 <button onClick={fetchPendingStudents} className="p-2.5 bg-slate-50 text-slate-400 rounded-xl hover:text-indigo-600 transition-all">
                   <Activity className="w-4 h-4" />
@@ -541,18 +710,21 @@ const CollegeAdminDashboard = () => {
                 <table className="w-full text-left">
                   <thead className="text-[10px] text-slate-400 uppercase tracking-widest bg-slate-50/20 border-b border-slate-50">
                     <tr>
-                      <th className="px-8 py-5 font-bold">Applicant</th>
-                      <th className="px-8 py-5 font-bold text-center">Reference ID</th>
-                      <th className="px-8 py-5 font-bold">Submission</th>
+                      <th className="px-8 py-5 font-bold">Student</th>
+                      <th className="px-8 py-5 font-bold">Student ID</th>
+                      <th className="px-8 py-5 font-bold">Phone</th>
+                      <th className="px-8 py-5 font-bold">Applied</th>
+                      <th className="px-8 py-5 font-bold">Status</th>
                       <th className="px-8 py-5 font-bold text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
                     {pendingStudents.length === 0 ? (
                       <tr>
-                        <td colSpan="4" className="px-8 py-20 text-center opacity-40 grayscale">
+                        <td colSpan="6" className="px-8 py-20 text-center opacity-40 grayscale">
                           <Users className="w-12 h-12 mx-auto mb-4 text-slate-300" />
-                          <p className="text-sm font-black text-slate-400 uppercase tracking-widest">No pending applications</p>
+                          <p className="text-sm font-black text-slate-400 uppercase tracking-widest">No pending applications.</p>
+                          <p className="text-xs text-slate-400 mt-2">New student applications will appear here.</p>
                         </td>
                       </tr>
                     ) : (
@@ -575,16 +747,19 @@ const CollegeAdminDashboard = () => {
                             </div>
                           </td>
                           <td className="px-8 py-5 text-center">
-                            <div className="flex flex-col items-center">
-                              <span className="text-xs font-bold text-slate-700">{student.officialId || "-"}</span>
-                              <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest">ID Card</span>
+                            <div className="flex flex-col">
+                              <span className="text-xs font-bold text-slate-700">{student.officialId || student.staffId || "—"}</span>
+                              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Student ID</span>
                             </div>
                           </td>
                           <td className="px-8 py-5">
-                            <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
-                              <Clock className="w-3.5 h-3.5 text-slate-300" />
-                              {new Date(student.createdAt).toLocaleDateString()}
-                            </div>
+                            <span className="text-xs font-bold text-slate-700">{student.phone || "—"}</span>
+                          </td>
+                          <td className="px-8 py-5">
+                            <span className="text-xs font-bold text-slate-600">{timeAgo(student.createdAt)}</span>
+                          </td>
+                          <td className="px-8 py-5">
+                            <span className="text-[10px] font-black uppercase tracking-widest bg-amber-50 text-amber-600 border border-amber-100 px-2.5 py-1 rounded-full">Pending Review</span>
                           </td>
                           <td className="px-8 py-5 text-right">
                             <div className="flex items-center justify-end gap-3">
@@ -723,87 +898,133 @@ const CollegeAdminDashboard = () => {
         {activeTab === 'registrations' && (
           <div className="space-y-8 animate-fade-in">
             <section className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm">
-              <div className="px-8 py-6 border-b border-slate-50 bg-slate-50/50">
+              <div className="px-8 py-6 border-b border-slate-50 bg-slate-50/50 flex flex-col md:flex-row justify-between gap-4 md:items-end">
                 <div className="flex flex-col">
-                  <h3 className="font-black text-slate-900 flex items-center gap-3 text-lg italic">
-                    <UserCheck className="w-5 h-5 text-emerald-600" />
-                    Registrations
-                  </h3>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Manage event registration requests.</p>
+                  <h3 className="font-black text-slate-900 text-2xl italic">Registrations</h3>
+                  <p className="text-sm text-slate-500 font-medium mt-1">Manage event registration requests</p>
+                </div>
+                <div className="px-3 py-1.5 rounded-full bg-slate-900 text-white text-[11px] font-black uppercase tracking-widest w-fit">
+                  {registrationCounts.all} total · {registrationCounts.pending} pending
                 </div>
               </div>
-              <div className="px-8 py-4 border-b border-slate-50 flex items-center gap-4 flex-wrap bg-slate-50/20">
-                <div className="max-w-sm flex-1">
-                  <input className="w-full px-4 py-2 bg-white border border-slate-100 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-100 transition-all font-medium" placeholder="Search student or event..." value={regSearch} onChange={(e) => setRegSearch(e.target.value)} />
+
+              <div className="px-8 py-4 border-b border-slate-50 flex flex-col xl:flex-row gap-4 bg-slate-50/20 xl:items-center xl:justify-between">
+                <div className="flex flex-col md:flex-row gap-3 w-full xl:max-w-2xl">
+                  <input
+                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-100 transition-all font-medium"
+                    placeholder="Search by student or event..."
+                    value={regSearch}
+                    onChange={(e) => setRegSearch(e.target.value)}
+                  />
+                  <select
+                    value={regEventFilter}
+                    onChange={(e) => setRegEventFilter(e.target.value)}
+                    className="w-full md:w-64 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-indigo-100"
+                  >
+                    <option value="all">All events</option>
+                    {myEvents.map((event) => (
+                      <option key={event._id} value={String(event._id)}>{event.title}</option>
+                    ))}
+                  </select>
                 </div>
+
                 <div className="flex items-center gap-2">
-                  {['all', 'pending', 'confirmed', 'rejected'].map(s => (
-                    <button key={s} onClick={() => setRegStatusFilter(s)} className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${regStatusFilter === s ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'bg-white border border-slate-100 text-slate-400 hover:text-slate-600'}`}>{s}</button>
+                  {[
+                    { id: "all", label: "All" },
+                    { id: "pending", label: "Pending" },
+                    { id: "approved", label: "Approved" },
+                    { id: "rejected", label: "Rejected" },
+                  ].map((status) => (
+                    <button
+                      key={status.id}
+                      onClick={() => setRegStatusFilter(status.id)}
+                      className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all border ${regStatusFilter === status.id ? 'bg-slate-900 text-white border-slate-900' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'}`}
+                    >
+                      {status.label}
+                      <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] ${regStatusFilter === status.id ? 'bg-white/20 text-white' : 'bg-indigo-600 text-white'}`}>
+                        {registrationCounts[status.id] || 0}
+                      </span>
+                    </button>
                   ))}
                 </div>
               </div>
+
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead className="text-[10px] text-slate-400 uppercase tracking-widest bg-slate-50/20 border-b border-slate-50">
                     <tr>
                       <th className="px-8 py-5 font-bold">Student</th>
-                      <th className="px-8 py-5 font-bold">Event Reference</th>
+                      <th className="px-8 py-5 font-bold">Event</th>
+                      <th className="px-8 py-5 font-bold">Registered On</th>
+                      <th className="px-8 py-5 font-bold">Style</th>
+                      <th className="px-8 py-5 font-bold">Status</th>
                       <th className="px-8 py-5 font-bold text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
-                    {registrations
-                      .filter(r => regStatusFilter === 'all' || r.status === regStatusFilter)
-                      .filter(r => !regSearch || `${r.user?.firstName} ${r.user?.lastName} ${r.event?.title}`.toLowerCase().includes(regSearch.toLowerCase()))
-                      .length === 0 ? (
+                    {filteredRegistrations.length === 0 ? (
                       <tr>
-                        <td colSpan="3" className="px-8 py-20 text-center opacity-40">
+                        <td colSpan="6" className="px-8 py-20 text-center opacity-50">
                           <CheckCircle className="w-12 h-12 mx-auto mb-4 text-slate-200" />
-                          <p className="text-sm font-black text-slate-400 uppercase tracking-widest">No matching records</p>
+                          <p className="text-sm font-black text-slate-400 uppercase tracking-widest">{registrationEmptyLabel}</p>
                         </td>
                       </tr>
                     ) : (
-                      registrations
-                        .filter(r => regStatusFilter === 'all' || r.status === regStatusFilter)
-                        .filter(r => !regSearch || `${r.user?.firstName} ${r.user?.lastName} ${r.event?.title}`.toLowerCase().includes(regSearch.toLowerCase()))
-                        .map(reg => (
+                      filteredRegistrations.map(reg => (
                           <tr key={reg._id} className="hover:bg-slate-50/50 transition-colors">
                             <td className="px-8 py-5">
                               <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center font-black text-[10px] text-slate-400">
+                                <div className="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center font-black text-[10px]">
                                   {reg.user?.firstName?.[0]}{reg.user?.lastName?.[0]}
                                 </div>
                                 <div>
-                                  <div className="flex items-center gap-2">
-                                    <p className="font-black text-slate-900 italic text-sm">{reg.user?.firstName} {reg.user?.lastName}</p>
-                                    <button onClick={() => handleViewStudent(reg.user)} className="p-1 hover:bg-slate-100 rounded text-slate-300 hover:text-indigo-500 transition-colors">
-                                      <Info className="w-3 h-3" />
-                                    </button>
-                                  </div>
-                                  <p className="text-[10px] text-slate-400 font-medium">{reg.user?.email}</p>
+                                  <p className="font-black text-slate-900 text-sm">{reg.user?.firstName} {reg.user?.lastName}</p>
+                                  <p className="text-xs text-slate-400">{reg.user?.email}</p>
                                 </div>
                               </div>
                             </td>
                             <td className="px-8 py-5">
                               <div className="flex flex-col">
-                                <span className="text-sm text-slate-800 font-bold italic line-clamp-1">{reg.event?.title}</span>
-                                <div className="flex items-center gap-2 mt-0.5">
-                                  <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest bg-indigo-50 px-1.5 py-0.5 rounded">{reg.event?.category}</span>
-                                  <span className={`text-[9px] font-black uppercase ${reg.status === 'confirmed' ? 'text-emerald-500' : reg.status === 'pending' ? 'text-amber-500' : 'text-rose-500'}`}>{reg.status}</span>
-                                </div>
+                                <span className="text-sm text-slate-800 font-bold line-clamp-1">{reg.event?.title}</span>
+                                <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest bg-indigo-50 px-1.5 py-0.5 rounded w-fit mt-1">{reg.event?.category}</span>
                               </div>
+                            </td>
+                            <td className="px-8 py-5">
+                              <p className="text-sm font-bold text-slate-700">{new Date(reg.createdAt || reg.registrationDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                              <p className="text-xs text-slate-400 mt-0.5">{timeAgo(reg.createdAt || reg.registrationDate)}</p>
+                            </td>
+                            <td className="px-8 py-5">
+                              <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">
+                                {participationStyleLabel(reg)}
+                              </span>
+                            </td>
+                            <td className="px-8 py-5">
+                              <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${reg.normalizedStatus === 'pending' ? 'bg-amber-50 text-amber-600 border border-amber-100' : reg.normalizedStatus === 'approved' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : reg.normalizedStatus === 'rejected' ? 'bg-rose-50 text-rose-600 border border-rose-100' : reg.normalizedStatus === 'attended' ? 'bg-indigo-50 text-indigo-600 border border-indigo-100' : reg.normalizedStatus === 'waitlisted' ? 'bg-orange-50 text-orange-600 border border-orange-100' : 'bg-slate-100 text-slate-600 border border-slate-200'}`}>
+                                {reg.normalizedStatus === 'pending' && 'Pending'}
+                                {reg.normalizedStatus === 'approved' && 'Approved'}
+                                {reg.normalizedStatus === 'rejected' && 'Rejected'}
+                                {reg.normalizedStatus === 'attended' && 'Attended'}
+                                {reg.normalizedStatus === 'waitlisted' && 'Waitlist'}
+                                {!['pending', 'approved', 'rejected', 'attended', 'waitlisted'].includes(reg.normalizedStatus) && reg.normalizedStatus}
+                              </span>
                             </td>
                             <td className="px-8 py-5 text-right">
                               <div className="flex items-center justify-end gap-3">
-                                {reg.status === 'pending' ? (
+                                {reg.normalizedStatus === 'pending' ? (
                                   <>
                                     <button onClick={() => handleApproval(reg._id, 'confirmed')} className="px-5 py-2.5 bg-slate-900 text-white text-[10px] font-black uppercase rounded-xl hover:bg-slate-800 shadow-lg shadow-slate-200 tracking-widest transition-all active:scale-95">Approve</button>
                                     <button onClick={() => handleApproval(reg._id, 'rejected')} className="p-2.5 border border-rose-100 text-rose-500 rounded-xl hover:bg-rose-50 transition-all">
                                       <XCircle className="w-4 h-4" />
                                     </button>
                                   </>
+                                ) : reg.normalizedStatus === 'approved' ? (
+                                  <button onClick={() => navigate(`/event-registrations/${reg.event?._id}`)} className="px-4 py-2 bg-indigo-600 text-white text-[10px] font-black uppercase rounded-xl hover:bg-indigo-700 transition-colors">
+                                    Mark Attended
+                                  </button>
+                                ) : reg.normalizedStatus === 'waitlisted' ? (
+                                  <span className="text-xs font-bold text-slate-400">Waiting</span>
                                 ) : (
-                                  <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest italic">Processed</span>
+                                  <span className="text-xs font-bold text-slate-400">Done</span>
                                 )}
                               </div>
                             </td>
@@ -820,48 +1041,91 @@ const CollegeAdminDashboard = () => {
         {activeTab === 'feedback' && (
           <div className="space-y-10 animate-fade-in">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-black uppercase tracking-widest text-slate-400">Total Reviews</p>
+                  <MessageSquare className="w-5 h-5 text-indigo-500" />
+                </div>
+                <p className="mt-4 text-3xl font-black text-slate-900">{feedbackRows.length}</p>
+              </div>
+              <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-black uppercase tracking-widest text-slate-400">Average Rating</p>
+                  <Star className="w-5 h-5 text-amber-500" />
+                </div>
+                <p className="mt-4 text-3xl font-black text-slate-900">{averageRating ? `${averageRating.toFixed(1)} ★` : '—'}</p>
+              </div>
+              <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-black uppercase tracking-widest text-slate-400">Top Rated Event</p>
+                  <Trophy className="w-5 h-5 text-emerald-500" />
+                </div>
+                <p className="mt-4 text-lg font-black text-slate-900 line-clamp-2">{topRatedEvent?.eventTitle || '—'}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {feedbackSummaries.map((item) => (
-                <div key={item.eventId} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm relative overflow-hidden group">
-                  <div className="relative z-10">
-                    <h4 className="font-black text-slate-900 italic truncate mb-4">{item.eventTitle}</h4>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1 text-amber-500">
-                        <StarIcon filled className="w-4 h-4" />
-                        <span className="text-lg font-black text-slate-900">{item.avgRating}</span>
-                      </div>
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{item.count} Reviews</span>
+                <div key={item.eventId} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+                  <h4 className="font-black text-slate-900 truncate mb-4">{item.eventTitle}</h4>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1 text-amber-500">
+                      <StarIcon filled className="w-4 h-4" />
+                      <span className="text-xl font-black text-slate-900">{Number(item.avgRating).toFixed(1)}</span>
                     </div>
+                    <span className="text-xs font-bold text-slate-400">{item.count} reviews</span>
                   </div>
-                  <div className="absolute -right-4 -bottom-4 w-16 h-16 bg-slate-50 rounded-full group-hover:scale-150 transition-transform duration-700"></div>
                 </div>
               ))}
             </div>
 
             <section className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm">
               <div className="px-8 py-6 border-b border-slate-50 bg-slate-50/50">
-                <h3 className="font-black text-slate-900 text-lg italic uppercase tracking-widest text-xs">Recent Event Feedback</h3>
+                <h3 className="font-black text-slate-900 text-lg italic">All Feedback</h3>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead className="text-[10px] text-slate-400 uppercase tracking-widest bg-slate-50/20 border-b border-slate-50">
                     <tr>
-                      <th className="px-8 py-5 font-bold">Subject</th>
-                      <th className="px-8 py-5 font-bold">Author</th>
-                      <th className="px-8 py-5 font-bold">Quality</th>
-                      <th className="px-8 py-5 font-bold">Reflection</th>
+                      <th className="px-8 py-5 font-bold">Event</th>
+                      <th className="px-8 py-5 font-bold">Student</th>
+                      <th className="px-8 py-5 font-bold">Rating</th>
+                      <th className="px-8 py-5 font-bold">Comment</th>
+                      <th className="px-8 py-5 font-bold">Date</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
-                    {feedbackRows.map(row => (
-                      <tr key={row._id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-8 py-5 text-sm font-bold text-slate-800">{row.eventId?.title}</td>
-                        <td className="px-8 py-5">
-                          <p className="text-xs font-bold text-slate-700">{row.userId?.firstName} {row.userId?.lastName}</p>
+                    {feedbackRows.length === 0 ? (
+                      <tr>
+                        <td colSpan="5" className="px-8 py-20 text-center text-slate-400">
+                          <p className="text-sm font-black">No feedback yet.</p>
+                          <p className="text-xs mt-2">Feedback appears after events end and students submit ratings.</p>
                         </td>
-                        <td className="px-8 py-5 text-sm font-black text-slate-900">{row.rating}/5</td>
-                        <td className="px-8 py-5 max-w-xs text-xs text-slate-500 font-medium leading-relaxed italic">"{row.comment}"</td>
                       </tr>
-                    ))}
+                    ) : (
+                      feedbackRows.map(row => {
+                        const isExpanded = expandedFeedbackId === row._id;
+                        const fullComment = row.comment || "";
+                        const shortComment = fullComment.length > 80 ? `${fullComment.slice(0, 80)}...` : fullComment;
+
+                        return (
+                          <tr key={row._id} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="px-8 py-5 text-sm font-bold text-slate-800">{row.eventId?.title}</td>
+                            <td className="px-8 py-5 text-sm font-bold text-slate-700">{row.userId?.firstName || "Student"}</td>
+                            <td className="px-8 py-5 text-sm font-black text-slate-900">{renderStars(row.rating)} <span className="text-xs text-slate-400 ml-1">({row.rating}/5)</span></td>
+                            <td className="px-8 py-5 max-w-sm text-xs text-slate-600 font-medium leading-relaxed">
+                              <button
+                                onClick={() => setExpandedFeedbackId(isExpanded ? null : row._id)}
+                                className="text-left hover:text-slate-900"
+                              >
+                                {isExpanded ? fullComment : shortComment}
+                              </button>
+                            </td>
+                            <td className="px-8 py-5 text-xs font-medium text-slate-500">{new Date(row.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</td>
+                          </tr>
+                        );
+                      })
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -977,6 +1241,19 @@ const CustomTooltip = ({ active, payload, label }) => {
     );
   }
   return null;
+};
+
+const timeAgo = (dateInput) => {
+  const date = new Date(dateInput);
+  const diffMs = Date.now() - date.getTime();
+  const minutes = Math.floor(diffMs / (1000 * 60));
+  const hours = Math.floor(diffMs / (1000 * 60 * 60));
+  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  return `${days} day${days === 1 ? "" : "s"} ago`;
 };
 
 export default CollegeAdminDashboard;

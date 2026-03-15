@@ -40,7 +40,7 @@ function App() {
           <Route
             path="/change-password"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute role={["student", "admin"]}>
                 <ChangePassword />
               </ProtectedRoute>
             }

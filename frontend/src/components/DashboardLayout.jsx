@@ -24,7 +24,7 @@ import {
 import { useState, useEffect } from "react";
 import API from "../api/axios";
 
-const DashboardLayout = ({ children }) => {
+const DashboardLayout = ({ children, suppressAdminNav = false, pendingRegistrations = 0, pendingStudents = 0 }) => {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
@@ -74,18 +74,23 @@ const DashboardLayout = ({ children }) => {
             { label: 'Approvals', path: '/superadmin?tab=approvals', icon: CheckCircle, tab: 'approvals' },
         ];
 
-        const collegeAdminLinks = [
-            { label: 'Overview', path: '/admin', icon: LayoutDashboard, tab: null },
-            { label: 'Registrations', path: '/admin?tab=registrations', icon: UserCheck, tab: 'registrations' },
-            { label: 'Approvals', path: '/admin?tab=approvals', icon: Shield, tab: 'approvals' },
+        const collegeAdminMainLinks = [
+            { label: 'Dashboard', path: '/admin', icon: LayoutDashboard, tab: null },
+            { label: 'My Events', path: '/admin?tab=events', icon: Calendar, tab: 'events' },
+            { label: 'Registrations', path: '/admin?tab=registrations', icon: UserCheck, tab: 'registrations', badge: pendingRegistrations },
+            { label: 'Students', path: '/admin?tab=approvals', icon: Shield, tab: 'approvals', badge: pendingStudents },
             { label: 'Feedback', path: '/admin?tab=feedback', icon: FileText, tab: 'feedback' },
         ];
 
+        const collegeAdminQuickLinks = [
+            { label: 'Campus Feed Preview', path: '/campus-feed', icon: Home },
+            { label: 'Create Event', path: '/create-event', icon: PlusCircle },
+        ];
+
         const secondaryLinks = [
-            { label: 'Campus Feed', path: '/campus-feed', icon: Home, roles: ['student', 'college_admin'] },
-            { label: 'Manage Events', path: '/manage-events', icon: Briefcase, roles: ['college_admin'], requiresApproved: true },
+            { label: 'Campus Feed', path: '/campus-feed', icon: Home, roles: ['student'] },
             { label: 'My Profile', path: '/profile', icon: UserIcon, roles: ['student', 'college_admin', 'admin'] },
-            { label: 'Security', path: '/change-password', icon: Lock, roles: ['student', 'college_admin', 'admin'] },
+            { label: 'Security', path: '/change-password', icon: Lock, roles: ['student', 'admin'] },
         ];
 
         return (
@@ -100,7 +105,7 @@ const DashboardLayout = ({ children }) => {
                 </div>
 
                 <nav className="flex-1 px-4 space-y-1">
-                    {user?.role === 'admin' && (
+                    {user?.role === 'admin' && !suppressAdminNav && (
                         <>
                             <p className="px-4 text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-4">Platform Control</p>
                             {adminLinks.map(item => {
@@ -115,11 +120,27 @@ const DashboardLayout = ({ children }) => {
                         </>
                     )}
 
-                    {user?.role === 'college_admin' && (
+                    {user?.role === 'college_admin' && !suppressAdminNav && (
                         <>
-                            <p className="px-4 text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-4">Administration</p>
-                            {collegeAdminLinks.map(item => {
+                            <p className="px-4 text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-4">Main</p>
+                            {collegeAdminMainLinks.map(item => {
                                 const isActive = location.pathname === '/admin' && currentTab === item.tab;
+                                return (
+                                    <button key={item.path} onClick={() => { navigate(item.path); setIsSidebarMobileOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium text-sm group ${isActive ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}>
+                                        <item.icon className={`w-5 h-5 ${isActive ? 'text-indigo-600' : 'text-slate-400 group-hover:text-slate-600'}`} />
+                                        <span className="text-sm">{item.label}</span>
+                                        {item.badge > 0 && (
+                                            <span className="ml-auto px-2 py-0.5 rounded-full text-[9px] font-black bg-amber-100 text-amber-700">
+                                                {item.badge}
+                                            </span>
+                                        )}
+                                    </button>
+                                );
+                            })}
+
+                            <p className="px-4 text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-4 mt-8">Quick Access</p>
+                            {collegeAdminQuickLinks.map(item => {
+                                const isActive = location.pathname === item.path;
                                 return (
                                     <button key={item.path} onClick={() => { navigate(item.path); setIsSidebarMobileOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium text-sm group ${isActive ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}>
                                         <item.icon className={`w-5 h-5 ${isActive ? 'text-indigo-600' : 'text-slate-400 group-hover:text-slate-600'}`} />
@@ -127,11 +148,21 @@ const DashboardLayout = ({ children }) => {
                                     </button>
                                 );
                             })}
+
+                            <p className="px-4 text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-4 mt-8">Account</p>
+                            <button onClick={() => { navigate('/profile'); setIsSidebarMobileOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium text-sm group ${location.pathname === '/profile' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}>
+                                <UserIcon className={`w-5 h-5 ${location.pathname === '/profile' ? 'text-indigo-600' : 'text-slate-400 group-hover:text-slate-600'}`} />
+                                <span className="text-sm">My Profile</span>
+                            </button>
+                            <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-all duration-200 font-medium text-sm">
+                                <LogOut className="w-5 h-5" />
+                                <span>Sign Out</span>
+                            </button>
                         </>
                     )}
 
-                    <p className="px-4 text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-4 mt-8">Navigation</p>
-                    {secondaryLinks.filter(l => l.roles.includes(user?.role)).map(item => {
+                    {user?.role !== 'college_admin' && <p className="px-4 text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-4 mt-8">Navigation</p>}
+                    {user?.role !== 'college_admin' && secondaryLinks.filter(l => l.roles.includes(user?.role)).map(item => {
                         const isApproved = user?.role !== 'college_admin' || user?.isApproved;
                         if (item.requiresApproved && !isApproved) return null;
 
@@ -145,7 +176,7 @@ const DashboardLayout = ({ children }) => {
                     })}
                 </nav>
 
-                <div className="p-6 border-t border-slate-100">
+                {user?.role !== 'college_admin' && <div className="p-6 border-t border-slate-100">
                     <button
                         onClick={handleLogout}
                         className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-all duration-200 font-medium text-sm"
@@ -153,7 +184,7 @@ const DashboardLayout = ({ children }) => {
                         <LogOut className="w-5 h-5" />
                         <span>Sign Out</span>
                     </button>
-                </div>
+                </div>}
             </>
         );
     };
