@@ -18,11 +18,17 @@ const eventSchema = new mongoose.Schema({
     enum: ["sports", "hackathon", "cultural", "workshop", "seminar", "technical", "other"],
     trim: true,
   },
+  customCategory: {
+    type: String,
+    default: "",
+    trim: true,
+  },
   location: {
     type: String,
     required: true,
     trim: true,
   },
+
   startDate: {
     type: Date,
     required: true,
@@ -68,8 +74,8 @@ const eventSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ["upcoming", "ongoing", "completed", "cancelled"],
-    default: "upcoming",
+    enum: ["pending_approval", "approved", "rejected", "update_pending", "cancelled", "paused"],
+    default: "pending_approval",
   },
   bannerImage: {
     type: String, // Cloudinary URL
@@ -80,6 +86,9 @@ const eventSchema = new mongoose.Schema({
     default: "",
   },
   registrationDeadline: {
+    type: Date,
+  },
+  registrationClosesAt: {
     type: Date,
   },
   requirements: {
@@ -107,6 +116,43 @@ const eventSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true,
+  },
+  isVisible: {
+    type: Boolean,
+    default: false,
+  },
+  hasPendingUpdate: {
+    type: Boolean,
+    default: false,
+  },
+  pendingUpdate: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null,
+  },
+  lastApprovedData: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null,
+  },
+  rejectionReason: {
+    type: String,
+    default: null,
+  },
+  reminderSent24h: {
+    type: Boolean,
+    default: false,
+  },
+  reminderSent1h: {
+    type: Boolean,
+    default: false,
+  },
+  pauseReason: {
+    type: String,
+    default: null,
+  },
+  audience: {
+    type: String,
+    enum: ["my_college", "all_colleges"],
+    default: "all_colleges",
   },
   isApproved: {
     type: Boolean,
