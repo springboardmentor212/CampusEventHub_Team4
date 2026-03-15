@@ -1,5 +1,5 @@
 import { Toaster } from "react-hot-toast";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -13,13 +13,15 @@ import CreateEvent from "./pages/CreateEvent";
 import EditEvent from "./pages/EditEvent";
 import ManageEvents from "./pages/ManageEvents";
 import EventRegistrations from "./pages/EventRegistrations";
-import EventDetails from "./pages/EventDetails";
-import VerifyEmail from "./pages/VerifyEmail";
+import EventDetail from "./pages/EventDetail";
+import EmailVerification from "./pages/EmailVerification";
 import DeleteAccount from "./pages/DeleteAccount";
 import ResendVerification from "./pages/ResendVerification";
 import ProtectedRoute from "./components/ProtectedRoute";
 import NotFound from "./pages/NotFound";
 import Profile from "./pages/Profile";
+import NotMe from "./pages/NotMe";
+import StudentApprovals from "./pages/StudentApprovals";
 
 function App() {
   return (
@@ -32,7 +34,7 @@ function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} />
-          <Route path="/verify-email/:token" element={<VerifyEmail />} />
+          <Route path="/verify-email/:token" element={<EmailVerification />} />
           <Route path="/delete-account/:token" element={<DeleteAccount />} />
           <Route path="/resend-verification" element={<ResendVerification />} />
           <Route
@@ -40,6 +42,15 @@ function App() {
             element={
               <ProtectedRoute>
                 <ChangePassword />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/not-me" element={<NotMe />} />
+          <Route
+            path="/admin/student-approvals"
+            element={
+              <ProtectedRoute role="college_admin">
+                <StudentApprovals />
               </ProtectedRoute>
             }
           />
@@ -76,12 +87,16 @@ function App() {
             }
           />
           <Route
-            path="/student"
+            path="/campus-feed"
             element={
-              <ProtectedRoute role={["student", "college_admin", "admin"]}>
+              <ProtectedRoute role={["student", "college_admin"]}>
                 <StudentDashboard />
               </ProtectedRoute>
             }
+          />
+          <Route
+            path="/student"
+            element={<Navigate to="/campus-feed" replace />}
           />
           <Route
             path="/profile"
@@ -95,7 +110,7 @@ function App() {
             path="/event/:id"
             element={
               <ProtectedRoute role={["student", "college_admin", "admin"]}>
-                <EventDetails />
+                <EventDetail />
               </ProtectedRoute>
             }
           />
