@@ -7,34 +7,53 @@ import {
     User,
     Mail,
     Phone,
-    BookOpen,
     LayoutGrid,
-    Building2,
     Save,
     ShieldCheck,
-    CreditCard,
-    Award,
-    Hash
+    Hash,
+    Lock,
+    KeyRound,
+    AlertCircle,
+    Calendar,
+    Award
 } from "lucide-react";
 import FormInput from "../components/FormInput";
 
 const Profile = () => {
     const { user, loadUser } = useAuth();
     const [loading, setLoading] = useState(false);
+    const [passwordLoading, setPasswordLoading] = useState(false);
+    
     const [form, setForm] = useState({
         firstName: user?.firstName || "",
         lastName: user?.lastName || "",
         phone: user?.phone || "",
-        academicClass: user?.academicClass || "",
-        section: user?.section || ""
+        email: user?.email || ""
     });
 
-    const handleSubmit = async (e) => {
+    const [passwordForm, setPasswordForm] = useState({
+        oldPassword: "",
+        newPassword: "",
+        confirmPassword: ""
+    });
+
+    useEffect(() => {
+        if (user) {
+            setForm({
+                firstName: user.firstName || "",
+                lastName: user.lastName || "",
+                phone: user.phone || "",
+                email: user.email || ""
+            });
+        }
+    }, [user]);
+
+    const handleProfileSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
-        const loadingToast = toast.loading("Saving profile changes...");
+        const loadingToast = toast.loading("Updating profile...");
         try {
-            await API.put("/auth/profile", form);
+            await API.patch("/auth/profile", form);
             await loadUser();
             toast.success("Profile updated successfully!", { id: loadingToast });
         } catch (err) {
@@ -44,148 +63,188 @@ const Profile = () => {
         }
     };
 
+    const handlePasswordSubmit = async (e) => {
+        e.preventDefault();
+        if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+            toast.error("New passwords do not match.");
+            return;
+        }
+
+        setPasswordLoading(true);
+        const loadingToast = toast.loading("Updating password...");
+        try {
+            await API.post("/auth/change-password", {
+                currentPassword: passwordForm.oldPassword,
+                newPassword: passwordForm.newPassword
+            });
+            toast.success("Password changed successfully!", { id: loadingToast });
+            setPasswordForm({ oldPassword: "", newPassword: "", confirmPassword: "" });
+        } catch (err) {
+            toast.error(err.response?.data?.message || "Failed to change password", { id: loadingToast });
+        } finally {
+            setPasswordLoading(false);
+        }
+    };
+
+    const initials = `${user?.firstName?.[0] || ""}${user?.lastName?.[0] || ""}`.toUpperCase();
+
     return (
         <DashboardLayout>
-            <div className="max-w-4xl mx-auto space-y-10 animate-fade-in pb-20">
-                <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
-                    <div>
-                        <div className="flex items-center gap-2 mb-2">
-                            <span className="h-[2px] w-8 bg-indigo-600 rounded-full"></span>
-                            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-600">Personal Identity</span>
-                        </div>
-                        <h1 className="text-4xl font-black text-slate-900 tracking-tight italic">My Account Profile</h1>
-                        <p className="text-slate-500 mt-2 font-medium">Manage your personal information and academic credentials.</p>
+            <div className="max-w-7xl mx-auto space-y-12 animate-fade-in pb-20">
+                <header>
+                    <div className="flex items-center gap-3 mb-3">
+                        <span className="h-[2px] w-8 bg-indigo-600 rounded-full"></span>
+                        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-600">Profile Settings</span>
                     </div>
+                    <h1 className="text-4xl font-black text-slate-900 tracking-tight italic">Your Profile</h1>
                 </header>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-                    {/* Left side: Avatar and Badges */}
-                    <div className="lg:col-span-1 space-y-8">
-                        <section className="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm text-center">
-                            <div className="relative inline-block mb-6">
-                                <div className="w-32 h-32 bg-indigo-100 rounded-[2rem] flex items-center justify-center border-4 border-indigo-50 shadow-inner group overflow-hidden">
-                                    {user?.avatar ? (
-                                        <img src={user.avatar} className="w-full h-full object-cover" alt="" />
-                                    ) : (
-                                        <User className="w-12 h-12 text-indigo-600" />
-                                    )}
-                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
-                                        <span className="text-white text-[10px] font-bold uppercase tracking-widest">Update</span>
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+                    {/* Left Column: Summary Card */}
+                    <div className="lg:col-span-4 space-y-8">
+                        <div className="bg-white border border-slate-100 rounded-[3rem] p-10 shadow-slate-200/50 shadow-2xl text-center space-y-6">
+                            <div className="w-32 h-32 bg-slate-900 text-white rounded-[2.5rem] flex items-center justify-center text-4xl font-black mx-auto shadow-2xl shadow-slate-300">
+                                {initials}
+                            </div>
+                            <div>
+                                <h2 className="text-2xl font-black text-slate-900 italic">{user?.firstName} {user?.lastName}</h2>
+                                <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mt-2 px-4 py-1.5 bg-indigo-50 rounded-full inline-block">
+                                    {user?.role === 'admin' ? 'Superadmin' : user?.role?.replace('_', ' ')}
+                                </p>
+                            </div>
+                            
+                            <div className="space-y-4 text-left pt-6 border-t border-slate-50">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400">
+                                        <Calendar className="w-4 h-4" />
+                                    </div>
+                                    <div>
+                                        <p className="text-[9px] font-black text-slate-400 uppercase">Member Since</p>
+                                        <p className="text-xs font-bold text-slate-700">{new Date(user?.createdAt).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</p>
                                     </div>
                                 </div>
-                                <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-emerald-500 text-white rounded-xl border-4 border-white flex items-center justify-center shadow-lg">
-                                    <ShieldCheck className="w-5 h-5" />
-                                </div>
                             </div>
-                            <h2 className="text-xl font-black text-slate-900 leading-tight">{user?.firstName} {user?.lastName}</h2>
-                            <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mt-1">{user?.role?.replace('_', ' ')}</p>
+                        </div>
 
-                            <div className="mt-8 pt-8 border-t border-slate-50 grid grid-cols-2 gap-4">
-                                <div className="p-4 bg-slate-50 rounded-2xl flex flex-col items-center">
-                                    <Award className="w-5 h-5 text-amber-500 mb-2" />
-                                    <span className="text-[9px] font-black text-slate-400 uppercase">Points</span>
-                                    <span className="text-sm font-bold text-slate-900">1250</span>
-                                </div>
-                                <div className="p-4 bg-slate-50 rounded-2xl flex flex-col items-center">
-                                    <CreditCard className="w-5 h-5 text-indigo-500 mb-2" />
-                                    <span className="text-[9px] font-black text-slate-400 uppercase">Credits</span>
-                                    <span className="text-sm font-bold text-slate-900">42</span>
-                                </div>
-                            </div>
-                        </section>
 
-                        <section className="bg-slate-900 text-white rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden group">
-                            <div className="relative z-10">
-                                <h3 className="text-sm font-black uppercase tracking-[0.2em] mb-4 text-indigo-400">Security Note</h3>
-                                <p className="text-xs text-slate-400 leading-relaxed font-medium">Keep your profile details updated to ensure smooth event registration and certificate generation.</p>
-                                <button className="mt-8 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 text-white hover:text-indigo-300 transition-colors">
-                                    <BookOpen className="w-4 h-4" /> Usage Guidelines
-                                </button>
+                        {user?.role === 'college_admin' && (
+                            <div className="bg-indigo-600 border border-indigo-500 rounded-[2.5rem] p-8 shadow-2xl text-white space-y-6">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-white rounded-xl">
+                                        <ShieldCheck className="w-5 h-5 text-indigo-600" />
+                                    </div>
+                                    <div>
+                                        <p className="text-[9px] font-black text-white/60 uppercase tracking-widest">Commission</p>
+                                        <h4 className="text-lg font-black italic">Campus Authority</h4>
+                                    </div>
+                                </div>
+                                <div className="space-y-3">
+                                    {[
+                                        "Manage your college events",
+                                        "Approve event requests",
+                                        "Manage student accounts",
+                                        "Maintain campus standards"
+                                    ].map((p, i) => (
+                                        <div key={i} className="flex items-center gap-3 text-xs font-bold text-white/70">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-white/40"></div>
+                                            {p}
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
-                            <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-indigo-500/10 rounded-full blur-3xl group-hover:bg-indigo-500/20 transition-all duration-700" />
-                        </section>
+                        )}
+
+                        {user?.role === 'student' && (
+                            <div className="bg-emerald-600 border border-emerald-500 rounded-[2.5rem] p-8 shadow-2xl text-white space-y-6">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-white rounded-xl">
+                                        <Award className="w-5 h-5 text-emerald-600" />
+                                    </div>
+                                    <div>
+                                        <p className="text-[9px] font-black text-white/60 uppercase tracking-widest">Protocol</p>
+                                        <h4 className="text-lg font-black italic">Academic Dossier</h4>
+                                    </div>
+                                </div>
+                                <div className="space-y-3">
+                                    {[
+                                        "Official student profile",
+                                        "Account approval status",
+                                        "Track your event activity",
+                                        "System usage history"
+                                    ].map((p, i) => (
+                                        <div key={i} className="flex items-center gap-3 text-xs font-bold text-white/70">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-white/40"></div>
+                                            {p}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+
                     </div>
 
-                    {/* Right side: Edit Form */}
-                    <div className="lg:col-span-2">
-                        <form onSubmit={handleSubmit} className="bg-white border border-slate-100 rounded-[3rem] p-10 shadow-sm space-y-8">
-                            <div className="flex items-center gap-3 pb-6 border-b border-slate-50">
-                                <div className="p-3 rounded-2xl bg-slate-900 text-white">
-                                    <LayoutGrid className="w-5 h-5" />
-                                </div>
-                                <div>
-                                    <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm italic">Credential Management</h3>
-                                    <p className="text-[10px] font-bold text-slate-400 mt-0.5">Edit your account specifications.</p>
+                    {/* Right Column: Forms */}
+                    <div className="lg:col-span-8 space-y-12">
+                        {/* Profile Info Form */}
+                        <form onSubmit={handleProfileSubmit} className="bg-white border border-slate-100 rounded-[3rem] p-12 shadow-sm space-y-10">
+                            <div className="flex items-center justify-between border-b border-slate-50 pb-8">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-3 bg-slate-900 rounded-2xl text-white">
+                                        <User className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Personal</p>
+                                        <h3 className="text-lg font-black text-slate-900 italic">Personal Information</h3>
+                                    </div>
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <FormInput
-                                    label="First Name"
-                                    icon={User}
-                                    value={form.firstName}
-                                    required
-                                    onChange={(e) => setForm({ ...form, firstName: e.target.value })}
-                                />
-                                <FormInput
-                                    label="Last Name"
-                                    icon={User}
-                                    value={form.lastName}
-                                    onChange={(e) => setForm({ ...form, lastName: e.target.value })}
-                                />
+                                <FormInput label="First Name" icon={User} required value={form.firstName} onChange={(e) => setForm({...form, firstName: e.target.value})} />
+                                <FormInput label="Last Name" icon={User} required value={form.lastName} onChange={(e) => setForm({...form, lastName: e.target.value})} />
+                                <FormInput label="Email Address" icon={Mail} value={form.email || user?.email || ""} onChange={(e) => setForm({...form, email: e.target.value})} />
+                                <FormInput label="Phone Number" icon={Phone} required value={form.phone} onChange={(e) => setForm({...form, phone: e.target.value})} />
+                                {user?.role === 'student' && (
+                                    <>
+                                        <FormInput label="College ID" icon={Hash} value={user?.officialId || ""} disabled />
+                                        <FormInput label="Department" icon={LayoutGrid} value={user?.department || "General"} disabled />
+                                    </>
+                                )}
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <FormInput
-                                    label="Email Address (Locked)"
-                                    icon={Mail}
-                                    value={user?.email || ""}
-                                    disabled
-                                />
-                                <FormInput
-                                    label="Mobile Number"
-                                    icon={Phone}
-                                    placeholder="+91 00000 00000"
-                                    value={form.phone}
-                                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                                />
-                            </div>
-
-                            <div className="pt-6 mt-6 border-t border-slate-50 grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <FormInput
-                                    label="Academic Class"
-                                    icon={BookOpen}
-                                    placeholder="e.g. B.Tech III Year"
-                                    value={form.academicClass}
-                                    onChange={(e) => setForm({ ...form, academicClass: e.target.value })}
-                                />
-                                <FormInput
-                                    label="Section"
-                                    icon={Hash}
-                                    placeholder="e.g. CSE-A"
-                                    value={form.section}
-                                    onChange={(e) => setForm({ ...form, section: e.target.value })}
-                                />
-                            </div>
-
-                            <div className="p-6 bg-slate-50 rounded-2xl flex items-center gap-4">
-                                <div className="p-3 bg-white rounded-xl text-slate-400">
-                                    <Building2 className="w-5 h-5" />
-                                </div>
-                                <div className="flex-1">
-                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Enrolled Institution</p>
-                                    <p className="text-sm font-bold text-slate-700">{user?.college?.name} ({user?.college?.code})</p>
-                                </div>
-                            </div>
-
-                            <div className="pt-8 flex justify-end">
-                                <button
-                                    type="submit"
-                                    disabled={loading}
-                                    className="hero-btn px-12 py-5 italic shadow-3xl shadow-indigo-100/50"
-                                >
+                            <div className="pt-6 flex justify-end">
+                                <button type="submit" disabled={loading} className="hero-btn px-10 py-5 italic text-lg shadow-xl shadow-indigo-100">
                                     <Save className="w-5 h-5" />
-                                    {loading ? "Syncing..." : "Save Identity"}
+                                    {loading ? "Saving..." : "Save Changes"}
+                                </button>
+                            </div>
+                        </form>
+
+                        {/* Password Change Form */}
+                        <form onSubmit={handlePasswordSubmit} className="bg-white border border-slate-100 rounded-[3rem] p-12 shadow-sm space-y-10">
+                            <div className="flex items-center justify-between border-b border-slate-50 pb-8">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-3 bg-amber-50 rounded-2xl text-amber-600">
+                                        <KeyRound className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Security</p>
+                                        <h3 className="text-lg font-black text-slate-900 italic">Change Password</h3>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                                <FormInput label="Current Password" type="password" icon={Lock} required value={passwordForm.oldPassword} onChange={(e) => setPasswordForm({...passwordForm, oldPassword: e.target.value})} />
+                                <FormInput label="New Password" type="password" icon={Lock} required value={passwordForm.newPassword} onChange={(e) => setPasswordForm({...passwordForm, newPassword: e.target.value})} />
+                                <FormInput label="Confirm Password" type="password" icon={Lock} required value={passwordForm.confirmPassword} onChange={(e) => setPasswordForm({...passwordForm, confirmPassword: e.target.value})} />
+                            </div>
+
+                            <div className="pt-6 flex justify-end">
+                                <button type="submit" disabled={passwordLoading} className="hero-btn hover:bg-slate-800 bg-slate-900 border-none px-10 py-5 italic text-lg shadow-xl shadow-slate-200">
+                                    <KeyRound className="w-5 h-5" />
+                                    {passwordLoading ? "Updating..." : "Change Password"}
                                 </button>
                             </div>
                         </form>
