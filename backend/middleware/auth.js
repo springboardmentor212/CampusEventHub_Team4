@@ -33,11 +33,10 @@ export const authenticate = catchAsync(async (req, res, next) => {
       return next(new AppError("Account deactivated. Please contact support.", 401));
     }
 
-    // 5) Check if user is approved (excluding SuperAdmin and Profile route)
+    // 5) Check if user is approved — students must wait for college admin approval
     const isProfileRoute = req.originalUrl.endsWith("/profile");
-    if (user.role !== "admin" && !user.isApproved && !isProfileRoute) {
-      const reviewer = user.role === "college_admin" ? "SuperAdmin" : "College Administrator";
-      return next(new AppError(`Your account is awaiting approval by the ${reviewer}.`, 403));
+    if (user.role === "student" && !user.isApproved && !isProfileRoute) {
+      return next(new AppError("Your account is awaiting approval by the College Administrator.", 403));
     }
 
     req.userId = user._id;
@@ -71,8 +70,8 @@ export const isApprovedCollegeAdmin = (req, res, next) => {
   if (req.userRole !== "college_admin") {
     return next(new AppError("Authority Denied: College Admin role required.", 403));
   }
-  if (!req.user.isApproved) {
-    return next(new AppError("Access Restricted: Your account is pending SuperAdmin approval.", 403));
+  if (!req.user || !req.user.isApproved) {
+    return next(new AppError("Authority Denied: Your College Admin account is not yet approved.", 403));
   }
   next();
 };
@@ -84,12 +83,40 @@ export const isSuperAdmin = (req, res, next) => {
   next();
 };
 
+export const isSuperAdminOrCollegeAdmin = (req, res, next) => {
+  if (req.userRole === 'admin') return next();
+  if (req.userRole === 'college_admin' && req.user?.isApproved) return next();
+  return res.status(403).json({ success: false, message: 'Access denied' });
+};
+
+// Soft auth: populates req.user if a valid token is present, but does not block unauthenticated requests.
+export const optionalAuthenticate = async (req, res, next) => {
+  let token;
+  if (req.header("Authorization")?.startsWith("Bearer")) {
+    token = req.header("Authorization").split(" ")[1];
+  } else if (req.cookies?.token) {
+    token = req.cookies.token;
+  }
+  if (!token) return next();
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.userId).select("-password");
+    if (user && user.isActive) {
+      req.userId = user._id;
+      req.userRole = user.role;
+      req.user = user;
+    }
+  } catch (err) {
+    // Invalid/expired token — proceed without auth
+  }
+  next();
+};
+
 export const canManageEvents = (req, res, next) => {
-  // SuperAdmin OR Approved CollegeAdmin can manage events
-  if (req.userRole === "admin" || (req.userRole === "college_admin" && req.user.isApproved)) {
+  if (req.userRole === "college_admin" && req.user.isApproved) {
     return next();
   }
-  return next(new AppError("Authority Denied: You do not have management permissions.", 403));
+  return next(new AppError("Authority Denied: Approved College Admin permissions required.", 403));
 };
 
 // Middleware to check if user owns the resource or is admin
