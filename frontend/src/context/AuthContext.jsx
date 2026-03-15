@@ -16,10 +16,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
+    setUser(null);
     try {
       await API.get("/auth/logout");
-    } finally {
-      setUser(null);
+    } catch (err) {
+      console.error("Logout error", err);
     }
   };
 

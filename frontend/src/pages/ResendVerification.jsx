@@ -21,18 +21,18 @@ const ResendVerification = () => {
         if (!email.trim()) return;
 
         setLoading(true);
-        const loadingToast = toast.loading("Processing request...");
+        const loadingToast = toast.loading("Checking...");
         try {
             await API.post("/auth/resend-verification", { email: email.trim() });
-            toast.success("Verification link dispatched.", { id: loadingToast });
+            toast.success("Verification link sent.", { id: loadingToast });
             setSubmitted(true);
         } catch (err) {
-            const msg = err.response?.data?.message || "Internal error.";
+            const msg = err.response?.data?.message || "Something went wrong.";
             if (msg.toLowerCase().includes("already verified")) {
                 toast.error("Account already active. Please sign in.", { id: loadingToast });
             } else {
                 // To prevent email discovery, we show a generic success message
-                toast.success("Request processed.", { id: loadingToast });
+                toast.success("Request sent.", { id: loadingToast });
                 setSubmitted(true);
             }
         } finally {
@@ -40,77 +40,75 @@ const ResendVerification = () => {
         }
     };
 
-    return (
-        <div className="h-screen bg-white flex flex-col items-center justify-center p-8 animate-fade-in overflow-hidden">
-            <div className="w-full max-w-sm text-center">
-                {submitted ? (
-                    <div className="space-y-8">
-                        <div className="w-20 h-20 mx-auto rounded-3xl bg-emerald-50 flex items-center justify-center border border-slate-100 shadow-sm">
-                            <Inbox className="w-10 h-10 text-emerald-600" />
-                        </div>
-                        <div className="space-y-3">
-                            <span className="inline-badge">Email Outbox</span>
-                            <h1 className="text-3xl font-black text-slate-900 tracking-tight">Check Your Inbox</h1>
-                            <p className="text-slate-500 font-medium leading-relaxed">
-                                If a pending account exists for <span className="text-slate-900 font-bold">{email}</span>, a new link is on its way.
-                            </p>
-                        </div>
-                        <Link to="/login" className="hero-btn w-full py-4 text-sm group">
-                            Return to Login
-                            <ArrowLeft className="w-4 h-4 ml-2" />
-                        </Link>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                            Links remain valid for 24 hours.
-                        </p>
-                    </div>
-                ) : (
-                    <div className="space-y-10">
-                        <div className="w-20 h-20 mx-auto rounded-3xl bg-indigo-50 flex items-center justify-center border border-slate-100 shadow-sm">
-                            <Mail className="w-10 h-10 text-indigo-600" />
-                        </div>
-
-                        <header className="space-y-3 text-center">
-                            <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Request New Link</h2>
-                            <p className="text-slate-500 font-medium leading-relaxed">
-                                Recover your verification email to finalize your account setup.
-                            </p>
-                        </header>
-
-                        <form onSubmit={handleSubmit} className="space-y-6 text-left">
-                            <FormInput
-                                label="University Email"
-                                icon={Mail}
-                                required
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                placeholder="uday.somapuram@university.edu"
-                            />
-
-                            <button
-                                type="submit"
-                                disabled={loading}
-                                className="hero-btn w-full py-4 text-sm group"
-                            >
-                                Dispatch New Link
-                                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                            </button>
-
-                            <Link to="/login" className="block text-center text-xs font-bold text-slate-400 hover:text-indigo-600 transition-colors uppercase tracking-widest">
-                                Back to Sign In
-                            </Link>
-
-                            <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100 mt-8">
-                                <ShieldCheck className="w-5 h-5 text-indigo-600 shrink-0" />
-                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed text-center">
-                                    Verification links are only sent to accounts pending activation.
-                                </p>
-                            </div>
-                        </form>
-                    </div>
-                )}
+    const Card = ({ children, icon: Icon, iconColor }) => (
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+            <div className="w-full max-w-md bg-white rounded-[2rem] shadow-xl shadow-slate-200/50 border border-slate-100 p-8 md:p-12 text-center animate-fade-in">
+                <div className={`w-20 h-20 ${iconColor} rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-sm`}>
+                    <Icon className="w-10 h-10" />
+                </div>
+                {children}
             </div>
         </div>
+    );
+
+    if (submitted) {
+        return (
+            <Card icon={Inbox} iconColor="bg-emerald-50 text-emerald-600">
+                <h2 className="text-2xl font-bold text-slate-900 mb-2">Check Your Inbox</h2>
+                <p className="text-slate-500 font-medium leading-relaxed mb-8">
+                    If an account exists for <span className="text-slate-900 font-bold">{email}</span>, you'll receive a new verification link shortly.
+                </p>
+                <a href="https://mail.google.com" target="_blank" rel="noopener noreferrer" className="hero-btn w-full block text-center">
+                    Open Gmail <ArrowRight className="w-4 h-4 ml-1" />
+                </a>
+                <p className="mt-8 text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
+                    Links remain valid for 24 hours.
+                </p>
+            </Card>
+        );
+    }
+
+    return (
+        <Card icon={Mail} iconColor="bg-indigo-50 text-indigo-600">
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">Resend Verification</h2>
+            <p className="text-slate-500 font-medium leading-relaxed mb-10">
+                Enter your email address to receive a new verification link for your account.
+            </p>
+
+            <form onSubmit={handleSubmit} className="space-y-6 text-left">
+                <FormInput
+                    label="University Email"
+                    icon={Mail}
+                    required
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="uday.somapuram@university.edu"
+                />
+
+                <button
+                    type="submit"
+                    disabled={loading}
+                    className="hero-btn w-full"
+                >
+                    {loading ? "Sending..." : "Resend Link"}
+                    <ArrowRight className="w-4 h-4 ml-1" />
+                </button>
+
+                <div className="text-center pt-2">
+                    <Link to="/login" className="inline-flex items-center text-sm font-bold text-slate-400 hover:text-indigo-600 transition-colors">
+                        <ArrowLeft className="w-4 h-4 mr-2" /> Back to Sign In
+                    </Link>
+                </div>
+
+                <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100 mt-8">
+                    <ShieldCheck className="w-5 h-5 text-indigo-400 shrink-0" />
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-tight">
+                        Verification links are only sent to accounts that haven't been confirmed yet.
+                    </p>
+                </div>
+            </form>
+        </Card>
     );
 };
 

@@ -26,21 +26,21 @@ const ResetPassword = () => {
         e.preventDefault();
 
         if (form.password !== form.confirmPassword) {
-            toast.error("Security mismatch: Passwords do not match");
+            toast.error("Passwords do not match");
             return;
         }
 
         setIsSubmitting(true);
-        const loadingToast = toast.loading("Finalizing credentials...");
+        const loadingToast = toast.loading("Updating password...");
         try {
             await API.post("/auth/reset-password", {
                 token: token,
                 newPassword: form.password,
             });
-            toast.success("Credentials updated successfully!", { id: loadingToast });
+            toast.success("Password updated successfully!", { id: loadingToast });
             navigate("/login");
         } catch (err) {
-            toast.error(err.response?.data?.message || "Reset protocol failure", { id: loadingToast });
+            toast.error(err.response?.data?.message || "Failed to reset password", { id: loadingToast });
         } finally {
             setIsSubmitting(false);
         }
@@ -52,10 +52,9 @@ const ResetPassword = () => {
             <div className="hidden md:flex md:w-1/2 relative p-12 bg-slate-50 border-r border-slate-100 items-center justify-center">
                 <div className="relative z-10 w-full max-w-lg mx-auto">
                     <div className="mb-8">
-                        <span className="inline-badge">Security Node</span>
-                        <h1 className="editorial-header mt-4">Establish New Logic.</h1>
+                        <h1 className="editorial-header mt-4 italic">Reset Password</h1>
                         <p className="mt-4 text-slate-600 text-lg leading-relaxed">
-                            Create a strong, unique password to secure your university identity and platform access.
+                            Create a strong, unique password to secure your account.
                         </p>
                     </div>
 
@@ -75,7 +74,7 @@ const ResetPassword = () => {
                     <header className="mb-10">
                         <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Set New Password</h2>
                         <p className="text-slate-500 mt-2 font-medium leading-relaxed">
-                            Define your new security credentials for CampusHub.
+                            Enter your new password below.
                         </p>
                     </header>
 
@@ -114,7 +113,7 @@ const ResetPassword = () => {
                             disabled={isSubmitting}
                             className="hero-btn w-full py-4 text-sm group"
                         >
-                            Update Credentials
+                            Update Password
                             <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                         </button>
 

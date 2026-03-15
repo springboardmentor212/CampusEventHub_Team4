@@ -35,9 +35,9 @@ const ForgotPassword = () => {
                 <div className="relative z-10 w-full max-w-lg mx-auto">
                     <div className="mb-8">
                         <span className="inline-badge">Security Control</span>
-                        <h1 className="editorial-header mt-4">Access Recovery.</h1>
+                        <h1 className="editorial-header mt-4">Forgot Password?</h1>
                         <p className="mt-4 text-slate-600 text-lg leading-relaxed">
-                            Verify your university credentials to regain secure access to your campus dashboard.
+                            Enter your email to receive a password reset link.
                         </p>
                     </div>
 
@@ -60,9 +60,9 @@ const ForgotPassword = () => {
                     </Link>
 
                     <header className="mb-10">
-                        <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Recover Access</h2>
+                        <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Forgot Password</h2>
                         <p className="text-slate-500 mt-2 font-medium leading-relaxed">
-                            Dispatch a verification link to your registered university email.
+                            We'll send a password reset link to your registered email.
                         </p>
                     </header>
 
@@ -82,14 +82,14 @@ const ForgotPassword = () => {
                             disabled={isSubmitting}
                             className="hero-btn w-full py-4 text-sm group"
                         >
-                            Dispatch Reset Link
+                            Send Reset Link
                             <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                         </button>
 
                         <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100">
                             <ShieldCheck className="w-5 h-5 text-indigo-600 shrink-0" />
                             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed">
-                                Reset protocols are encrypted and valid for 60 minutes for your security.
+                                Reset links are encrypted and valid for 60 minutes for your security.
                             </p>
                         </div>
                     </form>
