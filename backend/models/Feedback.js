@@ -1,39 +1,58 @@
 import mongoose from "mongoose";
 
-const feedbackSchema = new mongoose.Schema({
-    event: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Event",
-        required: true,
+const feedbackSchema = new mongoose.Schema(
+    {
+        eventId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Event",
+            required: true,
+            index: true,
+        },
+        userId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            required: true,
+            index: true,
+        },
+        registrationId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Registration",
+            required: true,
+        },
+        rating: {
+            type: Number,
+            required: true,
+            min: 1,
+            max: 5,
+        },
+        comment: {
+            type: String,
+            required: true,
+            trim: true,
+            maxlength: 1000,
+        },
+        createdAt: {
+            type: Date,
+            default: Date.now,
+        },
     },
-    user: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-        required: true,
-    },
-    rating: {
-        type: Number,
-        required: true,
-        min: 1,
-        max: 5,
-    },
-    comments: {
-        type: String,
-        required: true,
-        trim: true,
-        maxlength: 1000,
-    },
-    isAnonymous: {
-        type: Boolean,
-        default: false,
-    },
-    createdAt: {
-        type: Date,
-        default: Date.now,
-    },
-}, { timestamps: true });
+    { timestamps: true }
+);
 
 // User can only give feedback once per event
-feedbackSchema.index({ event: 1, user: 1 }, { unique: true });
+feedbackSchema.index({ eventId: 1, userId: 1 }, { unique: true });
+
+// Backward-compatible aliases.
+feedbackSchema.virtual("event").get(function () {
+    return this.eventId;
+});
+
+feedbackSchema.virtual("user").get(function () {
+    return this.userId;
+});
+
+feedbackSchema.virtual("comments").get(function () {
+    return this.comment;
+});
 
 export const Feedback = mongoose.model("Feedback", feedbackSchema);

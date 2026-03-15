@@ -3,7 +3,11 @@ import { User } from "../models/User.js";
 import { College } from "../models/College.js";
 import { Registration } from "../models/Registration.js";
 import { AdminLog } from "../models/AdminLog.js";
+import { Notification } from "../models/Notification.js";
+import { Feedback } from "../models/Feedback.js";
 import catchAsync from "../utils/catchAsync.js";
+
+
 
 // Super Admin Dashboard — Full platform overview
 export const getSuperAdminStats = catchAsync(async (req, res) => {
@@ -15,25 +19,31 @@ export const getSuperAdminStats = catchAsync(async (req, res) => {
         totalStudents,
         totalCollegeAdmins,
         pendingAdmins,
+        pendingStudents,
         pendingEvents,
         totalRegistrations,
         approvedRegistrations,
         pendingRegistrations,
         recentLogs,
         allEvents,
+        registrationsThisMonth,
     ] = await Promise.all([
         College.countDocuments({}),
         Event.countDocuments({ isActive: true }),
         User.countDocuments({ role: "student" }),
         User.countDocuments({ role: "college_admin" }),
-        User.countDocuments({ role: "college_admin", isApproved: false }),
+        User.countDocuments({ role: "college_admin", accountStatus: "pending_approval", isVerified: true, isApproved: false }),
+        User.countDocuments({ role: "student", accountStatus: "pending_approval", isVerified: true, isApproved: false }),
         Event.countDocuments({ isApproved: false, isActive: true }),
         Registration.countDocuments({}),
         Registration.countDocuments({ status: "approved" }),
         Registration.countDocuments({ status: "pending" }),
-        AdminLog.find({}).sort({ createdAt: -1 }).limit(15).populate("perfomedBy", "firstName lastName"),
+        null, // recentLogs removed in favor of notifications
         Event.find({ isActive: true }).select("title startDate endDate currentParticipants maxParticipants registrationDeadline isApproved college category")
             .populate("college", "name code").sort({ startDate: 1 }).limit(20),
+        Registration.countDocuments({
+            createdAt: { $gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) }
+        }),
     ]);
 
     // Derive deadline alerts: events with deadline in next 48 hours
@@ -53,6 +63,61 @@ export const getSuperAdminStats = catchAsync(async (req, res) => {
         new Date(e.startDate) <= now && new Date(e.endDate) >= now
     ).length;
 
+    // Map activities for frontend
+    const allowedTypes = [
+        "EVENT_CREATE", "EVENT_APPROVE", "EVENT_REJECT",
+        "EVENT_UPDATE", "ADMIN_APPROVE", "ADMIN_REJECT",
+        "STUDENT_APPROVE", "STUDENT_REJECT",
+        "COLLEGE_CREATE", "REGISTRATION_APPROVE",
+        "REGISTRATION_REJECT", "USER_SIGNUP"
+    ];
+
+    const notifications = await Notification.find({
+        $or: [
+            { type: { $in: allowedTypes } },
+            { recipient: req.userId }
+        ],
+        createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }
+    })
+        .sort({ createdAt: -1 })
+        .limit(10);
+
+    const messageMap = {
+        EVENT_CREATE: "New event submitted for review",
+        EVENT_APPROVE: "An event was approved and is now live",
+        EVENT_REJECT: "An event was rejected",
+        EVENT_UPDATE: "An event update is pending review",
+        ADMIN_APPROVE: "A college admin was approved",
+        ADMIN_REJECT: "A college admin application was rejected",
+        STUDENT_APPROVE: "A student account was approved",
+        STUDENT_REJECT: "A student application was rejected",
+        COLLEGE_CREATE: "A new college was added",
+        REGISTRATION_APPROVE: "A student registration was approved",
+        REGISTRATION_REJECT: "A student registration was rejected",
+        USER_SIGNUP: "A new user is awaiting approval",
+    };
+
+    const mappedActivity = notifications.map(n => {
+        const type = n.type;
+        let displayMessage = messageMap[type] || n.message || "Platform activity";
+
+        let icon = "📌";
+        if (type.includes("APPROVE")) icon = "✅";
+        else if (type.includes("REJECT")) icon = "❌";
+        else if (type.includes("CREATE")) icon = "📝";
+        else if (type.includes("UPDATE")) icon = "🔄";
+        else if (type.includes("COLLEGE")) icon = "🏫";
+        else if (type.includes("SIGNUP")) icon = "👋";
+
+        return {
+            _id: n._id,
+            type: n.type,
+            displayMessage,
+            icon,
+            createdAt: n.createdAt
+        };
+    });
+
     res.status(200).json({
         success: true,
         data: {
@@ -61,6 +126,7 @@ export const getSuperAdminStats = catchAsync(async (req, res) => {
             totalStudents,
             totalCollegeAdmins,
             pendingAdmins,
+            pendingStudents,
             pendingEvents,
             totalRegistrations,
             approvedRegistrations,
@@ -68,7 +134,8 @@ export const getSuperAdminStats = catchAsync(async (req, res) => {
             ongoingEvents,
             deadlineAlerts,
             capacityAlerts,
-            recentActivity: recentLogs,
+            recentActivity: mappedActivity,
+            registrationsThisMonth,
         }
     });
 });
@@ -78,7 +145,7 @@ export const getCollegeAdminStats = catchAsync(async (req, res) => {
     const collegeId = req.user.college;
     const now = new Date();
 
-    const [totalEvents, events, totalRegistrations, pendingRegistrations, approvedRegistrations, pendingStudents] = await Promise.all([
+    const [totalEvents, events, totalRegistrations, pendingRegistrations, approvedRegistrations, pendingStudents, notifications] = await Promise.all([
         Event.countDocuments({ college: collegeId, isActive: true }),
         Event.find({ college: collegeId, isActive: true })
             .select("title startDate endDate currentParticipants maxParticipants registrationDeadline isApproved category status")
@@ -86,13 +153,20 @@ export const getCollegeAdminStats = catchAsync(async (req, res) => {
         Registration.countDocuments({ college: collegeId }),
         Registration.countDocuments({ college: collegeId, status: "pending" }),
         Registration.countDocuments({ college: collegeId, status: "approved" }),
-        User.countDocuments({ role: "student", college: collegeId, isApproved: false }),
+        User.countDocuments({ role: "student", college: collegeId, accountStatus: "pending_approval", isVerified: true }),
+        Notification.find({ recipient: req.userId, createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } }).sort({ createdAt: -1 }).limit(10)
     ]);
 
     const upcomingEvents = events.filter(e => new Date(e.startDate) > now);
+    const ongoingEvents = events.filter(e => new Date(e.startDate) <= now && new Date(e.endDate) >= now);
     const pastEvents = events.filter(e => new Date(e.endDate) < now);
     const pendingApproval = events.filter(e => !e.isApproved);
     const totalParticipants = events.reduce((s, e) => s + (e.currentParticipants || 0), 0);
+    const eventsWithCapacity = events.filter(e => typeof e.maxParticipants === "number" && e.maxParticipants > 0);
+    const totalConfiguredCapacity = eventsWithCapacity.reduce((s, e) => s + (e.maxParticipants || 0), 0);
+    const averageCapacityPercent = totalConfiguredCapacity > 0
+        ? Math.round((totalParticipants / totalConfiguredCapacity) * 100)
+        : 0;
 
     // Deadline alerts for their own events
     const deadlineAlerts = events.filter(e =>
@@ -106,11 +180,44 @@ export const getCollegeAdminStats = catchAsync(async (req, res) => {
         e.maxParticipants && e.currentParticipants >= e.maxParticipants * 0.8
     );
 
+    // Activity Mapper
+    const messageMap = {
+        EVENT_APPROVE: "Your event was approved and is now live",
+        EVENT_REJECT: "Your event application was rejected",
+        EVENT_UPDATE: "Your event update is pending review",
+        USER_SIGNUP: "A new student registered for your college",
+        REGISTRATION_APPROVE: "A registration was approved",
+        REGISTRATION_REJECT: "A registration was rejected",
+        STUDENT_APPROVE: "You approved a student account",
+        STUDENT_REJECT: "You rejected a student account"
+    };
+
+    const mappedActivity = notifications.map(n => {
+        const type = n.type;
+        let displayMessage = messageMap[type] || n.message || "Activity recorded";
+
+        let icon = "📌";
+        if (type.includes("APPROVE")) icon = "✅";
+        else if (type.includes("REJECT")) icon = "❌";
+        else if (type.includes("CREATE")) icon = "📝";
+        else if (type.includes("UPDATE")) icon = "🔄";
+        else if (type.includes("SIGNUP")) icon = "👋";
+
+        return {
+            _id: n._id,
+            type: n.type,
+            displayMessage,
+            icon,
+            createdAt: n.createdAt
+        };
+    });
+
     res.status(200).json({
         success: true,
         data: {
             totalEvents,
             upcomingCount: upcomingEvents.length,
+            ongoingCount: ongoingEvents.length,
             pastCount: pastEvents.length,
             pendingApprovalCount: pendingApproval.length,
             totalRegistrations,
@@ -118,9 +225,12 @@ export const getCollegeAdminStats = catchAsync(async (req, res) => {
             approvedRegistrations,
             pendingStudents,
             totalParticipants,
+            totalConfiguredCapacity,
+            averageCapacityPercent,
             recentEvents: events.slice(0, 5),
             deadlineAlerts,
             capacityAlerts,
+            recentActivity: mappedActivity
         }
     });
 });
@@ -130,7 +240,14 @@ export const getStudentStats = catchAsync(async (req, res) => {
     const userId = req.userId;
     const now = new Date();
 
-    const [myRegistrations, upcomingEvents] = await Promise.all([
+    const [
+        myRegistrations,
+        upcomingEvents,
+        totalPeers,
+        totalSocieties,
+        avgPulseResult,
+        totalMoments
+    ] = await Promise.all([
         Registration.find({ user: userId })
             .populate({
                 path: "event",
@@ -141,7 +258,13 @@ export const getStudentStats = catchAsync(async (req, res) => {
             isActive: true,
             isApproved: true,
             startDate: { $gt: now }
-        }).sort({ startDate: 1 }).limit(5).populate("college", "name code")
+        }).sort({ startDate: 1 }).limit(5).populate("college", "name code"),
+        User.countDocuments({ role: "student", isActive: true }),
+        College.countDocuments({ isActive: true }),
+        Feedback.aggregate([
+            { $group: { _id: null, avgRating: { $avg: "$rating" } } }
+        ]),
+        Registration.countDocuments({ status: "attended" })
     ]);
 
     const approved = myRegistrations.filter(r => r.status === "approved");
@@ -149,6 +272,26 @@ export const getStudentStats = catchAsync(async (req, res) => {
     const rejected = myRegistrations.filter(r => r.status === "rejected");
     const futureTickets = approved.filter(r => r.event && new Date(r.event.startDate) > now);
     const pastAttended = approved.filter(r => r.event && new Date(r.event.endDate) < now);
+
+    const avgPulse = avgPulseResult.length > 0 ? (avgPulseResult[0].avgRating * 2).toFixed(1) : "8.5"; // Scale to 10 for "Pulse"
+
+    // Achievement logic
+    const attendedCount = pastAttended.length;
+    let tier = "Campus Novice";
+    let nextTierThreshold = 5;
+    if (attendedCount >= 20) {
+        tier = "Campus Legend";
+        nextTierThreshold = 50;
+    } else if (attendedCount >= 10) {
+        tier = "Campus Pro";
+        nextTierThreshold = 20;
+    } else if (attendedCount >= 5) {
+        tier = "Campus Regular";
+        nextTierThreshold = 10;
+    }
+
+    const progress = Math.min(100, Math.round((attendedCount / nextTierThreshold) * 100));
+    const remaining = Math.max(0, nextTierThreshold - attendedCount);
 
     // Deadline alerts: upcoming events closing within 24 hours
     const deadlineAlerts = upcomingEvents.filter(e =>
@@ -165,9 +308,21 @@ export const getStudentStats = catchAsync(async (req, res) => {
             pendingCount: pending.length,
             rejectedCount: rejected.length,
             futureTickets: futureTickets.length,
-            pastAttended: pastAttended.length,
+            pastAttended: attendedCount,
             recommendedEvents: upcomingEvents,
             deadlineAlerts,
+            platformStats: {
+                totalPeers: totalPeers > 1000 ? `${(totalPeers / 1000).toFixed(1)}k+` : totalPeers,
+                totalSocieties,
+                avgPulse,
+                totalMoments: totalMoments > 1000 ? `${(totalMoments / 1000).toFixed(1)}m` : totalMoments
+            },
+            achievement: {
+                tier,
+                progress,
+                remaining,
+                nextTierThreshold
+            }
         }
     });
 });
@@ -226,6 +381,29 @@ export const getAnalytics = catchAsync(async (req, res) => {
             { $sort: { count: -1 } },
             { $limit: 10 }
         ]);
+
+        // Fallback: if no registrations yet, rank by active event count per college
+        if (!collegeParticipation.length) {
+            collegeParticipation = await Event.aggregate([
+                { $match: { isActive: true } },
+                {
+                    $group: {
+                        _id: "$college",
+                        count: { $sum: 1 }
+                    }
+                },
+                { $lookup: { from: "colleges", localField: "_id", foreignField: "_id", as: "collegeDetails" } },
+                { $unwind: "$collegeDetails" },
+                {
+                    $project: {
+                        name: "$collegeDetails.name",
+                        count: 1
+                    }
+                },
+                { $sort: { count: -1 } },
+                { $limit: 10 }
+            ]);
+        }
 
     } else if (role === 'college_admin') {
         // College Admin Analytics

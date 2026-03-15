@@ -1,7 +1,7 @@
 import express from "express";
 import { College } from "../models/College.js";
 import { User } from "../models/User.js";
-import { authenticate, canManageEvents, isSuperAdmin, sameCollegeOrAdmin } from "../middleware/auth.js";
+import { authenticate, isSuperAdmin, sameCollegeOrAdmin } from "../middleware/auth.js";
 
 const router = express.Router();
 
@@ -19,7 +19,7 @@ router.get("/", async (req, res) => {
     }
 
     const colleges = await College.find(query)
-      .select("name code email website description type logo")
+      .select("name code email website description type logo phone")
       .limit(limit * 1)
       .skip((page - 1) * limit)
       .sort({ name: 1 });
@@ -67,6 +67,30 @@ router.get("/:id", async (req, res) => {
     });
   } catch (error) {
     console.error("Get college error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+// Check if a college has an active admin
+router.get("/:id/has-active-admin", async (req, res) => {
+  try {
+    const adminExists = await User.exists({
+      college: req.params.id,
+      role: "college_admin",
+      isApproved: true,
+      isActive: true,
+      accountStatus: "active"
+    });
+
+    res.status(200).json({
+      success: true,
+      hasAdmin: !!adminExists
+    });
+  } catch (error) {
+    console.error("Error checking active admin:", error);
     res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -140,7 +164,7 @@ router.post("/", authenticate, isSuperAdmin, async (req, res) => {
 });
 
 // Update college (Management authority)
-router.put("/:id", authenticate, canManageEvents, async (req, res) => {
+router.put("/:id", authenticate, isSuperAdmin, async (req, res) => {
   try {
     const {
       name,
