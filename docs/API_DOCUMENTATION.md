@@ -7,8 +7,24 @@ CampusEventHub is a comprehensive event management platform for inter-college ev
 ## Base URL
 
 ```
-Development: http://localhost:5000/api
+Development: http://localhost:5555/api
 Production: https://your-domain.com/api
+```
+
+### Health Check
+
+**GET** `/api/health`
+
+Verify the server is running. No authentication required.
+
+**Response:**
+```json
+{
+  "success": true,
+  "service": "CampusEventHub API",
+  "uptime": 120.5,
+  "sampleBannerImage": "http://localhost:5555/uploads/test.png"
+}
 ```
 
 ## Authentication
@@ -52,8 +68,8 @@ All responses follow a consistent structure:
 ## Roles
 
 - **student**: Regular student users
-- **college_admin**: Administrators for specific colleges
-- **admin**: System administrators with full access
+- **college_admin**: Administrators for specific colleges (must be approved by superadmin before they can create events)
+- **admin**: System-wide superadmin with full access — can approve/reject events and college admin accounts
 
 ---
 
@@ -229,7 +245,7 @@ Retrieve details of a specific event by ID. This is a public endpoint.
 
 **POST** `/events/create` 🔒
 
-Create a new event. Only college admins can create events.
+Create a new event. Only approved college admins or superadmin can create events.
 
 **Request Body:**
 ```json
@@ -243,7 +259,8 @@ Create a new event. Only college admins can create events.
   "maxParticipants": 500,
   "registrationDeadline": "2024-03-25T23:59:59.000Z",
   "requirements": "Participants must register in teams of 4-6 members",
-  "imageUrl": "https://example.com/poster.jpg"
+  "visibilityScope": "college_only",
+  "bannerImage": "https://example.com/poster.jpg"
 }
 ```
 
@@ -277,12 +294,17 @@ Create a new event. Only college admins can create events.
       "status": "upcoming",
       "registrationDeadline": "2024-03-25T23:59:59.000Z",
       "requirements": "Participants must register in teams of 4-6 members",
-      "imageUrl": "https://example.com/poster.jpg",
+      "visibilityScope": "college_only",
+      "bannerImage": "https://example.com/poster.jpg",
       "createdAt": "2024-02-01T10:00:00.000Z"
     }
   }
 }
 ```
+
+> **`visibilityScope` values:**
+> - `"college_only"` — only students from the organizing college can register (default)
+> - `"all_colleges"` — students from any college can register
 
 ### Update Event
 
@@ -385,7 +407,7 @@ Content-Type: application/json
 ```json
 {
   "event_id": "60f7b3b3b3b3b3b3b3b3b3b3",
-  "notes": "Optional notes about registration"
+  "notes": "Optional notes"
 }
 ```
 
@@ -397,23 +419,17 @@ Content-Type: application/json
   "data": {
     "registration": {
       "_id": "60f7b3b3b3b3b3b3b3b3b3b3",
-      "event_id": {
+      "event": {
         "_id": "60f7b3b3b3b3b3b3b3b3b3b3",
-        "title": "Hackathon 2024",
-        "description": "Annual coding competition",
-        "category": "hackathon",
-        "start_date": "2024-03-15T09:00:00.000Z",
-        "end_date": "2024-03-15T18:00:00.000Z",
-        "location": "Computer Lab"
+        "title": "Hackathon 2024"
       },
-      "user_id": {
+      "user": {
         "_id": "60f7b3b3b3b3b3b3b3b3b3b3",
-        "username": "student123",
-        "email": "student@college.edu"
+        "username": "student123"
       },
       "status": "pending",
-      "registration_date": "2024-02-01T10:00:00.000Z",
-      "notes": "Looking forward to participate!"
+      "registrationDate": "2024-02-01T10:00:00.000Z",
+      "notes": "Optional notes"
     }
   }
 }
@@ -421,137 +437,44 @@ Content-Type: application/json
 
 #### Get My Registrations
 ```http
-GET /api/registrations/my-registrations?status=pending&page=1&limit=10
+GET /api/registrations/my
 Authorization: Bearer <token>
 ```
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "registrations": [
-      {
-        "_id": "60f7b3b3b3b3b3b3b3b3b3b3",
-        "event_id": {
-          "_id": "60f7b3b3b3b3b3b3b3b3b3b3",
-          "title": "Hackathon 2024",
-          "category": "hackathon",
-          "start_date": "2024-03-15T09:00:00.000Z",
-          "location": "Computer Lab",
-          "college": {
-            "_id": "60f7b3b3b3b3b3b3b3b3b3b3",
-            "name": "Institute of Technology",
-            "code": "IOT"
-          }
-        },
-        "status": "pending",
-        "registration_date": "2024-02-01T10:00:00.000Z"
-      }
-    ],
-    "pagination": {
-      "currentPage": 1,
-      "totalPages": 1,
-      "totalRegistrations": 1
-    }
-  }
-}
+Alias route supported for frontend compatibility:
+```http
+GET /api/registrations/my-registrations
 ```
 
 #### Cancel Registration
 ```http
-DELETE /api/registrations/:id
+DELETE /api/registrations/:id/cancel
 Authorization: Bearer <token>
 ```
 
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Registration cancelled successfully"
-}
+Alias route supported for frontend compatibility:
+```http
+DELETE /api/registrations/:id
 ```
 
-### Admin Registration Management
+### Admin / College Admin Operations
 
 #### Get Event Registrations
 ```http
-GET /api/registrations/event/:eventId?status=approved&page=1&limit=10
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "registrations": [
-      {
-        "_id": "60f7b3b3b3b3b3b3b3b3b3b3",
-        "user_id": {
-          "_id": "60f7b3b3b3b3b3b3b3b3b3b3",
-          "username": "student123",
-          "email": "student@college.edu",
-          "fullName": "John Doe"
-        },
-        "status": "pending",
-        "registration_date": "2024-02-01T10:00:00.000Z"
-      }
-    ],
-    "pagination": {
-      "currentPage": 1,
-      "totalPages": 1,
-      "totalRegistrations": 1
-    }
-  }
-}
-```
-
-#### Get Registration Statistics
-```http
-GET /api/registrations/stats/:eventId
+GET /api/registrations/event/:eventId
 Authorization: Bearer <token>
 ```
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "eventId": "60f7b3b3b3b3b3b3b3b3b3b3",
-    "stats": {
-      "total": 25,
-      "pending": 5,
-      "approved": 18,
-      "rejected": 2
-    }
-  }
-}
+#### Export Event Registrations (CSV)
+```http
+GET /api/registrations/event/:eventId/export
+Authorization: Bearer <token>
 ```
 
 #### Approve Registration
 ```http
 PATCH /api/registrations/:id/approve
 Authorization: Bearer <token>
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Registration approved successfully",
-  "data": {
-    "registration": {
-      "_id": "60f7b3b3b3b3b3b3b3b3b3b3",
-      "status": "approved",
-      "approved_at": "2024-02-01T11:00:00.000Z",
-      "approved_by": {
-        "_id": "60f7b3b3b3b3b3b3b3b3b3b3",
-        "username": "admin123",
-        "email": "admin@college.edu"
-      }
-    }
-  }
-}
 ```
 
 #### Reject Registration
@@ -564,72 +487,41 @@ Content-Type: application/json
 **Request Body:**
 ```json
 {
-  "rejection_reason": "Event capacity reached"
+  "reason": "Event capacity reached"
 }
 ```
 
-**Response:**
+#### Mark Attendance
+```http
+PATCH /api/registrations/:id/attendance
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+**Request Body:**
 ```json
 {
-  "success": true,
-  "message": "Registration rejected successfully",
-  "data": {
-    "registration": {
-      "_id": "60f7b3b3b3b3b3b3b3b3b3b3",
-      "status": "rejected",
-      "rejected_at": "2024-02-01T11:00:00.000Z",
-      "rejected_by": {
-        "_id": "60f7b3b3b3b3b3b3b3b3b3b3",
-        "username": "admin123",
-        "email": "admin@college.edu"
-      },
-      "rejection_reason": "Event capacity reached"
-    }
-  }
+  "status": "attended"
 }
 ```
 
-#### Get All Registrations (Super Admin Only)
+Allowed attendance statuses:
+- `attended`
+- `no-show`
+- `approved`
+
+#### Registration Statistics
 ```http
-GET /api/registrations?status=pending&event_id=60f7b3b3b3b3b3b3b3b3b3b3&page=1&limit=20
+GET /api/registrations/stats/:eventId
 Authorization: Bearer <token>
 ```
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "registrations": [
-      {
-        "_id": "60f7b3b3b3b3b3b3b3b3b3b3",
-        "event_id": {
-          "_id": "60f7b3b3b3b3b3b3b3b3b3b3",
-          "title": "Hackathon 2024",
-          "category": "hackathon",
-          "college": {
-            "_id": "60f7b3b3b3b3b3b3b3b3b3b3",
-            "name": "Institute of Technology",
-            "code": "IOT"
-          }
-        },
-        "user_id": {
-          "_id": "60f7b3b3b3b3b3b3b3b3b3b3",
-          "username": "student123",
-          "email": "student@college.edu",
-          "fullName": "John Doe"
-        },
-        "status": "pending",
-        "registration_date": "2024-02-01T10:00:00.000Z"
-      }
-    ],
-    "pagination": {
-      "currentPage": 1,
-      "totalPages": 2,
-      "totalRegistrations": 35
-    }
-  }
-}
+### Super Admin Operations
+
+#### Get All Registrations
+```http
+GET /api/registrations?status=pending&event_id=<eventId>&user_id=<userId>&page=1&limit=20
+Authorization: Bearer <token>
 ```
 
 #### Get Registration by ID
@@ -638,50 +530,21 @@ GET /api/registrations/:id
 Authorization: Bearer <token>
 ```
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "registration": {
-      "_id": "60f7b3b3b3b3b3b3b3b3b3b3",
-      "event_id": {
-        "_id": "60f7b3b3b3b3b3b3b3b3b3b3",
-        "title": "Hackathon 2024",
-        "category": "hackathon",
-        "college": {
-          "_id": "60f7b3b3b3b3b3b3b3b3b3b3",
-          "name": "Institute of Technology",
-          "code": "IOT"
-        }
-      },
-      "user_id": {
-        "_id": "60f7b3b3b3b3b3b3b3b3b3b3",
-        "username": "student123",
-        "email": "student@college.edu",
-        "fullName": "John Doe"
-      },
-      "status": "pending",
-      "registration_date": "2024-02-01T10:00:00.000Z",
-      "notes": "Looking forward to participate!"
-    }
-  }
-}
-```
-
 ### Registration Status Values
 
-- **pending**: Registration submitted, awaiting admin approval
-- **approved**: Registration approved by admin
-- **rejected**: Registration rejected by admin
+- `pending`: Awaiting review
+- `approved`: Approved by admin
+- `rejected`: Rejected by admin
+- `attended`: Marked attended
+- `no-show`: Marked absent
 
-### Query Parameters
+### Validation and Access Rules
 
-- **status**: Filter by registration status (pending, approved, rejected)
-- **event_id**: Filter by specific event ID
-- **user_id**: Filter by specific user ID (admin only)
-- **page**: Page number for pagination (default: 1)
-- **limit**: Number of items per page (default: 10/20)
+- Students can register only for events in their own college **unless** the event has `visibilityScope: "all_colleges"`.
+- Registration is blocked for inactive/cancelled events.
+- Registration is blocked after `registrationDeadline`.
+- Duplicate registrations are prevented with a unique index on `(event, user)`.
+- Event capacity is enforced using atomic participant increment logic.
 
 ### Error Responses
 
@@ -689,7 +552,7 @@ Authorization: Bearer <token>
 ```json
 {
   "success": false,
-  "message": "You have already registered for this event"
+  "message": "Event reached capacity or registration is closed"
 }
 ```
 
@@ -711,6 +574,65 @@ Authorization: Bearer <token>
 
 ---
 
+## Event Approval Workflow (SuperAdmin)
+
+Events created by college admins are **pending** by default and require superadmin approval before becoming visible to students.
+
+### Get Pending Events
+
+```http
+GET /api/events/admin/pending-events
+Authorization: Bearer <token>
+```
+
+Returns all events with `status: "pending"`. SuperAdmin only.
+
+### Approve Event
+
+```http
+PATCH /api/events/:id/approve
+Authorization: Bearer <token>
+```
+
+Changes event status to `"upcoming"` and sends an approval email to the organizer.
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Event approved successfully"
+}
+```
+
+### Reject Event
+
+```http
+DELETE /api/events/:id/reject
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "reason": "The event description does not meet content guidelines"
+}
+```
+
+Soft-deletes the event (sets `isActive: false`) and sends a rejection email to the organizer containing the reason. SuperAdmin only.
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Event rejected successfully"
+}
+```
+
+> **Note:** The `reason` field is required. The organizer receives an email with the full rejection context.
+
+---
+
 ## Security Features (Production Ready)
 
 - ✅ **CORS Hardening**: Access restricted to authorized frontend origins.
@@ -719,3 +641,4 @@ Authorization: Bearer <token>
 - ✅ **Schema Validation**: All inputs validated via Joi before processing.
 - ✅ **Global Error Handling**: Standardized responses without leaking internal stack traces.
 - ✅ **Password Policy**: Enforced complexity (uppercase, lowercase, number, min 8 chars).
+
