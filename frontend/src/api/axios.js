@@ -4,6 +4,7 @@ import axios from "axios";
 const API = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000/api",
   withCredentials: true, // Crucial for HttpOnly Cookies
+  timeout: 15000,
 });
 
 // Since we are moving to Cookies, we don't strictly need the Authorization header interceptor

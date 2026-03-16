@@ -202,17 +202,7 @@ const CollegeAdminDashboard = () => {
   };
 
   const handleApproval = async (regId, status) => {
-    if (status === 'rejected') {
-      setRejectionModal({ show: true, id: regId, type: 'registration' });
-      return;
-    }
-    try {
-      await API.patch(`/registrations/${regId}/approve`);
-      toast.success(`Registration confirmed`);
-      fetchDashboardData();
-    } catch (err) {
-      toast.error("Process failed");
-    }
+    toast("Registrations are auto-managed. Students are confirmed or waitlisted automatically.");
   };
 
   const handleViewEvent = (event) => {
@@ -227,7 +217,7 @@ const CollegeAdminDashboard = () => {
   const averageRating = feedbackSummaries.length
     ? (feedbackSummaries.reduce((acc, curr) => acc + (curr.avgRating || 0), 0) / feedbackSummaries.length)
     : null;
-  const ratingDisplay = averageRating ? `${averageRating.toFixed(1)} ★` : "—";
+  const ratingDisplay = averageRating ? `${averageRating.toFixed(1)} / 5` : "-";
   const registrationsThisMonth = (analytics?.registrationTrend || []).reduce((acc, row) => acc + (row.count || 0), 0);
 
   const filteredActivity = (stats?.recentActivity || [])
@@ -342,7 +332,7 @@ const CollegeAdminDashboard = () => {
 
   const renderStars = (rating = 0) => {
     const rounded = Math.round(Number(rating));
-    return "★★★★★".slice(0, rounded) + "☆☆☆☆☆".slice(0, 5 - rounded);
+    return "*****".slice(0, rounded) + ".....".slice(0, 5 - rounded);
   };
 
   if (!user?.isVerified) {
@@ -392,12 +382,12 @@ const CollegeAdminDashboard = () => {
 
   return (
     <DashboardLayout pendingRegistrations={pendingRegistrations.length} pendingStudents={pendingStudents.length}>
-      <div className="max-w-7xl mx-auto space-y-10 animate-fade-in relative">
+      <div className="max-w-7xl mx-auto space-y-9 animate-fade-in relative">
         {/* Admin Header */}
-        <header className="flex flex-col gap-1 pb-4 border-b border-slate-100">
+        <header className="flex flex-col gap-2 pb-4 border-b border-slate-100">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
             <div>
-              <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight italic">
+              <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">
                 {activeTab === 'overview' && 'Dashboard'}
                 {activeTab === 'events' && 'My Events'}
                 {activeTab === 'registrations' && 'Registrations'}
@@ -437,8 +427,8 @@ const CollegeAdminDashboard = () => {
             </div>
 
             <div className="flex flex-col xl:flex-row gap-8">
-              <section className="flex-[3] bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm">
-                <h3 className="font-black text-xl text-slate-900 tracking-tight italic">Registration Activity</h3>
+              <section className="flex-[3] bg-white rounded-[2.5rem] border border-slate-100 p-7 shadow-sm">
+                <h3 className="font-extrabold text-xl text-slate-900 tracking-tight">Registration Activity</h3>
                 <p className="text-xs text-slate-500 font-medium mt-1 mb-8">Registrations over the last 30 days</p>
                 <div className="min-h-[300px] h-[320px]">
                   <ResponsiveContainer width="100%" height="100%">
@@ -459,14 +449,14 @@ const CollegeAdminDashboard = () => {
                 </div>
               </section>
 
-              <section className="flex-[2] bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm flex flex-col">
-                <h3 className="font-black text-lg text-slate-900 tracking-tight italic">Recent Activity</h3>
+              <section className="flex-[2] bg-white rounded-[2.5rem] border border-slate-100 p-7 shadow-sm flex flex-col">
+                <h3 className="font-extrabold text-lg text-slate-900 tracking-tight">Recent Activity</h3>
                 <div className="space-y-5 mt-6 flex-1">
                   {filteredActivity.length > 0 ? (
                     filteredActivity.map((activity, index) => (
                       <div key={activity._id || index} className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-500 text-lg">
-                          {activity.icon || "📌"}
+                          {activity.icon || "*"}
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-bold text-slate-900 line-clamp-2">{activity.displayMessage || activity.message}</p>
@@ -480,16 +470,16 @@ const CollegeAdminDashboard = () => {
                     </div>
                   )}
                 </div>
-                <button onClick={() => navigate('/admin?tab=registrations')} className="mt-6 text-xs font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-700 text-left">
+                <button onClick={() => navigate('/admin?tab=registrations')} className="mt-6 text-xs font-semibold tracking-widest text-indigo-600 hover:text-indigo-700 text-left">
                   View all
                 </button>
               </section>
             </div>
 
             <div className="flex flex-col xl:flex-row gap-8">
-              <section className="flex-[3] bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm">
+              <section className="flex-[3] bg-white rounded-[2.5rem] border border-slate-100 p-7 shadow-sm">
                 <div className="flex items-center justify-between mb-6">
-                  <h3 className="font-black text-lg text-slate-900 tracking-tight italic">Recent Events</h3>
+                  <h3 className="font-extrabold text-lg text-slate-900 tracking-tight">Recent Events</h3>
                 </div>
 
                 {recentEvents.length === 0 ? (
@@ -503,7 +493,7 @@ const CollegeAdminDashboard = () => {
                           <p className="text-xs text-slate-500 mt-1">{new Date(event.startDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</p>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase ${getEventStatusClass(event)}`}>
+                          <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full tracking-widest ${getEventStatusClass(event)}`}>
                             {getEventStatusLabel(event)}
                           </span>
                           <span className="text-xs font-bold text-slate-600">{event.registrationsCount || 0} regs</span>
@@ -513,8 +503,8 @@ const CollegeAdminDashboard = () => {
                   </div>
                 )}
 
-                <button onClick={() => navigate('/admin?tab=events')} className="mt-6 text-xs font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-700">
-                  View all events →
+                <button onClick={() => navigate('/admin?tab=events')} className="mt-6 text-xs font-semibold tracking-widest text-indigo-600 hover:text-indigo-700">
+                  View all events &gt;
                 </button>
               </section>
 
@@ -646,7 +636,7 @@ const CollegeAdminDashboard = () => {
                       <div className="p-4 space-y-3">
                         <h4 className="font-black text-slate-900 line-clamp-1">{event.title}</h4>
                         <p className="text-xs text-slate-500 line-clamp-1">
-                          {new Date(event.startDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} · {event.location || 'Location TBA'}
+                          {new Date(event.startDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} | {event.location || 'Location TBA'}
                         </p>
 
                         <div className="space-y-1">
@@ -663,7 +653,7 @@ const CollegeAdminDashboard = () => {
                         </span>
 
                         <p className="text-xs font-bold text-slate-600">
-                          {summary ? `${Number(summary.avgRating).toFixed(1)} ★` : 'No feedback yet'}
+                          {summary ? `${Number(summary.avgRating).toFixed(1)} / 5` : 'No feedback yet'}
                         </p>
                       </div>
 
@@ -748,12 +738,12 @@ const CollegeAdminDashboard = () => {
                           </td>
                           <td className="px-8 py-5 text-center">
                             <div className="flex flex-col">
-                              <span className="text-xs font-bold text-slate-700">{student.officialId || student.staffId || "—"}</span>
+                              <span className="text-xs font-bold text-slate-700">{student.officialId || student.staffId || "-"}</span>
                               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Student ID</span>
                             </div>
                           </td>
                           <td className="px-8 py-5">
-                            <span className="text-xs font-bold text-slate-700">{student.phone || "—"}</span>
+                            <span className="text-xs font-bold text-slate-700">{student.phone || "-"}</span>
                           </td>
                           <td className="px-8 py-5">
                             <span className="text-xs font-bold text-slate-600">{timeAgo(student.createdAt)}</span>
@@ -901,10 +891,10 @@ const CollegeAdminDashboard = () => {
               <div className="px-8 py-6 border-b border-slate-50 bg-slate-50/50 flex flex-col md:flex-row justify-between gap-4 md:items-end">
                 <div className="flex flex-col">
                   <h3 className="font-black text-slate-900 text-2xl italic">Registrations</h3>
-                  <p className="text-sm text-slate-500 font-medium mt-1">Manage event registration requests</p>
+                  <p className="text-sm text-slate-500 font-medium mt-1">View event registrations and attendance progress</p>
                 </div>
                 <div className="px-3 py-1.5 rounded-full bg-slate-900 text-white text-[11px] font-black uppercase tracking-widest w-fit">
-                  {registrationCounts.all} total · {registrationCounts.pending} pending
+                  {registrationCounts.all} total | {registrationCounts.pending} pending
                 </div>
               </div>
 
@@ -1010,19 +1000,14 @@ const CollegeAdminDashboard = () => {
                             </td>
                             <td className="px-8 py-5 text-right">
                               <div className="flex items-center justify-end gap-3">
-                                {reg.normalizedStatus === 'pending' ? (
-                                  <>
-                                    <button onClick={() => handleApproval(reg._id, 'confirmed')} className="px-5 py-2.5 bg-slate-900 text-white text-[10px] font-black uppercase rounded-xl hover:bg-slate-800 shadow-lg shadow-slate-200 tracking-widest transition-all active:scale-95">Approve</button>
-                                    <button onClick={() => handleApproval(reg._id, 'rejected')} className="p-2.5 border border-rose-100 text-rose-500 rounded-xl hover:bg-rose-50 transition-all">
-                                      <XCircle className="w-4 h-4" />
-                                    </button>
-                                  </>
-                                ) : reg.normalizedStatus === 'approved' ? (
+                                {reg.normalizedStatus === 'approved' ? (
                                   <button onClick={() => navigate(`/event-registrations/${reg.event?._id}`)} className="px-4 py-2 bg-indigo-600 text-white text-[10px] font-black uppercase rounded-xl hover:bg-indigo-700 transition-colors">
                                     Mark Attended
                                   </button>
                                 ) : reg.normalizedStatus === 'waitlisted' ? (
                                   <span className="text-xs font-bold text-slate-400">Waiting</span>
+                                ) : reg.normalizedStatus === 'pending' ? (
+                                  <span className="text-xs font-bold text-slate-400">Auto-processing</span>
                                 ) : (
                                   <span className="text-xs font-bold text-slate-400">Done</span>
                                 )}
@@ -1053,14 +1038,14 @@ const CollegeAdminDashboard = () => {
                   <p className="text-xs font-black uppercase tracking-widest text-slate-400">Average Rating</p>
                   <Star className="w-5 h-5 text-amber-500" />
                 </div>
-                <p className="mt-4 text-3xl font-black text-slate-900">{averageRating ? `${averageRating.toFixed(1)} ★` : '—'}</p>
+                <p className="mt-4 text-3xl font-black text-slate-900">{averageRating ? `${averageRating.toFixed(1)} / 5` : '-'}</p>
               </div>
               <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-black uppercase tracking-widest text-slate-400">Top Rated Event</p>
                   <Trophy className="w-5 h-5 text-emerald-500" />
                 </div>
-                <p className="mt-4 text-lg font-black text-slate-900 line-clamp-2">{topRatedEvent?.eventTitle || '—'}</p>
+                <p className="mt-4 text-lg font-black text-slate-900 line-clamp-2">{topRatedEvent?.eventTitle || '-'}</p>
               </div>
             </div>
 

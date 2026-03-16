@@ -9,7 +9,7 @@ import catchAsync from "../utils/catchAsync.js";
 
 
 
-// Super Admin Dashboard — Full platform overview
+// Super Admin Dashboard - Full platform overview
 export const getSuperAdminStats = catchAsync(async (req, res) => {
     const now = new Date();
 
@@ -101,13 +101,13 @@ export const getSuperAdminStats = catchAsync(async (req, res) => {
         const type = n.type;
         let displayMessage = messageMap[type] || n.message || "Platform activity";
 
-        let icon = "📌";
-        if (type.includes("APPROVE")) icon = "✅";
-        else if (type.includes("REJECT")) icon = "❌";
-        else if (type.includes("CREATE")) icon = "📝";
-        else if (type.includes("UPDATE")) icon = "🔄";
-        else if (type.includes("COLLEGE")) icon = "🏫";
-        else if (type.includes("SIGNUP")) icon = "👋";
+        let icon = "*";
+        if (type.includes("APPROVE")) icon = "OK";
+        else if (type.includes("REJECT")) icon = "X";
+        else if (type.includes("CREATE")) icon = "+";
+        else if (type.includes("UPDATE")) icon = "~";
+        else if (type.includes("COLLEGE")) icon = "C";
+        else if (type.includes("SIGNUP")) icon = "U";
 
         return {
             _id: n._id,
@@ -140,7 +140,7 @@ export const getSuperAdminStats = catchAsync(async (req, res) => {
     });
 });
 
-// College Admin Dashboard — College-specific overview
+// College Admin Dashboard - College-specific overview
 export const getCollegeAdminStats = catchAsync(async (req, res) => {
     const collegeId = req.user.college;
     const now = new Date();
@@ -196,12 +196,12 @@ export const getCollegeAdminStats = catchAsync(async (req, res) => {
         const type = n.type;
         let displayMessage = messageMap[type] || n.message || "Activity recorded";
 
-        let icon = "📌";
-        if (type.includes("APPROVE")) icon = "✅";
-        else if (type.includes("REJECT")) icon = "❌";
-        else if (type.includes("CREATE")) icon = "📝";
-        else if (type.includes("UPDATE")) icon = "🔄";
-        else if (type.includes("SIGNUP")) icon = "👋";
+        let icon = "*";
+        if (type.includes("APPROVE")) icon = "OK";
+        else if (type.includes("REJECT")) icon = "X";
+        else if (type.includes("CREATE")) icon = "+";
+        else if (type.includes("UPDATE")) icon = "~";
+        else if (type.includes("SIGNUP")) icon = "U";
 
         return {
             _id: n._id,
@@ -235,7 +235,7 @@ export const getCollegeAdminStats = catchAsync(async (req, res) => {
     });
 });
 
-// Student Dashboard — Personal activity overview
+// Student Dashboard - Personal activity overview
 export const getStudentStats = catchAsync(async (req, res) => {
     const userId = req.userId;
     const now = new Date();
@@ -268,10 +268,11 @@ export const getStudentStats = catchAsync(async (req, res) => {
     ]);
 
     const approved = myRegistrations.filter(r => r.status === "approved");
-    const pending = myRegistrations.filter(r => r.status === "pending");
+    const waitlisted = myRegistrations.filter(r => r.status === "waitlisted");
     const rejected = myRegistrations.filter(r => r.status === "rejected");
     const futureTickets = approved.filter(r => r.event && new Date(r.event.startDate) > now);
-    const pastAttended = approved.filter(r => r.event && new Date(r.event.endDate) < now);
+    const pastAttended = myRegistrations.filter(r => r.status === "attended");
+    const feedbackPending = pastAttended.filter(r => r.event && new Date(r.event.endDate) < now).length;
 
     const avgPulse = avgPulseResult.length > 0 ? (avgPulseResult[0].avgRating * 2).toFixed(1) : "8.5"; // Scale to 10 for "Pulse"
 
@@ -305,10 +306,11 @@ export const getStudentStats = catchAsync(async (req, res) => {
         data: {
             totalRegistrations: myRegistrations.length,
             approvedCount: approved.length,
-            pendingCount: pending.length,
+            waitlistedCount: waitlisted.length,
             rejectedCount: rejected.length,
             futureTickets: futureTickets.length,
             pastAttended: attendedCount,
+            feedbackPending,
             recommendedEvents: upcomingEvents,
             deadlineAlerts,
             platformStats: {

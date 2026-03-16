@@ -8,33 +8,19 @@ import {
     Mail,
     Phone,
     LayoutGrid,
-    Save,
-    ShieldCheck,
-    Hash,
-    Lock,
-    KeyRound,
-    AlertCircle,
-    Calendar,
-    Award
+    Hash
 } from "lucide-react";
 import FormInput from "../components/FormInput";
 
 const Profile = () => {
     const { user, loadUser } = useAuth();
     const [loading, setLoading] = useState(false);
-    const [passwordLoading, setPasswordLoading] = useState(false);
     
     const [form, setForm] = useState({
         firstName: user?.firstName || "",
         lastName: user?.lastName || "",
         phone: user?.phone || "",
         email: user?.email || ""
-    });
-
-    const [passwordForm, setPasswordForm] = useState({
-        oldPassword: "",
-        newPassword: "",
-        confirmPassword: ""
     });
 
     useEffect(() => {
@@ -63,40 +49,11 @@ const Profile = () => {
         }
     };
 
-    const handlePasswordSubmit = async (e) => {
-        e.preventDefault();
-        if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-            toast.error("New passwords do not match.");
-            return;
-        }
-
-        setPasswordLoading(true);
-        const loadingToast = toast.loading("Updating password...");
-        try {
-            await API.post("/auth/change-password", {
-                currentPassword: passwordForm.oldPassword,
-                newPassword: passwordForm.newPassword
-            });
-            toast.success("Password changed successfully!", { id: loadingToast });
-            setPasswordForm({ oldPassword: "", newPassword: "", confirmPassword: "" });
-        } catch (err) {
-            toast.error(err.response?.data?.message || "Failed to change password", { id: loadingToast });
-        } finally {
-            setPasswordLoading(false);
-        }
-    };
-
     const initials = `${user?.firstName?.[0] || ""}${user?.lastName?.[0] || ""}`.toUpperCase();
     const isCollegeAdmin = user?.role === 'college_admin';
-    const collegeName = typeof user?.college === 'object' ? user?.college?.name : (user?.collegeName || user?.college || "Assigned College");
-
-    const passwordErrors = {
-        minLength: passwordForm.newPassword.length > 0 && passwordForm.newPassword.length < 8,
-        sameAsCurrent: passwordForm.newPassword.length > 0 && passwordForm.newPassword === passwordForm.oldPassword,
-        mismatch: passwordForm.confirmPassword.length > 0 && passwordForm.newPassword !== passwordForm.confirmPassword,
-    };
-
-    const hasPasswordErrors = passwordErrors.minLength || passwordErrors.sameAsCurrent || passwordErrors.mismatch;
+    const collegeName = user?.role === 'admin'
+        ? "Not associated with any college"
+        : (typeof user?.college === 'object' ? user?.college?.name : (user?.collegeName || user?.college || "No college assigned"));
 
     return (
         <DashboardLayout>
@@ -143,7 +100,7 @@ const Profile = () => {
                         </div>
                     </div>
 
-                    <div className="lg:col-span-8 space-y-6">
+                    <div className="lg:col-span-8">
                         {/* Profile Info Form */}
                         <form onSubmit={handleProfileSubmit} className="bg-white border border-slate-100 rounded-[2.5rem] p-8 md:p-10 shadow-sm space-y-8">
                             <div className="flex items-center justify-between border-b border-slate-50 pb-6">
@@ -191,39 +148,6 @@ const Profile = () => {
                             </div>
                         </form>
 
-                        {/* Password Change Form */}
-                        <form onSubmit={handlePasswordSubmit} className="bg-white border border-slate-100 rounded-[2.5rem] p-8 md:p-10 shadow-sm space-y-8">
-                            <div className="flex items-center justify-between border-b border-slate-50 pb-6">
-                                <div className="flex items-center gap-4">
-                                    <div className="p-3 bg-amber-50 rounded-2xl text-amber-600">
-                                        <KeyRound className="w-5 h-5" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-lg font-black text-slate-900 italic">Change Password</h3>
-                                        <p className="text-sm text-slate-500 font-medium mt-1">Keep your account secure with a strong password</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 gap-6">
-                                <FormInput label="Current Password" type="password" icon={Lock} required value={passwordForm.oldPassword} onChange={(e) => setPasswordForm({...passwordForm, oldPassword: e.target.value})} />
-                                <div>
-                                    <FormInput label="New Password" type="password" icon={Lock} required value={passwordForm.newPassword} onChange={(e) => setPasswordForm({...passwordForm, newPassword: e.target.value})} />
-                                    {passwordErrors.minLength && <p className="text-xs text-rose-500 mt-2">Must be at least 8 characters</p>}
-                                    {passwordErrors.sameAsCurrent && <p className="text-xs text-rose-500 mt-2">Choose a different password</p>}
-                                </div>
-                                <div>
-                                    <FormInput label="Confirm New Password" type="password" icon={Lock} required value={passwordForm.confirmPassword} onChange={(e) => setPasswordForm({...passwordForm, confirmPassword: e.target.value})} />
-                                    {passwordErrors.mismatch && <p className="text-xs text-rose-500 mt-2">Passwords do not match</p>}
-                                </div>
-                            </div>
-
-                            <div className="pt-2 flex justify-end">
-                                <button type="submit" disabled={passwordLoading || hasPasswordErrors} className="px-6 py-3 rounded-xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-slate-800 transition-colors disabled:opacity-50">
-                                    {passwordLoading ? "Updating..." : "Update Password"}
-                                </button>
-                            </div>
-                        </form>
                     </div>
                 </div>
             </div>

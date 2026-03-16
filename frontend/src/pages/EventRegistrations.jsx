@@ -155,7 +155,7 @@ const EventRegistrations = () => {
                         <option value="pending">Pending</option>
                         <option value="approved">Approved</option>
                         <option value="attended">Attended</option>
-                        <option value="no-show">No-Show</option>
+                        <option value="no_show">No-Show</option>
                         <option value="rejected">Rejected</option>
                         <option value="waitlisted">Waitlisted</option>
                     </select>
@@ -197,7 +197,7 @@ const EventRegistrations = () => {
                                 {filteredRegs.map((registration) => {
                                     const attendance = registration.status === "attended"
                                         ? "Attended"
-                                        : registration.status === "no-show"
+                                        : registration.status === "no_show"
                                             ? "No-Show"
                                             : "Not Marked";
 
@@ -217,10 +217,10 @@ const EventRegistrations = () => {
                                                             <button onClick={() => handleUpdateStatus(registration._id, "rejected")} className="px-3 py-1.5 text-[10px] font-black uppercase rounded-lg bg-rose-600 text-white">Reject</button>
                                                         </>
                                                     )}
-                                                    {(registration.status === "approved" || registration.status === "attended" || registration.status === "no-show") && (
+                                                    {(registration.status === "approved" || registration.status === "attended" || registration.status === "no_show") && (
                                                         <>
                                                             <button onClick={() => handleMarkAttendance(registration._id, "attended")} className="px-3 py-1.5 text-[10px] font-black uppercase rounded-lg bg-indigo-600 text-white">Mark Attendance</button>
-                                                            <button onClick={() => handleMarkAttendance(registration._id, "no-show")} className="px-3 py-1.5 text-[10px] font-black uppercase rounded-lg bg-slate-700 text-white">No-Show</button>
+                                                            <button onClick={() => handleMarkAttendance(registration._id, "no_show")} className="px-3 py-1.5 text-[10px] font-black uppercase rounded-lg bg-slate-700 text-white">No-Show</button>
                                                             <button onClick={() => handleMarkAttendance(registration._id, "approved")} className="px-3 py-1.5 text-[10px] font-black uppercase rounded-lg border border-slate-300 text-slate-700">Undo</button>
                                                         </>
                                                     )}

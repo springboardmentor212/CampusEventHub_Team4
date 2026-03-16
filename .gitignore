@@ -24,3 +24,14 @@ mongo-data
 # Ignore all text files
 *.txt
 !requirements.txt
+# AI development memory files
+AI_CONTEXT.md
+AI_RULES.md
+AI_TODO.md
+SUPERADMIN_CONTROL_TOWER_TODO.md
+
+# VS Code
+.vscode/
+
+# Local AI notes
+AI_SESSION_LOG.md

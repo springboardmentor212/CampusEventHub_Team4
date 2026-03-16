@@ -19,22 +19,22 @@ const baseTemplate = (title, body) => `
 <head>
   <meta charset="utf-8"/>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #ffffff; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
-    .wrapper { background-color: #f9fafb; padding: 48px 20px; }
-    .container { max-width: 560px; margin: 0 auto; background: white; border-radius: 8px; border: 1px solid #e5e7eb; overflow: hidden; }
-    .header { padding: 40px 40px 20px; text-align: left; border-bottom: 1px solid #f3f4f6; }
-    .header h1 { color: #111827; margin: 0; font-size: 18px; font-weight: 700; letter-spacing: -0.02em; text-transform: none; }
-    .header p { color: #6b7280; margin: 4px 0 0; font-size: 12px; font-weight: 500; }
-    .body { padding: 40px; color: #374151; }
-    .body h2 { font-size: 16px; color: #111827; margin: 0 0 16px; font-weight: 600; }
-    .body p { line-height: 1.6; font-size: 14px; color: #4b5563; margin-bottom: 16px; }
-    .action-row { margin-top: 32px; display: flex; gap: 12px; }
-    .btn { display: inline-block; padding: 10px 24px; background: #4f46e5; color: #ffffff !important; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 13px; transition: background 0.2s ease; }
-    .btn-secondary { background: #ffffff; color: #374151 !important; border: 1px solid #d1d5db; }
-    .btn-danger { background: #ef4444; color: #ffffff !important; border: none; }
-    .footer { text-align: left; padding: 32px 40px; font-size: 11px; color: #9ca3af; border-top: 1px solid #f3f4f6; background-color: #f9fafb; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, sans-serif; background: #f5f5f5; margin: 0; padding: 0; color: #1f2937; }
+    .wrapper { padding: 24px 12px; }
+    .container { max-width: 560px; margin: 0 auto; background: #ffffff; border: 1px solid #d1d5db; }
+    .header { padding: 18px 20px; border-bottom: 1px solid #e5e7eb; }
+    .header h1 { color: #111827; margin: 0; font-size: 14px; font-weight: 600; }
+    .header p { color: #6b7280; margin: 2px 0 0; font-size: 12px; }
+    .body { padding: 20px; color: #374151; }
+    .body h2 { font-size: 16px; color: #111827; margin: 0 0 14px; font-weight: 600; }
+    .body p { line-height: 1.5; font-size: 14px; color: #374151; margin: 0 0 12px; }
+    .action-row { margin-top: 16px; display: block; }
+    .btn { display: inline-block; padding: 8px 14px; background: #111827; color: #ffffff !important; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 13px; border: 1px solid #111827; }
+    .btn-secondary { background: #ffffff; color: #111827 !important; border: 1px solid #d1d5db; margin-left: 8px; }
+    .btn-danger { background: #991b1b; color: #ffffff !important; border: 1px solid #991b1b; }
+    .footer { text-align: left; padding: 14px 20px; font-size: 11px; color: #6b7280; border-top: 1px solid #e5e7eb; background-color: #fafafa; }
     .footer p { margin: 4px 0; }
-    .divider { height: 1px; background-color: #f3f4f6; margin: 32px 0; }
+    .divider { height: 1px; background-color: #e5e7eb; margin: 14px 0; }
   </style>
 </head>
 <body>

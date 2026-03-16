@@ -27,29 +27,41 @@ export const promoteNextWaitlistedRegistration = async (eventId) => {
     return null;
   }
 
-  // Set 24 hour confirmation window
-  nextRegistration.confirmationDeadline = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  // Auto-promote to confirmed registration when a seat opens.
+  nextRegistration.status = "approved";
+  nextRegistration.waitlistPosition = null;
+  nextRegistration.confirmationDeadline = null;
+  nextRegistration.approvalDate = new Date();
   await nextRegistration.save();
+
+  await Event.findByIdAndUpdate(eventId, { $inc: { currentParticipants: 1 } });
+  await resequenceWaitlist(eventId);
 
   await notifyUser({
     recipientId: nextRegistration.user._id,
     type: "REGISTRATION_STATUS",
-    title: "A Spot Opened Up! 🎊",
-    message: `A spot has opened for "${nextRegistration.event.title}". Confirm your spot within 24 hours to secure it!`,
+    title: "You Are Now Confirmed",
+    message: `A seat opened up for "${nextRegistration.event.title}" and you were automatically moved from waitlist to confirmed.`,
     link: `/events/${eventId}`,
   });
 
   try {
     await sendEmail({
       email: nextRegistration.user.email,
-      subject: `A spot opened for ${nextRegistration.event.title}`,
-      message: `Hi ${nextRegistration.user.firstName},\n\nA spot has opened for the event "${nextRegistration.event.title}". Please log in and confirm your spot within 24 hours, otherwise the spot will be offered to the next person on the waitlist.`,
-      html: `<div style="font-family: sans-serif; padding: 20px;">
-        <h2 style="color: #6366f1;">A Spot Opened Up!</h2>
-        <p>Hi <strong>${nextRegistration.user.firstName}</strong>,</p>
-        <p>Good news! A spot has opened for the event <strong>"${nextRegistration.event.title}"</strong>.</p>
-        <p>Please log in and confirm your spot within <strong>24 hours</strong> to secure your place.</p>
-        <p><a href="${process.env.FRONTEND_URL}/events/${eventId}" style="padding: 10px 20px; background: #6366f1; color: white; text-decoration: none; border-radius: 8px;">Confirm Spot</a></p>
+      subject: `You are confirmed for ${nextRegistration.event.title}`,
+      message: `Hi ${nextRegistration.user.firstName},\n\nA spot opened for "${nextRegistration.event.title}" and your registration has been automatically confirmed.`,
+      html: `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, sans-serif; background: #f5f5f5; padding: 16px;">
+        <div style="max-width: 560px; margin: 0 auto; background: #ffffff; border: 1px solid #d1d5db;">
+          <div style="padding: 16px 18px; border-bottom: 1px solid #e5e7eb;">
+            <p style="margin: 0; font-size: 13px; color: #111827; font-weight: 600;">CampusEventHub</p>
+          </div>
+          <div style="padding: 18px; color: #374151; font-size: 14px; line-height: 1.5;">
+            <p style="margin: 0 0 10px;">Hi <strong>${nextRegistration.user.firstName}</strong>,</p>
+            <p style="margin: 0 0 10px;">A seat opened up and your registration for <strong>${nextRegistration.event.title}</strong> is now confirmed.</p>
+            <p style="margin: 0 0 14px;">Check event details in your dashboard.</p>
+            <a href="${process.env.FRONTEND_URL}/events/${eventId}" style="display: inline-block; padding: 8px 14px; background: #111827; color: #ffffff; text-decoration: none; border-radius: 6px; border: 1px solid #111827; font-size: 13px; font-weight: 600;">View event</a>
+          </div>
+        </div>
       </div>`
     });
   } catch (err) {
@@ -108,7 +120,7 @@ export const registerForEvent = catchAsync(async (req, res, next) => {
   const existingRegistration = await Registration.findOne({
     event: eventId,
     user: req.userId,
-    status: { $in: ["pending", "approved"] },
+    status: { $in: ["approved", "waitlisted", "attended", "no_show"] },
   });
   if (existingRegistration) {
     return next(new AppError("You already have an active registration for this event", 400));
@@ -138,7 +150,7 @@ export const registerForEvent = catchAsync(async (req, res, next) => {
       type: "REGISTRATION_STATUS",
       title: "Added to Waitlist",
       message: `"${event.title}" is full. You have been added to the waitlist at position ${waitlistPosition}.`,
-      link: "/campus-feed",
+      link: "/student",
     });
 
     try {
@@ -182,7 +194,8 @@ export const registerForEvent = catchAsync(async (req, res, next) => {
       event: updatedEvent._id,
       user: req.userId,
       college: req.user.college,
-      status: "pending",
+      status: "approved",
+      approvalDate: new Date(),
       notes: notes || null,
       customRequirements: customPayload,
     });
@@ -211,10 +224,10 @@ export const registerForEvent = catchAsync(async (req, res, next) => {
   await notifyUser({
     recipientId: req.userId,
     type: "REGISTRATION_STATUS",
-    title: registration.status === "waitlisted" ? "Added to Waitlist" : "Registration Received",
+    title: registration.status === "waitlisted" ? "Added to Waitlist" : "Registration Confirmed",
     message: registration.status === "waitlisted"
       ? `The event "${registration.event.title}" is full. You've been added to the waitlist.`
-      : `Your registration for "${registration.event.title}" has been received and is pending approval.`,
+      : `You're confirmed for "${registration.event.title}".`,
     link: "/student",
   });
 
@@ -224,7 +237,11 @@ export const registerForEvent = catchAsync(async (req, res, next) => {
       const position = await Registration.countDocuments({ event: registration.event._id, status: "waitlisted", createdAt: { $lte: registration.createdAt } });
       tpl = EmailTemplates.waitlistAdded(registration.user.firstName, registration.event.title, position);
     } else {
-      tpl = EmailTemplates.registrationReceived(registration.user.firstName, registration.event.title);
+      tpl = EmailTemplates.registrationApproved(
+        registration.user.firstName,
+        registration.event.title,
+        registration.event.startDate
+      );
     }
     await sendEmail({ email: registration.user.email, ...tpl });
   } catch (e) {
@@ -235,7 +252,7 @@ export const registerForEvent = catchAsync(async (req, res, next) => {
     success: true,
     message: registration.status === "waitlisted"
       ? `Event is full. You have been added to the waitlist.`
-      : "Registration submitted successfully",
+      : "Registration confirmed successfully",
     data: { registration },
   });
 });
@@ -299,7 +316,7 @@ export const approveRegistration = catchAsync(async (req, res, next) => {
   }
 
   if (registration.status !== "pending") {
-    return next(new AppError("Only pending registrations can be approved.", 400));
+    return next(new AppError("Only legacy pending registrations can be approved.", 400));
   }
 
   if (event.endDate && new Date() > new Date(event.endDate)) {
@@ -325,7 +342,7 @@ export const approveRegistration = catchAsync(async (req, res, next) => {
   await notifyUser({
     recipientId: registration.user._id,
     type: "REGISTRATION_STATUS",
-    title: "Registration Approved! 🎉",
+    title: "Registration Approved",
     message: `Your registration for "${registration.event.title}" has been approved. See you there!`,
     link: "/campus-feed",
   });
@@ -364,8 +381,8 @@ export const rejectRegistration = catchAsync(async (req, res, next) => {
     return next(new AppError("Access denied.", 403));
   }
 
-  if (registration.status === "rejected") {
-    return next(new AppError("Registration is already rejected.", 400));
+  if (registration.status !== "pending") {
+    return next(new AppError("Only legacy pending registrations can be rejected. Students manage their own registrations now.", 400));
   }
 
   const previousStatus = registration.status;
@@ -422,9 +439,9 @@ export const rejectRegistration = catchAsync(async (req, res, next) => {
 // Mark Attendance (College Admin or SuperAdmin)
 export const markAttendance = catchAsync(async (req, res, next) => {
   const { id } = req.params;
-  const { status } = req.body; // 'attended' or 'no-show' or 'approved' (to undo)
+  const { status } = req.body; // 'attended' or 'no_show' or 'approved' (to undo)
 
-  if (!["attended", "no-show", "approved"].includes(status)) {
+  if (!["attended", "no_show", "approved"].includes(status)) {
     return next(new AppError("Invalid attendance status.", 400));
   }
 
@@ -436,7 +453,7 @@ export const markAttendance = catchAsync(async (req, res, next) => {
     return next(new AppError("Access denied.", 403));
   }
 
-  if (!["approved", "attended", "no-show"].includes(registration.status)) {
+  if (!["approved", "attended", "no_show"].includes(registration.status)) {
     return next(new AppError("Attendance can only be marked for approved registrations.", 400));
   }
 
@@ -501,7 +518,7 @@ export const exportRegistrations = catchAsync(async (req, res, next) => {
   res.status(200).send(csv);
 });
 
-// Cancel own registration (Student only — pending anytime, approved only if event not started)
+// Cancel own registration (Student only - pending anytime, approved only if event not started)
 export const cancelRegistration = catchAsync(async (req, res, next) => {
   const { id } = req.params;
 
@@ -521,6 +538,17 @@ export const cancelRegistration = catchAsync(async (req, res, next) => {
     return res.status(400).json({
       success: false,
       message: 'You cannot unregister after the event has started.'
+    });
+  }
+
+  const isWaitlisted = registration.status === "waitlisted";
+  const startMs = new Date(registration.event.startDate).getTime();
+  const cutoffMs = startMs - (24 * 60 * 60 * 1000);
+
+  if (!isWaitlisted && Date.now() > cutoffMs) {
+    return res.status(400).json({
+      success: false,
+      message: 'Cancellation is allowed only until 24 hours before the event starts.'
     });
   }
 
@@ -691,41 +719,11 @@ export const confirmWaitlist = catchAsync(async (req, res, next) => {
     return next(new AppError("Unauthorized", 403));
   }
 
-  if (registration.status !== "waitlisted" || !registration.confirmationDeadline) {
-    return next(new AppError("Invalid confirmation request.", 400));
+  if (registration.status !== "waitlisted") {
+    return next(new AppError("This registration is not on the waitlist.", 400));
   }
 
-  if (new Date() > registration.confirmationDeadline) {
-    // Window expired: find next and delete this? Task says "expired", usually implies they lose the spot.
-    // We'll delete and promote next.
-    await Registration.findByIdAndDelete(id);
-    await promoteNextWaitlistedRegistration(registration.event._id);
-    return next(new AppError("The confirmation window has expired. Your spot was offered to the next student.", 400));
-  }
-
-  // Confirm: Move to pending
-  registration.status = "pending";
-  registration.confirmationDeadline = null;
-  registration.waitlistPosition = null;
-  await registration.save();
-  await Event.findByIdAndUpdate(registration.event._id, { $inc: { currentParticipants: 1 } });
-  await resequenceWaitlist(registration.event._id);
-
-  // Notify college admin
-  const event = await Event.findById(registration.event._id);
-  await notifyUser({
-    recipientId: event.createdBy,
-    type: "REGISTRATION_RECEIVED",
-    title: "Waitlist Confirmed",
-    message: `A waitlisted student has confirmed their spot for "${event.title}". Review it now.`,
-    link: `/events/registrations/${event._id}`
-  });
-
-  res.status(200).json({
-    success: true,
-    message: "Waitlist spot confirmed. Your application is now pending review by the organizer.",
-    data: { registration }
-  });
+  return next(new AppError("Waitlist confirmations are automatic. You will be notified when promoted.", 400));
 });
 
 // GET /registrations/event/:eventId/waitlist

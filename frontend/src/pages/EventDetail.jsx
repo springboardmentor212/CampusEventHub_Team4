@@ -106,14 +106,17 @@ const EventDetail = () => {
     const eventStarted = new Date(event.startDate) <= new Date();
     const eventCancelled = event.status === "cancelled" || event.isActive === false;
     const eventNotApproved = !event.isApproved;
-    const alreadyRegistered = ["pending", "approved", "attended", "no-show", "waitlisted"].includes(myRegistration?.status);
+    const alreadyRegistered = ["approved", "attended", "no_show", "waitlisted"].includes(myRegistration?.status);
     return !eventStarted && !eventCancelled && !eventNotApproved && !alreadyRegistered;
   }, [isStudent, event, myRegistration]);
 
   const canCancelRegistration = useMemo(() => {
     if (!isStudent || !myRegistration) return false;
-    if (["rejected", "attended", "no-show"].includes(myRegistration.status)) return false;
-    if (myRegistration.status === "approved" && new Date(event?.startDate) <= new Date()) return false;
+    if (["rejected", "attended", "no_show"].includes(myRegistration.status)) return false;
+    if (myRegistration.status === "approved") {
+      const cutoff = new Date(new Date(event?.startDate).getTime() - 24 * 60 * 60 * 1000);
+      if (new Date() > cutoff) return false;
+    }
     return true;
   }, [isStudent, myRegistration, event]);
 
@@ -123,24 +126,10 @@ const EventDetail = () => {
     try {
       setSubmitting(true);
       await API.post(`/registrations/register/${id}`);
-      toast.success("Registration submitted.");
+      toast.success(eventFull ? "Added to waitlist." : "Registration confirmed.");
       await refresh();
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to register.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleConfirmWaitlist = async () => {
-    if (!myRegistration?._id) return;
-    try {
-      setSubmitting(true);
-      await API.patch(`/registrations/${myRegistration._id}/confirm-waitlist`);
-      toast.success("Spot confirmed! You are now registered.");
-      await refresh();
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to confirm spot.");
     } finally {
       setSubmitting(false);
     }
@@ -150,9 +139,9 @@ const EventDetail = () => {
     if (!myRegistration?._id) return;
     const isWaitlist = myRegistration.status === "waitlisted";
     const confirmed = window.confirm(
-      isWaitlist 
+      isWaitlist
         ? "Are you sure you want to withdraw from the waitlist?" 
-        : "Are you sure you want to cancel your registration? This action cannot be undone."
+        : "Are you sure you want to cancel your registration?"
     );
     if (!confirmed) return;
 
@@ -238,10 +227,10 @@ const EventDetail = () => {
 
    return (
      <DashboardLayout>
-       <div className="max-w-6xl mx-auto space-y-8">
+       <div className="max-w-6xl mx-auto space-y-7">
          <div className="flex items-center justify-between">
-           <button onClick={() => navigate(-1)} className="text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-indigo-600 transition-colors">Back</button>
-           <Link to="/campus-feed" className="text-xs font-bold uppercase tracking-widest text-indigo-600 hover:text-indigo-800 transition-colors">Campus Feed</Link>
+           <button onClick={() => navigate(-1)} className="text-xs font-semibold tracking-widest text-slate-500 hover:text-indigo-600 transition-colors">Back</button>
+           <Link to="/campus-feed" className="text-xs font-semibold tracking-widest text-indigo-600 hover:text-indigo-800 transition-colors">Campus Feed</Link>
          </div>
 
          {/* Event Status Banners */}
@@ -289,8 +278,8 @@ const EventDetail = () => {
 
              <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4 shadow-sm">
                <div className="flex justify-between items-start">
-                 <h1 className="text-3xl font-black text-slate-900 leading-tight">{event.title}</h1>
-                 <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                 <h1 className="text-3xl font-extrabold text-slate-900 leading-tight">{event.title}</h1>
+                 <span className={`px-3 py-1 rounded-full text-[10px] font-semibold tracking-widest ${
                    event.status === 'approved' ? 'bg-emerald-100 text-emerald-700' : 
                    event.status === 'pending_approval' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
                  }`}>
@@ -305,7 +294,7 @@ const EventDetail = () => {
                    <p className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-indigo-400"></span><span className="font-bold text-slate-800">Location:</span> {event.location}</p>
                  </div>
                  <div className="space-y-3">
-                   <p className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-indigo-400"></span><span className="font-bold text-slate-800">Spots:</span> {spotsRemaining} / {event.maxParticipants || '∞'}</p>
+                   <p className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-indigo-400"></span><span className="font-bold text-slate-800">Spots:</span> {spotsRemaining} / {event.maxParticipants || 'Unlimited'}</p>
                    <p className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-indigo-400"></span><span className="font-bold text-slate-800">Start:</span> {new Date(event.startDate).toLocaleString()}</p>
                    <p className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-indigo-400"></span><span className="font-bold text-slate-800">End:</span> {new Date(event.endDate).toLocaleString()}</p>
                  </div>
@@ -313,7 +302,7 @@ const EventDetail = () => {
              </div>
 
              <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4 shadow-sm">
-               <h2 className="text-xl font-black text-slate-900">Discussion</h2>
+               <h2 className="text-xl font-extrabold text-slate-900">Discussion</h2>
                {canPostComment && (
                  <div className="flex gap-2">
                    <input
@@ -322,7 +311,7 @@ const EventDetail = () => {
                      placeholder="Write a comment..."
                      className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
                    />
-                   <button onClick={handlePostComment} disabled={submitting} className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-800 transition-all disabled:opacity-50">Post</button>
+                   <button onClick={handlePostComment} disabled={submitting} className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-semibold tracking-widest hover:bg-slate-800 transition-all disabled:opacity-50">Post</button>
                  </div>
                )}
                {!canPostComment && <p className="text-sm text-slate-500 italic">Only approved students can participate in discussions.</p>}
@@ -342,7 +331,7 @@ const EventDetail = () => {
                          </div>
                          <div>
                            <p className="text-sm font-bold text-slate-900">{comment.userId?.firstName} {comment.userId?.lastName}</p>
-                           <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">{comment.userId?.college?.name || ""} • {new Date(comment.createdAt).toLocaleDateString()}</p>
+                           <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">{comment.userId?.college?.name || ""} | {new Date(comment.createdAt).toLocaleDateString()}</p>
                          </div>
                        </div>
                        {canDeleteComment(comment) && (
@@ -360,15 +349,21 @@ const EventDetail = () => {
 
            <div className="space-y-6">
              <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4 shadow-sm">
-               <h2 className="text-lg font-black text-slate-900 border-b border-slate-50 pb-2">Registration</h2>
+               <h2 className="text-lg font-extrabold text-slate-900 border-b border-slate-50 pb-2">Registration</h2>
                {isStudent && myRegistration && (
                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">My Status</p>
-                   <span className={`text-xs font-black uppercase tracking-widest ${
+                   <span className={`text-xs font-semibold tracking-widest ${
                      myRegistration.status === 'approved' ? 'text-emerald-600' : 
                      myRegistration.status === 'waitlisted' ? 'text-amber-600' : 'text-indigo-600'
                    }`}>{myRegistration.status}</span>
                  </div>
+               )}
+
+               {isStudent && myRegistration?.status === "approved" && canCancelRegistration && (
+                 <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                   Cancellation is allowed only until 24 hours before event start.
+                 </p>
                )}
                
                {isStudent && canRegister && (
@@ -393,27 +388,11 @@ const EventDetail = () => {
                  </button>
                )}
 
-               {isStudent && myRegistration?.status === "waitlisted" && myRegistration?.confirmationDeadline && (
-                  <div className="space-y-4 pt-4 border-t border-slate-100 animate-pulse-subtle">
-                    <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
-                      <p className="text-xs font-bold text-emerald-800 uppercase tracking-widest mb-1 flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-                        A Spot is Available! 🎊
-                      </p>
-                      <p className="text-[11px] text-emerald-700 leading-relaxed font-medium">
-                        You've been promoted! Confirm your spot before: <br/>
-                        <span className="font-bold text-emerald-900">{new Date(myRegistration.confirmationDeadline).toLocaleString()}</span>
-                      </p>
-                    </div>
-                    {new Date(myRegistration.confirmationDeadline) > new Date() ? (
-                      <button onClick={handleConfirmWaitlist} disabled={submitting} className="w-full px-4 py-4 rounded-xl bg-emerald-600 text-white text-xs font-black uppercase tracking-widest shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition-all">
-                        Confirm My Spot Now
-                      </button>
-                    ) : (
-                      <p className="text-[10px] text-center font-black uppercase tracking-widest text-rose-500 bg-rose-50 p-2 rounded-lg border border-rose-100">Waitlist offer expired.</p>
-                    )}
-                  </div>
-                )}
+               {isStudent && myRegistration?.status === "waitlisted" && (
+                 <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                   You are on the waitlist. If a seat opens, you will be auto-promoted and notified in-app.
+                 </p>
+               )}
                {!isStudent && <p className="text-sm text-slate-500 bg-slate-50 p-4 rounded-xl border border-dashed border-slate-200">Registration is open for students. Please login to register.</p>}
              </div>
 
@@ -469,7 +448,7 @@ const EventDetail = () => {
                        <p className="text-xs font-bold text-slate-900">{feedback.userId?.firstName} {feedback.userId?.lastName}</p>
                        <div className="flex gap-0.5">
                          {[...Array(feedback.rating)].map((_, i) => (
-                           <span key={i} className="text-amber-400 text-xs">★</span>
+                           <span key={i} className="text-amber-400 text-xs">*</span>
                          ))}
                        </div>
                      </div>

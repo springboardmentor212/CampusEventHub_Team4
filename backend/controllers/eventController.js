@@ -301,10 +301,6 @@ export const registerForEvent = catchAsync(async (req, res, next) => {
     return next(new AppError("Registration is disabled for this event", 400));
   }
 
-  if (event.maxParticipants && event.currentParticipants >= event.maxParticipants) {
-    return next(new AppError("Event is at maximum capacity", 400));
-  }
-
   // Check deadline
   if (event.registrationDeadline && new Date() > event.registrationDeadline) {
     return next(new AppError("Registration deadline has passed", 400));
@@ -319,10 +315,38 @@ export const registerForEvent = catchAsync(async (req, res, next) => {
   const existingReg = await Registration.findOne({
     event: id,
     user: req.userId,
-    status: { $in: ["pending", "approved"] },
+    status: { $in: ["approved", "waitlisted", "attended", "no_show"] },
   });
   if (existingReg) {
     return next(new AppError("You are already registered for this event", 400));
+  }
+
+  if (event.maxParticipants && event.currentParticipants >= event.maxParticipants) {
+    const waitlistPosition = await Registration.countDocuments({ event: id, status: "waitlisted" }) + 1;
+    const registration = await Registration.create({
+      event: id,
+      user: req.userId,
+      college: event.college,
+      status: "waitlisted",
+      waitlistPosition,
+      customRequirements: req.body.customResponses,
+    });
+
+    await notifyUser({
+      recipientId: req.userId,
+      type: "REGISTRATION_STATUS",
+      title: "Added to Waitlist",
+      message: `"${event.title}" is full. You are now waitlisted at position ${waitlistPosition}.`,
+      link: `/event/${id}`,
+      email: req.user.email,
+      shouldSendEmail: true,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `Event is full. You are waitlisted at position ${waitlistPosition}.`,
+      data: { registration, waitlistPosition },
+    });
   }
 
   // Create Registration within a session or using atomic updates
@@ -349,7 +373,8 @@ export const registerForEvent = catchAsync(async (req, res, next) => {
       event: id,
       user: req.userId,
       college: updatedEvent.college,
-      status: "pending", // Default to pending for Milestone-3 approval flow
+      status: "approved",
+      approvalDate: new Date(),
       customRequirements: req.body.customResponses, // for custom requirements
     });
   } catch (err) {
@@ -368,16 +393,16 @@ export const registerForEvent = catchAsync(async (req, res, next) => {
   await notifyUser({
     recipientId: req.userId,
     type: "REGISTRATION_STATUS",
-    title: "Registration Received",
-    message: `You have successfully applied for "${updatedEvent.title}". Status: Pending Approval.`,
-    link: `/campus-feed`,
+    title: "Registration Confirmed",
+    message: `You are confirmed for "${updatedEvent.title}".`,
+    link: `/student`,
     email: req.user.email,
     shouldSendEmail: true,
   });
 
   res.status(200).json({
     success: true,
-    message: "Registration successful. Pending approval.",
+    message: "Registration confirmed.",
     data: { registration },
   });
 });

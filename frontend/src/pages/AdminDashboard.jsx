@@ -351,12 +351,12 @@ const AdminDashboard = () => {
   };
 
   const activityIcon = (type = '') => {
-    if (!type) return '📌';
-    if (type.includes('APPROVE')) return '✅';
-    if (type.includes('REJECT')) return '❌';
-    if (type.includes('CREATE')) return '📝';
-    if (type.includes('UPDATE')) return '🔄';
-    return '📌';
+    if (!type) return '*';
+    if (type.includes('APPROVE')) return 'OK';
+    if (type.includes('REJECT')) return 'X';
+    if (type.includes('CREATE')) return '+';
+    if (type.includes('UPDATE')) return '~';
+    return '*';
   };
 
   const timeAgo = (date) => {
@@ -371,6 +371,31 @@ const AdminDashboard = () => {
     return days + " days ago";
   };
 
+  const activitySource = notifications.length > 0 ? notifications : (stats?.recentActivity || []);
+  const majorActivities = activitySource
+    .filter((activity) => {
+      const type = String(activity.type || "").toUpperCase();
+      if (!type) return false;
+
+      // Drop noisy approval-only entries to keep this feed high-signal.
+      if (type === "STUDENT_APPROVE" || type === "ADMIN_APPROVE" || type === "REGISTRATION_APPROVE") {
+        return false;
+      }
+
+      return (
+        type.includes("EVENT") ||
+        type.includes("COLLEGE") ||
+        type.includes("REJECT") ||
+        type.includes("UPDATE") ||
+        type.includes("DELETE") ||
+        type.includes("CANCEL") ||
+        type.includes("PAUSE") ||
+        type.includes("ALERT")
+      );
+    })
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+    .slice(0, 5);
+
   if (loading || !stats || !analytics) return (
     <DashboardLayout>
       <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
@@ -382,9 +407,9 @@ const AdminDashboard = () => {
 
   return (
     <DashboardLayout>
-      <div className="max-w-7xl mx-auto space-y-12 animate-fade-in">
+      <div className="max-w-7xl mx-auto space-y-10 animate-fade-in">
         {/* Header Section */}
-        <header className="flex flex-col gap-1 pb-2 border-b border-slate-100">
+        <header className="flex flex-col gap-2 pb-3 border-b border-slate-100">
           <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">
             {activeTab === 'overview' && 'Superadmin Dashboard'}
             {activeTab === 'analytics' && 'Analytics'}
@@ -465,11 +490,11 @@ const AdminDashboard = () => {
             </div>
 
             {/* Platform Health Row */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               <div className="greta-card p-6 border-slate-100 bg-white flex items-center justify-between">
                 <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Approval Rate</p>
-                  <h4 className="text-2xl font-black text-slate-900 mt-1">{approvalRate}%</h4>
+                  <p className="text-[10px] font-semibold text-slate-500 tracking-widest">Approval Rate</p>
+                  <h4 className="text-2xl font-extrabold text-slate-900 mt-1">{approvalRate}%</h4>
                 </div>
                 <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600">
                   <CheckCircle className="w-6 h-6" />
@@ -477,8 +502,8 @@ const AdminDashboard = () => {
               </div>
               <div className="greta-card p-6 border-slate-100 bg-white flex items-center justify-between">
                 <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Event Acceptance</p>
-                  <h4 className="text-2xl font-black text-slate-900 mt-1">
+                  <p className="text-[10px] font-semibold text-slate-500 tracking-widest">Event Acceptance</p>
+                  <h4 className="text-2xl font-extrabold text-slate-900 mt-1">
                     {stats.totalEvents ? Math.round(((stats.totalEvents - stats.pendingEvents) / stats.totalEvents) * 100) : 0}%
                   </h4>
                 </div>
@@ -488,8 +513,8 @@ const AdminDashboard = () => {
               </div>
               <div className="greta-card p-6 border-slate-100 bg-white flex items-center justify-between">
                 <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Avg Regs / Event</p>
-                  <h4 className="text-2xl font-black text-slate-900 mt-1">{avgRegistrationsPerEvent}</h4>
+                  <p className="text-[10px] font-semibold text-slate-500 tracking-widest">Avg Regs / Event</p>
+                  <h4 className="text-2xl font-extrabold text-slate-900 mt-1">{avgRegistrationsPerEvent}</h4>
                 </div>
                 <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-600">
                   <Users className="w-6 h-6" />
@@ -602,10 +627,10 @@ const AdminDashboard = () => {
                 <div className="greta-card flex flex-col h-full overflow-hidden">
                   <div className="px-8 py-6 border-b border-slate-50 bg-slate-50/30">
                     <h3 className="font-bold text-lg text-slate-900 italic tracking-tight">Recent Activity</h3>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Platform-wide updates</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Major platform updates (latest 5)</p>
                   </div>
                   <div className="flex-1 overflow-y-auto p-8 space-y-6 max-h-[800px] no-scrollbar">
-                    {(notifications.length > 0 ? notifications : stats.recentActivity).slice(0, 10).map((activity, idx) => (
+                    {majorActivities.map((activity, idx) => (
                       <div key={idx} className="flex gap-4 group">
                         <div className={`w-10 h-10 rounded-xl shrink-0 flex items-center justify-center transition-all group-hover:scale-110 text-lg ${(activity.type || '').includes('REJECT') ? 'bg-rose-50' :
                           (activity.type || '').includes('APPROVE') ? 'bg-emerald-50' :
@@ -623,13 +648,13 @@ const AdminDashboard = () => {
                         </div>
                       </div>
                     ))}
-                    {(notifications.length === 0 && stats.recentActivity.length === 0) && (
+                    {majorActivities.length === 0 && (
                       <div className="py-20 px-8 text-center opacity-40">
                         <Activity className="w-12 h-12 mx-auto mb-4" />
                         <p className="text-xs font-bold uppercase tracking-widest leading-relaxed">
-                          No platform activity yet.<br />
-                          Actions will appear here once admins and<br />
-                          students start using the platform.
+                          No major platform updates yet.<br />
+                          Important event and college changes<br />
+                          will appear here.
                         </p>
                       </div>
                     )}
@@ -697,8 +722,8 @@ const AdminDashboard = () => {
                           <td className="px-8 py-5"><span className="text-[10px] font-black text-indigo-500 bg-indigo-50 px-2.5 py-1 rounded-lg uppercase">{college.code}</span></td>
                           <td className="px-8 py-5">
                             <div className="flex flex-col gap-1">
-                              <span className="text-xs text-slate-500 flex items-center gap-1"><Mail className="w-3 h-3" />{college.email || '—'}</span>
-                              <span className="text-xs text-slate-500 flex items-center gap-1"><Phone className="w-3 h-3" />{college.phone || '—'}</span>
+                              <span className="text-xs text-slate-500 flex items-center gap-1"><Mail className="w-3 h-3" />{college.email || '-'}</span>
+                              <span className="text-xs text-slate-500 flex items-center gap-1"><Phone className="w-3 h-3" />{college.phone || '-'}</span>
                             </div>
                           </td>
                         </tr>
@@ -861,7 +886,7 @@ const AdminDashboard = () => {
                                 {ROLE_LABEL[u.role] || u.role}
                               </span>
                             </td>
-                            <td className="px-8 py-5"><span className="text-xs text-slate-500 font-medium">{u.college?.name || '—'}</span></td>
+                            <td className="px-8 py-5"><span className="text-xs text-slate-500 font-medium">{u.college?.name || '-'}</span></td>
                             <td className="px-8 py-5">
                               <span className={`text-[9px] font-black px-2.5 py-1 rounded-lg uppercase ${u.isApproved ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
                                 {u.isApproved ? 'Approved' : 'Pending'}

@@ -98,7 +98,7 @@ export const sendEventReminders = async () => {
 /**
  * Job 3: Process No-Shows
  * Runs every day at midnight or periodically.
- * Marks "approved" registrations as "no-show" if the event has ended and attendance wasn't marked.
+ * Marks "approved" registrations as "no_show" if the event has ended and attendance wasn't marked.
  */
 export const processNoShows = async () => {
   const now = new Date();
@@ -111,10 +111,10 @@ export const processNoShows = async () => {
   });
 
   for (const event of endedEvents) {
-    // Update all 'approved' (but not 'attended') registrations to 'no-show'
+    // Update all 'approved' (but not 'attended') registrations to 'no_show'
     const result = await Registration.updateMany(
       { event: event._id, status: "approved" },
-      { $set: { status: "no-show" } }
+      { $set: { status: "no_show" } }
     );
     
     event.noShowProcessed = true;

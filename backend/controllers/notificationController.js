@@ -56,12 +56,12 @@ export const getMyNotifications = catchAsync(async (req, res) => {
             const type = n.type;
             let displayMessage = messageMap[type] || n.message || "Platform activity";
 
-            let icon = "📌";
-            if (type.includes("APPROVE")) icon = "✅";
-            else if (type.includes("REJECT")) icon = "❌";
-            else if (type.includes("CREATE")) icon = "📝";
-            else if (type.includes("UPDATE")) icon = "🔄";
-            else if (type.includes("COLLEGE")) icon = "🏫";
+            let icon = "*";
+            if (type.includes("APPROVE")) icon = "OK";
+            else if (type.includes("REJECT")) icon = "X";
+            else if (type.includes("CREATE")) icon = "+";
+            else if (type.includes("UPDATE")) icon = "~";
+            else if (type.includes("COLLEGE")) icon = "C";
 
             return {
                 _id: n._id,

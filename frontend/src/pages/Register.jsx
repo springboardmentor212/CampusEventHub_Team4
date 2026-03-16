@@ -16,6 +16,7 @@ import {
   Loader2
 } from "lucide-react";
 import useAuth from "../hooks/useAuth";
+import { getRoleHomeRoute } from "../utils/roleRoutes";
 
 const Register = () => {
   const navigate = useNavigate();
@@ -47,9 +48,7 @@ const Register = () => {
 
   useEffect(() => {
     if (user) {
-      if (user.role === "admin") navigate("/superadmin");
-      else if (user.role === "college_admin") navigate("/admin");
-      else navigate("/campus-feed");
+      navigate(getRoleHomeRoute(user.role));
     }
   }, [user, navigate]);
 
@@ -209,7 +208,7 @@ const Register = () => {
   }
 
   return (
-    <div className="h-screen bg-white flex flex-col md:flex-row overflow-hidden text-slate-900">
+    <div className="min-h-screen bg-white flex flex-col md:flex-row overflow-y-auto text-slate-900">
       {/* Left Column (Visual) */}
       <div className="hidden md:flex md:w-2/5 relative p-12 bg-slate-50 border-r border-slate-100 flex-col justify-center items-center">
         <div className="max-w-md mx-auto">
@@ -230,7 +229,7 @@ const Register = () => {
       </div>
 
       {/* Right Column (Form) */}
-      <div className="flex-1 overflow-y-auto no-scrollbar bg-white p-8 md:p-16 lg:p-24 flex flex-col items-center">
+      <div className="flex-1 overflow-y-auto bg-white p-8 md:p-16 lg:p-24 flex flex-col items-center">
         <div className="w-full max-w-xl animate-fade-in">
           <div className="mb-12">
             <h2 className="text-3xl font-bold tracking-tight">Create Account</h2>
@@ -418,8 +417,16 @@ const Register = () => {
             </p>
           </form>
 
-          <p className="mt-12 text-[10px] text-center text-slate-400 uppercase tracking-widest leading-relaxed max-w-md mx-auto">
-            By signing up, you agree to our <span className="underline decoration-slate-200">Policies</span> and <span className="underline decoration-slate-200">Privacy terms</span>.
+          <p className="mt-10 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-center text-xs font-semibold text-slate-600 leading-relaxed max-w-md mx-auto">
+            By signing up, you agree to our {" "}
+            <Link to="/policies" className="font-bold text-indigo-600 underline decoration-indigo-200 hover:text-indigo-700">
+              Policies
+            </Link>
+            {" "}and{" "}
+            <Link to="/privacy-terms" className="font-bold text-indigo-600 underline decoration-indigo-200 hover:text-indigo-700">
+              Privacy Terms
+            </Link>
+            .
           </p>
         </div>
       </div>

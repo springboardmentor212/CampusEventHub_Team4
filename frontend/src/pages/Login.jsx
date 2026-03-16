@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import useAuth from "../hooks/useAuth";
 import FormInput from "../components/FormInput";
+import { getRoleHomeRoute } from "../utils/roleRoutes";
 import {
   Mail,
   Lock,
@@ -25,9 +26,7 @@ const Login = () => {
 
   useEffect(() => {
     if (user) {
-      if (user.role === "admin") navigate("/superadmin");
-      else if (user.role === "college_admin") navigate("/admin");
-      else navigate("/campus-feed");
+      navigate(getRoleHomeRoute(user.role));
     }
   }, [user, navigate]);
 
@@ -40,9 +39,7 @@ const Login = () => {
       const loggedUser = await login(email, password);
       toast.success("Welcome back!", { id: loadingToast });
 
-      if (loggedUser.role === "admin") navigate("/superadmin");
-      else if (loggedUser.role === "college_admin") navigate("/admin");
-      else navigate("/campus-feed");
+      navigate(getRoleHomeRoute(loggedUser.role));
     } catch (err) {
       const errorData = err.response?.data;
       setStatusError({
@@ -56,7 +53,7 @@ const Login = () => {
   };
 
   return (
-    <div className="h-screen bg-white flex flex-col md:flex-row overflow-hidden">
+    <div className="min-h-screen bg-white flex flex-col md:flex-row overflow-y-auto">
       {/* Visual Section */}
       <div className="hidden md:flex md:w-1/2 relative p-12 bg-slate-50 border-r border-slate-100 items-center justify-center">
         <div className="relative z-10 w-full max-w-lg mx-auto flex flex-col">
@@ -81,7 +78,7 @@ const Login = () => {
       </div>
 
       {/* Form Section */}
-      <div className="flex-1 flex flex-col items-center justify-center p-8 md:p-12 lg:p-24 bg-white overflow-y-auto no-scrollbar">
+      <div className="flex-1 flex flex-col items-center justify-center p-8 md:p-12 lg:p-24 bg-white overflow-y-auto">
         <div className="w-full max-w-sm">
           <header className="mb-10 text-slate-900">
             <h2 className="text-3xl font-bold tracking-tight">Sign In</h2>

@@ -23,7 +23,7 @@ export const postComment = catchAsync(async (req, res, next) => {
   const hasRegistration = await Registration.findOne({
     event: eventId,
     user: req.userId,
-    status: { $in: ["pending", "approved", "attended", "no-show"] },
+    status: { $in: ["approved", "waitlisted", "attended", "no_show"] },
   }).select("_id");
 
   if (!hasRegistration) {

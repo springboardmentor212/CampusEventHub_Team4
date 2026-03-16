@@ -2,6 +2,7 @@ import { Toaster } from "react-hot-toast";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import Login from "./pages/Login";
+import LandingPage from "./pages/LandingPage";
 import Register from "./pages/Register";
 import StudentDashboard from "./pages/StudentDashboard";
 import CollegeAdminDashboard from "./pages/CollegeAdminDashboard";
@@ -17,6 +18,8 @@ import EventDetail from "./pages/EventDetail";
 import EmailVerification from "./pages/EmailVerification";
 import DeleteAccount from "./pages/DeleteAccount";
 import ResendVerification from "./pages/ResendVerification";
+import Policies from "./pages/Policies";
+import PrivacyTerms from "./pages/PrivacyTerms";
 import ProtectedRoute from "./components/ProtectedRoute";
 import NotFound from "./pages/NotFound";
 import Profile from "./pages/Profile";
@@ -29,7 +32,7 @@ function App() {
       <Toaster position="top-right" reverseOrder={false} />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Login />} />
+          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -37,6 +40,8 @@ function App() {
           <Route path="/verify-email/:token" element={<EmailVerification />} />
           <Route path="/delete-account/:token" element={<DeleteAccount />} />
           <Route path="/resend-verification" element={<ResendVerification />} />
+          <Route path="/policies" element={<Policies />} />
+          <Route path="/privacy-terms" element={<PrivacyTerms />} />
           <Route
             path="/change-password"
             element={
@@ -99,6 +104,14 @@ function App() {
             element={<Navigate to="/campus-feed" replace />}
           />
           <Route
+            path="/students"
+            element={<Navigate to="/campus-feed" replace />}
+          />
+          <Route
+            path="/student-dashboard"
+            element={<Navigate to="/campus-feed" replace />}
+          />
+          <Route
             path="/profile"
             element={
               <ProtectedRoute>
@@ -123,12 +136,28 @@ function App() {
             }
           />
           <Route
+            path="/college-admin"
+            element={<Navigate to="/admin" replace />}
+          />
+          <Route
+            path="/college_admin"
+            element={<Navigate to="/admin" replace />}
+          />
+          <Route
             path="/superadmin"
             element={
               <ProtectedRoute role="admin">
                 <AdminDashboard />
               </ProtectedRoute>
             }
+          />
+          <Route
+            path="/super-admin"
+            element={<Navigate to="/superadmin" replace />}
+          />
+          <Route
+            path="/super_admin"
+            element={<Navigate to="/superadmin" replace />}
           />
           {/* Catch-all route for 404 */}
           <Route path="*" element={<NotFound />} />

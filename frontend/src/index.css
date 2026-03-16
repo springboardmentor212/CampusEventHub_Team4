@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Inter", "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
   --color-primary: #4f46e5;
   /* Indigo */
   --color-accent: #6366f1;
@@ -35,33 +35,32 @@
 
 /* Light Mode Utilities */
 @utility glass-card {
-  @apply bg-white border border-slate-200 rounded-2xl transition-all duration-300;
+  @apply bg-white border border-slate-200 rounded-lg transition-colors duration-150;
   box-shadow: var(--shadow-sm);
 
   &:hover {
-    @apply border-indigo-200;
-    box-shadow: var(--shadow-md);
+    @apply border-slate-300;
   }
 }
 
 @utility hero-btn {
-  @apply bg-indigo-600 text-white font-semibold px-6 py-3 rounded-lg shadow-sm transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2 border-none ring-offset-2;
+  @apply bg-slate-900 text-white font-semibold px-5 py-2.5 rounded-lg transition-colors duration-150 flex items-center justify-center gap-2 border-none;
 
   &:hover {
-    @apply bg-indigo-700 shadow-md;
+    @apply bg-slate-800;
   }
 }
 
 @utility secondary-hero-btn {
-  @apply bg-white text-slate-700 font-semibold px-6 py-3 rounded-lg border border-slate-200 shadow-sm transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2;
+  @apply bg-white text-slate-700 font-semibold px-5 py-2.5 rounded-lg border border-slate-300 transition-colors duration-150 flex items-center justify-center gap-2;
 
   &:hover {
-    @apply bg-slate-50 border-slate-300;
+    @apply bg-slate-50;
   }
 }
 
 @utility inline-badge {
-  @apply px-3 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-100 inline-flex items-center gap-1.5;
+  @apply px-2.5 py-1 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200 inline-flex items-center gap-1.5;
 }
 
 @utility editorial-header {
@@ -69,12 +68,11 @@
 }
 
 @utility bento-item {
-  @apply bg-white border border-slate-100 rounded-2xl p-6 transition-all duration-300;
+  @apply bg-white border border-slate-200 rounded-lg p-6 transition-colors duration-150;
   box-shadow: var(--shadow-sm);
 
   &:hover {
-    @apply border-slate-200;
-    box-shadow: var(--shadow-md);
+    @apply border-slate-300;
   }
 }
 
@@ -82,27 +80,25 @@
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(10px);
   }
 
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
 .animate-fade-in {
-  animation: fadeIn 0.4s ease-out forwards;
+  animation: fadeIn 0.2s ease-out forwards;
 }
 
 /* Minimal Form Styling */
 input,
 select,
 textarea {
-  @apply bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 rounded-lg px-4 py-2.5 outline-none transition-all duration-200;
+  @apply bg-white border border-slate-300 text-slate-900 placeholder-slate-400 rounded-lg px-4 py-2.5 outline-none transition-colors duration-150;
 
   &:focus {
-    @apply border-indigo-500 bg-white ring-4 ring-indigo-500/10;
+    @apply border-slate-700 ring-2 ring-slate-200;
   }
 }
 
@@ -134,15 +130,15 @@ label {
 }
 
 @utility metallic-btn {
-  @apply bg-slate-900 text-white font-bold px-5 py-2 rounded-xl border border-slate-800 shadow-sm transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2;
+  @apply bg-slate-900 text-white font-semibold px-5 py-2 rounded-lg border border-slate-800 transition-colors duration-150 flex items-center justify-center gap-2;
 
   &:hover {
-    @apply bg-slate-800 shadow-lg shadow-slate-200;
+    @apply bg-slate-800;
   }
 }
 
 @utility stats-label {
-  @apply text-[10px] font-extrabold text-slate-400 uppercase tracking-widest leading-none;
+  @apply text-[11px] font-semibold text-slate-500 leading-none;
 }
 
 @utility stats-value {
@@ -150,17 +146,17 @@ label {
 }
 
 @utility premium-card {
-  @apply bg-white border border-slate-200 rounded-[2rem] p-8 transition-all duration-500 hover:border-indigo-200 hover:shadow-2xl hover:shadow-indigo-100/10;
+  @apply bg-white border border-slate-200 rounded-xl p-8 transition-colors duration-150 hover:border-slate-300;
 }
 
 /* Greta Dashboard Pack Tokens */
 @utility greta-card {
-  @apply bg-white border border-slate-100 rounded-2xl p-6 transition-all duration-300;
-  box-shadow: 0 4px 20px -5px rgba(0, 0, 0, 0.05);
+  @apply bg-white border border-slate-200 rounded-xl p-6 transition-colors duration-150;
+  box-shadow: var(--shadow-sm);
 }
 
 @utility greta-card-hover {
-  @apply hover:shadow-xl hover:shadow-slate-200/50 hover:border-slate-200;
+  @apply hover:border-slate-300;
 }
 
 @utility accent-marketing {
@@ -200,5 +196,57 @@ label {
 }
 
 @utility metric-label {
-  @apply text-[10px] font-bold text-slate-400 uppercase tracking-widest;
+  @apply text-[11px] font-semibold text-slate-500;
+}
+
+/* Dashboard-wide normalization layer for legacy utility-heavy pages */
+.app-shell .uppercase {
+  text-transform: none !important;
+}
+
+.app-shell .tracking-widest,
+.app-shell .tracking-\[0\.2em\] {
+  letter-spacing: 0.01em !important;
+}
+
+.app-shell .rounded-3xl,
+.app-shell .rounded-2xl,
+.app-shell .rounded-\[2\.5rem\],
+.app-shell .rounded-\[2rem\] {
+  border-radius: 10px !important;
+}
+
+.app-shell button.rounded-full,
+.app-shell span.rounded-full {
+  border-radius: 8px !important;
+}
+
+.app-shell .shadow-xl,
+.app-shell .shadow-2xl {
+  box-shadow: var(--shadow-sm) !important;
+}
+
+/* Micro consistency pass: heading rhythm, compact badges, and dense labels */
+.app-shell h1 {
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  margin-bottom: 0.15rem;
+}
+
+.app-shell h2,
+.app-shell h3 {
+  line-height: 1.3;
+  letter-spacing: -0.005em;
+}
+
+.app-shell [class*="text-[9px]"],
+.app-shell [class*="text-[10px]"] {
+  font-size: 11px !important;
+  letter-spacing: 0.01em !important;
+}
+
+.app-shell span[class*="rounded-full"],
+.app-shell span[class*="rounded-lg"] {
+  padding-top: 0.2rem;
+  padding-bottom: 0.2rem;
 }
