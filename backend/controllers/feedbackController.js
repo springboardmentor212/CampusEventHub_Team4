@@ -4,6 +4,55 @@ import { Feedback } from "../models/Feedback.js";
 import { Registration } from "../models/Registration.js";
 import { Event } from "../models/Event.js";
 
+const ISSUE_STOP_WORDS = new Set([
+  "the", "and", "for", "with", "that", "this", "was", "were", "are", "from", "have", "has",
+  "had", "too", "very", "but", "not", "you", "your", "our", "just", "about", "into", "than",
+  "they", "them", "their", "would", "could", "should", "there", "here", "when", "where", "what",
+  "which", "while", "event", "events", "good", "great", "nice", "awesome", "excellent", "okay",
+]);
+
+const buildRatingDistribution = (feedbackRows) => {
+  const distribution = {
+    1: 0,
+    2: 0,
+    3: 0,
+    4: 0,
+    5: 0,
+  };
+
+  feedbackRows.forEach((item) => {
+    const score = Number(item.rating);
+    if (distribution[score] !== undefined) {
+      distribution[score] += 1;
+    }
+  });
+
+  return distribution;
+};
+
+const extractTopIssues = (feedbackRows, topN = 8) => {
+  const counts = new Map();
+
+  feedbackRows.forEach((item) => {
+    const comment = String(item.comment || "").toLowerCase();
+    const words = comment
+      .replace(/[^a-z0-9\s]/g, " ")
+      .split(/\s+/)
+      .map((word) => word.trim())
+      .filter((word) => word.length >= 4 && !ISSUE_STOP_WORDS.has(word));
+
+    const uniqueWords = new Set(words);
+    uniqueWords.forEach((word) => {
+      counts.set(word, (counts.get(word) || 0) + 1);
+    });
+  });
+
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, topN)
+    .map(([term, count]) => ({ term, count }));
+};
+
 export const submitFeedback = catchAsync(async (req, res, next) => {
   const { eventId, rating, comment } = req.body;
 
@@ -156,11 +205,80 @@ export const getSuperAdminFeedbackAnalytics = catchAsync(async (req, res) => {
     { $sort: { feedbackCount: -1, collegeName: 1 } },
   ]);
 
-  const [totalEvents, totalRegistrations, totalFeedback] = await Promise.all([
+  const [
+    totalEvents,
+    totalRegistrations,
+    totalFeedback,
+    totalAttended,
+    platformAverage,
+    lowestRatedEvents,
+  ] = await Promise.all([
     Event.countDocuments({ isActive: true }),
     Registration.countDocuments({}),
     Feedback.countDocuments({}),
+    Registration.countDocuments({ status: "attended" }),
+    Feedback.aggregate([
+      {
+        $group: {
+          _id: null,
+          avgRating: { $avg: "$rating" },
+        },
+      },
+    ]),
+    Feedback.aggregate([
+      {
+        $lookup: {
+          from: "events",
+          localField: "eventId",
+          foreignField: "_id",
+          as: "event",
+        },
+      },
+      { $unwind: "$event" },
+      {
+        $group: {
+          _id: "$eventId",
+          eventTitle: { $first: "$event.title" },
+          collegeId: { $first: "$event.college" },
+          avgRating: { $avg: "$rating" },
+          feedbackCount: { $sum: 1 },
+        },
+      },
+      {
+        $lookup: {
+          from: "colleges",
+          localField: "collegeId",
+          foreignField: "_id",
+          as: "college",
+        },
+      },
+      {
+        $unwind: {
+          path: "$college",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          eventId: "$_id",
+          eventTitle: 1,
+          avgRating: { $round: ["$avgRating", 2] },
+          feedbackCount: 1,
+          collegeName: { $ifNull: ["$college.name", "Unknown College"] },
+        },
+      },
+      { $sort: { avgRating: 1, feedbackCount: -1, eventTitle: 1 } },
+      { $limit: 5 },
+    ]),
   ]);
+
+  const platformAverageRating = platformAverage.length
+    ? Number(platformAverage[0].avgRating.toFixed(2))
+    : 0;
+  const responseRate = totalAttended > 0
+    ? Number(((totalFeedback / totalAttended) * 100).toFixed(2))
+    : 0;
 
   res.status(200).json({
     success: true,
@@ -169,8 +287,12 @@ export const getSuperAdminFeedbackAnalytics = catchAsync(async (req, res) => {
         totalEvents,
         totalRegistrations,
         totalFeedback,
+        totalAttended,
+        platformAverageRating,
+        responseRate,
       },
       perCollege: analytics,
+      lowestRatedEvents,
     },
   });
 });
@@ -180,15 +302,54 @@ export const getCollegeAdminFeedback = catchAsync(async (req, res, next) => {
     return next(new AppError("Only college admins can access this endpoint", 403));
   }
 
-  const feedback = await Feedback.find({})
+  const collegeEventIds = await Event.find({
+    college: req.user.college,
+    isActive: true,
+  }).distinct("_id");
+
+  if (!collegeEventIds.length) {
+    return res.status(200).json({
+      success: true,
+      data: {
+        feedback: [],
+        eventSummaries: [],
+        analytics: {
+          responseRate: 0,
+          ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+          topIssues: [],
+        },
+      },
+    });
+  }
+
+  const feedback = await Feedback.find({ eventId: { $in: collegeEventIds } })
     .sort({ createdAt: -1 })
     .populate({
       path: "eventId",
       select: "title college",
-      match: { college: req.user.college },
       populate: { path: "college", select: "name code" },
     })
     .populate("userId", "firstName lastName email");
+
+  const attendedCounts = await Registration.aggregate([
+    {
+      $match: {
+        event: { $in: collegeEventIds },
+        status: "attended",
+      },
+    },
+    {
+      $group: {
+        _id: "$event",
+        attendedCount: { $sum: 1 },
+      },
+    },
+  ]);
+
+  const attendedMap = attendedCounts.reduce((acc, row) => {
+    acc[String(row._id)] = row.attendedCount;
+    return acc;
+  }, {});
 
   const filtered = feedback.filter((item) => item.eventId);
 
@@ -212,13 +373,30 @@ export const getCollegeAdminFeedback = catchAsync(async (req, res, next) => {
     eventTitle: item.eventTitle,
     count: item.count,
     avgRating: Number((item.totalRating / item.count).toFixed(2)),
+    attendedCount: attendedMap[String(item.eventId)] || 0,
+    responseRate: (() => {
+      const attended = attendedMap[String(item.eventId)] || 0;
+      return attended > 0 ? Number(((item.count / attended) * 100).toFixed(2)) : 0;
+    })(),
   }));
+
+  const totalAttended = attendedCounts.reduce((sum, row) => sum + Number(row.attendedCount || 0), 0);
+  const responseRate = totalAttended > 0
+    ? Number(((filtered.length / totalAttended) * 100).toFixed(2))
+    : 0;
+  const ratingDistribution = buildRatingDistribution(filtered);
+  const topIssues = extractTopIssues(filtered);
 
   res.status(200).json({
     success: true,
     data: {
       feedback: filtered,
       eventSummaries,
+      analytics: {
+        responseRate,
+        ratingDistribution,
+        topIssues,
+      },
     },
   });
 });
