@@ -20,8 +20,48 @@ const commentSchema = new mongoose.Schema(
       trim: true,
       maxlength: 2000,
     },
+    parentCommentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Comment",
+      default: null,
+      index: true,
+    },
+    likedBy: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    }],
+    likesCount: {
+      type: Number,
+      default: 0,
+    },
+    isPinned: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    pinnedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    pinnedAt: {
+      type: Date,
+      default: null,
+    },
+    isOfficialReply: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    officialResponder: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
   { timestamps: true }
 );
+
+commentSchema.index({ eventId: 1, parentCommentId: 1, isPinned: -1, createdAt: -1 });
 
 export const Comment = mongoose.model("Comment", commentSchema);

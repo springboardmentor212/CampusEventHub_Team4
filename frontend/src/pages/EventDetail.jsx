@@ -5,6 +5,26 @@ import API from "../api/axios";
 import toast from "react-hot-toast";
 import useAuth from "../hooks/useAuth";
 
+const EventDetailSkeleton = () => (
+  <DashboardLayout>
+    <div className="max-w-6xl mx-auto animate-pulse">
+      <div className="h-64 md:h-80 rounded-3xl bg-slate-200 mb-6" />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-4">
+          <div className="h-8 bg-slate-200 rounded-xl w-3/4" />
+          <div className="h-4 bg-slate-100 rounded-lg w-1/3" />
+          <div className="h-32 bg-slate-100 rounded-2xl" />
+          <div className="h-48 bg-slate-100 rounded-2xl" />
+        </div>
+        <div className="space-y-4">
+          <div className="h-40 bg-slate-200 rounded-2xl" />
+          <div className="h-32 bg-slate-100 rounded-2xl" />
+        </div>
+      </div>
+    </div>
+  </DashboardLayout>
+);
+
 const EventDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -18,9 +38,18 @@ const EventDetail = () => {
   const [eventFeedback, setEventFeedback] = useState([]);
   const [myFeedback, setMyFeedback] = useState([]);
   const [comments, setComments] = useState([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [replyText, setReplyText] = useState("");
+  const [officialReplyText, setOfficialReplyText] = useState("");
 
-  const [feedbackForm, setFeedbackForm] = useState({ rating: 5, comment: "" });
+   const [feedbackForm, setFeedbackForm] = useState({ rating: 5, comment: "" });
   const [commentText, setCommentText] = useState("");
+  const [collapsedReplies, setCollapsedReplies] = useState({});
+
+  const toggleReplies = (commentId) => {
+    setCollapsedReplies(prev => ({ ...prev, [commentId]: !prev[commentId] }));
+  };
 
   const isStudent = user?.role === "student";
   const isCollegeAdmin = user?.role === "college_admin";
@@ -31,10 +60,7 @@ const EventDetail = () => {
   };
 
   const loadRegistrationAndFeedback = async () => {
-    const calls = [
-      API.get(`/feedback/event/${id}`),
-      API.get(`/comments/event/${id}`),
-    ];
+    const calls = [API.get(`/feedback/event/${id}`), API.get(`/comments/event/${id}`)];
 
     if (isStudent) {
       calls.push(API.get("/registrations/my"));
@@ -50,7 +76,9 @@ const EventDetail = () => {
       setEventFeedback(eventFeedbackRes.value.data?.data?.feedback || []);
     }
     if (commentsRes.status === "fulfilled") {
-      setComments(commentsRes.value.data?.data?.comments || []);
+      const threaded = commentsRes.value.data?.data?.threadedComments;
+      const flat = commentsRes.value.data?.data?.comments || [];
+      setComments(Array.isArray(threaded) ? threaded : flat);
     }
 
     if (isStudent) {
@@ -75,6 +103,20 @@ const EventDetail = () => {
       navigate("/campus-feed");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const refreshCommentsOnly = async () => {
+    try {
+      setCommentsLoading(true);
+      const commentsRes = await API.get(`/comments/event/${id}`);
+      const threaded = commentsRes.data?.data?.threadedComments;
+      const flat = commentsRes.data?.data?.comments || [];
+      setComments(Array.isArray(threaded) ? threaded : flat);
+    } catch (err) {
+      toast.error("Failed to refresh comments.");
+    } finally {
+      setCommentsLoading(false);
     }
   };
 
@@ -121,6 +163,8 @@ const EventDetail = () => {
   }, [isStudent, myRegistration, event]);
 
   const canPostComment = isStudent && user?.isApproved;
+  const canManagePinnedComments = (isCollegeAdmin && String(event?.createdBy?._id || event?.createdBy) === String(user?._id)) || user?.role === "admin";
+  const canOfficialReply = canManagePinnedComments;
 
   const handleRegister = async () => {
     try {
@@ -182,7 +226,7 @@ const EventDetail = () => {
       setSubmitting(true);
       await API.post("/comments", { eventId: id, message: commentText.trim() });
       setCommentText("");
-      await refresh();
+      await refreshCommentsOnly();
       toast.success("Comment posted.");
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to post comment.");
@@ -190,6 +234,62 @@ const EventDetail = () => {
       setSubmitting(false);
      }
    };
+
+    const handleReply = async (parentCommentId) => {
+      if (!replyText.trim()) return;
+      try {
+        setSubmitting(true);
+        await API.post("/comments", {
+          eventId: id,
+          message: replyText.trim(),
+          parentCommentId,
+        });
+        setReplyText("");
+        setReplyingTo(null);
+        await refreshCommentsOnly();
+        toast.success("Reply posted.");
+      } catch (err) {
+        toast.error(err.response?.data?.message || "Failed to post reply.");
+      } finally {
+        setSubmitting(false);
+      }
+    };
+
+    const handleOfficialReply = async (parentCommentId) => {
+      if (!officialReplyText.trim()) return;
+      try {
+        setSubmitting(true);
+        await API.post(`/comments/${parentCommentId}/official-reply`, {
+          message: officialReplyText.trim(),
+        });
+        setOfficialReplyText("");
+        setReplyingTo(null);
+        await refreshCommentsOnly();
+        toast.success("Official reply posted.");
+      } catch (err) {
+        toast.error(err.response?.data?.message || "Failed to post official reply.");
+      } finally {
+        setSubmitting(false);
+      }
+    };
+
+    const handleToggleLike = async (commentId) => {
+      try {
+        await API.patch(`/comments/${commentId}/like`);
+        await refreshCommentsOnly();
+      } catch (err) {
+        toast.error(err.response?.data?.message || "Failed to update like.");
+      }
+    };
+
+    const handleTogglePin = async (commentId) => {
+      try {
+        await API.patch(`/comments/${commentId}/pin`);
+        await refreshCommentsOnly();
+      } catch (err) {
+        toast.error(err.response?.data?.message || "Failed to pin comment.");
+      }
+    };
 
    const handleDeleteComment = async (commentId) => {
      try {
@@ -211,12 +311,13 @@ const EventDetail = () => {
      return false;
    };
 
+   const isLikedByMe = (comment) => {
+     const likedBy = comment?.likedBy || [];
+     return likedBy.some((likedUserId) => String(likedUserId?._id || likedUserId) === String(user?._id));
+   };
+
    if (loading) {
-     return (
-       <DashboardLayout>
-         <div className="h-64 flex items-center justify-center text-slate-500 font-semibold">Loading event details...</div>
-       </DashboardLayout>
-     );
+     return <EventDetailSkeleton />;
    }
 
    if (!event) return null;
@@ -317,30 +418,120 @@ const EventDetail = () => {
                {!canPostComment && <p className="text-sm text-slate-500 italic">Only approved students can participate in discussions.</p>}
 
                <div className="space-y-4 mt-6">
-                 {comments.length === 0 && (
+                 {commentsLoading && (
+                   <div className="space-y-3 animate-pulse">
+                     {[1,2,3].map(i => (
+                       <div key={i} className="p-4 rounded-xl border border-slate-100 bg-white">
+                         <div className="flex items-center gap-3 mb-3">
+                           <div className="w-8 h-8 rounded-full bg-slate-200" />
+                           <div className="space-y-1.5">
+                             <div className="h-3 bg-slate-200 rounded w-28" />
+                             <div className="h-2 bg-slate-100 rounded w-20" />
+                           </div>
+                         </div>
+                         <div className="h-3 bg-slate-100 rounded w-full ml-11" />
+                       </div>
+                     ))}
+                   </div>
+                 )}
+
+                 {!commentsLoading && comments.length === 0 && (
                    <div className="text-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-300">
                      <p className="text-sm text-slate-400">No conversations yet. Be the first to speak!</p>
                    </div>
                  )}
-                 {comments.map((comment) => (
-                   <div key={comment._id} className="p-4 rounded-xl border border-slate-100 bg-white hover:border-slate-200 transition-all shadow-sm">
+
+                 {!commentsLoading && comments.map((comment) => (
+                   <div key={comment._id} className={`p-4 rounded-xl border bg-white hover:border-slate-200 transition-all shadow-sm ${comment.isPinned ? "border-amber-200" : "border-slate-100"}`}>
                      <div className="flex justify-between items-start gap-3">
                        <div className="flex items-center gap-3">
                          <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-xs uppercase">
                            {comment.userId?.firstName?.charAt(0)}{comment.userId?.lastName?.charAt(0)}
                          </div>
                          <div>
-                           <p className="text-sm font-bold text-slate-900">{comment.userId?.firstName} {comment.userId?.lastName}</p>
+                           <p className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                             {comment.userId?.firstName} {comment.userId?.lastName}
+                             {comment.isPinned && <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 uppercase tracking-widest">Pinned</span>}
+                             {comment.isOfficialReply && <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 uppercase tracking-widest">Official</span>}
+                           </p>
                            <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">{comment.userId?.college?.name || ""} | {new Date(comment.createdAt).toLocaleDateString()}</p>
                          </div>
                        </div>
-                       {canDeleteComment(comment) && (
-                         <button onClick={() => handleDeleteComment(comment._id)} className="p-1.5 text-slate-400 hover:text-rose-600 transition-colors">
-                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                       <div className="flex items-center gap-2">
+                         {canManagePinnedComments && (
+                           <button onClick={() => handleTogglePin(comment._id)} className="text-[10px] font-bold uppercase tracking-widest text-amber-600 hover:text-amber-700">
+                             {comment.isPinned ? "Unpin" : "Pin"}
+                           </button>
+                         )}
+                         {canDeleteComment(comment) && (
+                           <button onClick={() => handleDeleteComment(comment._id)} className="p-1.5 text-slate-400 hover:text-rose-600 transition-colors">
+                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                           </button>
+                         )}
+                       </div>
+                     </div>
+                     <p className="mt-3 text-sm text-slate-600 leading-relaxed pl-11">{comment.message}</p>
+
+                     <div className="pl-11 mt-3 flex items-center gap-4">
+                       <button onClick={() => handleToggleLike(comment._id)} className={`text-xs font-semibold ${isLikedByMe(comment) ? "text-indigo-700" : "text-slate-500"}`}>
+                         {isLikedByMe(comment) ? "Liked" : "Like"} ({comment.likesCount || comment.likedBy?.length || 0})
+                       </button>
+                       {canPostComment && (
+                         <button onClick={() => setReplyingTo(replyingTo === comment._id ? null : comment._id)} className="text-xs font-semibold text-slate-500 hover:text-slate-700">
+                           Reply
+                         </button>
+                       )}
+                       {canOfficialReply && (
+                         <button onClick={() => setReplyingTo(replyingTo === `official-${comment._id}` ? null : `official-${comment._id}`)} className="text-xs font-semibold text-indigo-600 hover:text-indigo-800">
+                           Official Reply
                          </button>
                        )}
                      </div>
-                     <p className="mt-3 text-sm text-slate-600 leading-relaxed pl-11">{comment.message}</p>
+
+                     {replyingTo === comment._id && (
+                       <div className="pl-11 mt-3 flex gap-2">
+                         <input
+                           value={replyText}
+                           onChange={(e) => setReplyText(e.target.value)}
+                           placeholder="Write your reply..."
+                           className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-xs"
+                         />
+                         <button onClick={() => handleReply(comment._id)} disabled={submitting} className="px-3 py-2 rounded-lg bg-slate-900 text-white text-xs font-bold">Send</button>
+                       </div>
+                     )}
+
+                     {replyingTo === `official-${comment._id}` && (
+                       <div className="pl-11 mt-3 flex gap-2">
+                         <input
+                           value={officialReplyText}
+                           onChange={(e) => setOfficialReplyText(e.target.value)}
+                           placeholder="Post official admin response..."
+                           className="flex-1 px-3 py-2 rounded-lg border border-indigo-200 text-xs"
+                         />
+                         <button onClick={() => handleOfficialReply(comment._id)} disabled={submitting} className="px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-bold">Post</button>
+                       </div>
+                     )}
+
+                     {(comment.replies || []).length > 0 && (
+                       <div className="pl-11 mt-4 space-y-2">
+                         <button
+                           onClick={() => toggleReplies(comment._id)}
+                           className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 mb-2 flex items-center gap-1"
+                         >
+                           {collapsedReplies[comment._id] ? "▶" : "▼"}{" "}
+                           {collapsedReplies[comment._id] ? "Show" : "Hide"} {(comment.replies || []).length} {(comment.replies || []).length === 1 ? "reply" : "replies"}
+                         </button>
+                         {!collapsedReplies[comment._id] && (comment.replies || []).map((reply) => (
+                           <div key={reply._id} className="p-3 rounded-lg border border-slate-100 bg-slate-50">
+                             <p className="text-xs font-bold text-slate-800 flex items-center gap-2">
+                               {reply.userId?.firstName} {reply.userId?.lastName}
+                               {reply.isOfficialReply && <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 uppercase tracking-widest">Official</span>}
+                             </p>
+                             <p className="text-xs text-slate-600 mt-1">{reply.message}</p>
+                           </div>
+                         ))}
+                       </div>
+                     )}
                    </div>
                  ))}
                </div>
@@ -441,7 +632,7 @@ const EventDetail = () => {
                )}
 
                <div className="space-y-3 mt-4">
-                 {eventFeedback.length === 0 && eventFeedback.length > 0 && <p className="text-sm text-slate-500">No testimonials yet.</p>}
+                 {eventFeedback.length === 0 && <p className="text-sm text-slate-500">No testimonials yet.</p>}
                  {eventFeedback.map((feedback) => (
                    <div key={feedback._id} className="p-4 rounded-xl border border-slate-100 bg-slate-50/50">
                      <div className="flex justify-between items-center mb-2">
