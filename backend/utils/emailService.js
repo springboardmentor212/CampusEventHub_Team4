@@ -244,6 +244,10 @@ export const EmailTemplates = {
 };
 
 const sendEmail = async ({ email, subject, message, html }) => {
+  if (process.env.NODE_ENV === "test") {
+    return;
+  }
+
   const transporter = createTransporter();
   await transporter.sendMail({
     from: `CampusEventHub <${process.env.EMAIL_FROM}>`,

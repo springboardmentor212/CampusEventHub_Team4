@@ -71,6 +71,11 @@ const DashboardLayout = ({ children, suppressAdminNav = false, pendingRegistrati
 
         const adminLinks = [
             { label: 'Overview', path: '/superadmin', icon: LayoutDashboard, tab: null },
+            { label: 'Platform Alerts', path: '/superadmin?tab=alerts', icon: Bell, tab: 'alerts' },
+            { label: 'Admin Monitoring', path: '/superadmin?tab=monitoring', icon: Users, tab: 'monitoring' },
+            { label: 'Event Moderation', path: '/superadmin?tab=moderation', icon: Shield, tab: 'moderation' },
+            { label: 'Feedback Insights', path: '/superadmin?tab=feedback-insights', icon: BarChart2, tab: 'feedback-insights' },
+            { label: 'Governance Logs', path: '/superadmin?tab=governance-logs', icon: Activity, tab: 'governance-logs' },
             { label: 'Colleges', path: '/superadmin?tab=colleges', icon: Building2, tab: 'colleges' },
             { label: 'Events', path: '/superadmin?tab=events', icon: Calendar, tab: 'events' },
             { label: 'Analytics', path: '/superadmin?tab=analytics', icon: BarChart2, tab: 'analytics' },
@@ -92,10 +97,10 @@ const DashboardLayout = ({ children, suppressAdminNav = false, pendingRegistrati
         ];
 
         const secondaryLinks = [
-            { label: 'Dashboard', path: '/campus-feed', icon: Home, roles: ['student'] },
-            { label: 'Explore Events', path: '/campus-feed?section=discover', icon: Compass, roles: ['student'], section: 'discover' },
-            { label: 'My Events', path: '/campus-feed?section=my-events', icon: Calendar, roles: ['student'], section: 'my-events' },
-            { label: 'Activity', path: '/campus-feed?section=activity', icon: Activity, roles: ['student'], section: 'activity' },
+            { label: 'Dashboard', path: '/student/dashboard', icon: Home, roles: ['student'], matches: ['/campus-feed'] },
+            { label: 'Explore Events', path: '/student/explore', icon: Compass, roles: ['student'], section: 'discover', matches: ['/campus-feed?section=discover'] },
+            { label: 'My Events', path: '/student/my-events', icon: Calendar, roles: ['student'], section: 'my-events', matches: ['/campus-feed?section=my-events'] },
+            { label: 'Activity', path: '/student/activity', icon: Activity, roles: ['student'], section: 'activity', matches: ['/campus-feed?section=activity'] },
             { label: 'Profile', path: '/profile', icon: UserIcon, roles: ['student', 'college_admin', 'admin'] },
             { label: 'Security', path: '/change-password', icon: Lock, roles: ['student', 'admin'] },
         ];
@@ -174,10 +179,14 @@ const DashboardLayout = ({ children, suppressAdminNav = false, pendingRegistrati
                         if (item.requiresApproved && !isApproved) return null;
 
                         const currentSection = new URLSearchParams(location.search).get('section');
+                        const currentPathWithSection = location.pathname === '/campus-feed' && currentSection
+                            ? `/campus-feed?section=${currentSection}`
+                            : location.pathname;
                         const isPathMatch = location.pathname === item.path;
                         const isSectionMatch = item.section && location.pathname === '/campus-feed' && currentSection === item.section;
-                        const isDefaultDashboard = !item.section && item.path === '/campus-feed' && location.pathname === '/campus-feed' && !currentSection;
-                        const isActive = isPathMatch || isSectionMatch || isDefaultDashboard;
+                        const isAliasMatch = Array.isArray(item.matches) && item.matches.includes(currentPathWithSection);
+                        const isDefaultDashboard = !item.section && location.pathname === '/campus-feed' && !currentSection;
+                        const isActive = isPathMatch || isSectionMatch || isAliasMatch || isDefaultDashboard;
                         return (
                             <button key={item.path} onClick={() => { navigate(item.path); setIsSidebarMobileOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors duration-150 font-medium text-sm group ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}>
                                 <item.icon className={`w-5 h-5 ${isActive ? 'text-slate-900' : 'text-slate-400 group-hover:text-slate-700'}`} />

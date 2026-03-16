@@ -59,6 +59,7 @@ const CollegeAdminDashboard = () => {
   const [pendingStudentsLoading, setPendingStudentsLoading] = useState(false);
   const [feedbackRows, setFeedbackRows] = useState([]);
   const [feedbackSummaries, setFeedbackSummaries] = useState([]);
+  const [feedbackMeta, setFeedbackMeta] = useState({ responseRate: 0, ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }, topIssues: [] });
   const [myEvents, setMyEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectionDetail, setSelectionDetail] = useState({ show: false, type: null, data: null });
@@ -88,9 +89,11 @@ const CollegeAdminDashboard = () => {
       const res = await API.get("/feedback/college/mine");
       setFeedbackRows(res.data?.data?.feedback || []);
       setFeedbackSummaries(res.data?.data?.eventSummaries || []);
+      setFeedbackMeta(res.data?.data?.analytics || { responseRate: 0, ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }, topIssues: [] });
     } catch (err) {
       setFeedbackRows([]);
       setFeedbackSummaries([]);
+      setFeedbackMeta({ responseRate: 0, ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }, topIssues: [] });
     }
   };
 
@@ -326,10 +329,6 @@ const CollegeAdminDashboard = () => {
     return "Solo";
   };
 
-  const topRatedEvent = feedbackSummaries.length
-    ? [...feedbackSummaries].sort((a, b) => (b.avgRating || 0) - (a.avgRating || 0))[0]
-    : null;
-
   const renderStars = (rating = 0) => {
     const rounded = Math.round(Number(rating));
     return "*****".slice(0, rounded) + ".....".slice(0, 5 - rounded);
@@ -418,6 +417,29 @@ const CollegeAdminDashboard = () => {
 
         {activeTab === 'overview' && (
           <div className="space-y-8">
+            <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+              <button onClick={() => navigate('/create-event')} className="text-left bg-white border border-slate-200 rounded-2xl p-4 hover:border-indigo-300 transition-colors">
+                <p className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Immediate Actions</p>
+                <p className="text-sm font-bold text-slate-900 mt-2">Create and launch new event proposals.</p>
+                <p className="text-xs text-indigo-600 mt-3 font-semibold">Open Create Event</p>
+              </button>
+              <button onClick={() => navigate('/admin?tab=events')} className="text-left bg-white border border-slate-200 rounded-2xl p-4 hover:border-indigo-300 transition-colors">
+                <p className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Event Operations</p>
+                <p className="text-sm font-bold text-slate-900 mt-2">Track approvals, paused updates, and live events.</p>
+                <p className="text-xs text-indigo-600 mt-3 font-semibold">Open My Events</p>
+              </button>
+              <button onClick={() => navigate('/admin?tab=registrations')} className="text-left bg-white border border-slate-200 rounded-2xl p-4 hover:border-indigo-300 transition-colors">
+                <p className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Participation Metrics</p>
+                <p className="text-sm font-bold text-slate-900 mt-2">Manage attendance outcomes and registration flow.</p>
+                <p className="text-xs text-indigo-600 mt-3 font-semibold">Open Registrations</p>
+              </button>
+              <button onClick={() => navigate('/admin?tab=feedback')} className="text-left bg-white border border-slate-200 rounded-2xl p-4 hover:border-indigo-300 transition-colors">
+                <p className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Insights</p>
+                <p className="text-sm font-bold text-slate-900 mt-2">Review ratings, comments, and response quality.</p>
+                <p className="text-xs text-indigo-600 mt-3 font-semibold">Open Feedback</p>
+              </button>
+            </section>
+
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6">
               <MetricCard icon={Calendar} label="Live Events" value={stats.totalEvents || 0} trend={`${stats.pendingApprovalCount || 0} pending approval`} trendTone="info" accent="text-indigo-600 bg-indigo-50 border-indigo-100" />
               <MetricCard icon={Users} label="Total Registrations" value={stats.totalRegistrations || 0} trend={`${registrationsThisMonth} this month`} trendTone="success" accent="text-emerald-600 bg-emerald-50 border-emerald-100" />
@@ -1042,10 +1064,45 @@ const CollegeAdminDashboard = () => {
               </div>
               <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-black uppercase tracking-widest text-slate-400">Top Rated Event</p>
-                  <Trophy className="w-5 h-5 text-emerald-500" />
+                  <p className="text-xs font-black uppercase tracking-widest text-slate-400">Feedback Response Rate</p>
+                  <TrendingUp className="w-5 h-5 text-emerald-500" />
                 </div>
-                <p className="mt-4 text-lg font-black text-slate-900 line-clamp-2">{topRatedEvent?.eventTitle || '-'}</p>
+                <p className="mt-4 text-3xl font-black text-slate-900">{feedbackMeta.responseRate || 0}%</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm space-y-3">
+                <h4 className="text-xs font-black uppercase tracking-widest text-slate-400">Rating Distribution</h4>
+                {[5, 4, 3, 2, 1].map((score) => {
+                  const count = Number(feedbackMeta.ratingDistribution?.[score] || 0);
+                  const total = Number(feedbackRows.length || 0);
+                  const width = total > 0 ? Math.round((count / total) * 100) : 0;
+                  return (
+                    <div key={score} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <p className="font-bold text-slate-700">{score} Star</p>
+                        <p className="text-slate-500">{count}</p>
+                      </div>
+                      <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+                        <div className="h-full bg-amber-500" style={{ width: `${width}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm space-y-3">
+                <h4 className="text-xs font-black uppercase tracking-widest text-slate-400">Top Issues</h4>
+                {(feedbackMeta.topIssues || []).length === 0 && (
+                  <p className="text-sm text-slate-500">No recurring issue terms detected yet.</p>
+                )}
+                {(feedbackMeta.topIssues || []).slice(0, 8).map((issue) => (
+                  <div key={issue.term} className="rounded-xl border border-slate-200 px-3 py-2 flex items-center justify-between">
+                    <p className="text-sm font-semibold text-slate-800">{issue.term}</p>
+                    <p className="text-xs font-bold text-slate-500">{issue.count}</p>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -1058,7 +1115,7 @@ const CollegeAdminDashboard = () => {
                       <StarIcon filled className="w-4 h-4" />
                       <span className="text-xl font-black text-slate-900">{Number(item.avgRating).toFixed(1)}</span>
                     </div>
-                    <span className="text-xs font-bold text-slate-400">{item.count} reviews</span>
+                    <span className="text-xs font-bold text-slate-400">{item.count} reviews | {item.responseRate || 0}%</span>
                   </div>
                 </div>
               ))}

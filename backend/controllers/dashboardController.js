@@ -457,3 +457,214 @@ export const getAnalytics = catchAsync(async (req, res) => {
         }
     });
 });
+
+/**
+ * GET /api/dashboards/signals
+ * SuperAdmin-only governance signals for the Control Tower.
+ *
+ * Computes four signal categories:
+ *  1. lowRatingAlerts    – events with avg feedback rating < 2.5 (min 3 reviews)
+ *  2. highNoShowEvents   – past events where no-shows > 40% of attended+no_show
+ *  3. frequentEditEvents – approved events edited >= 3 times (update_pending flips)
+ *  4. capacityAnomalies  – events capped at < 5 participants OR > 500 participants
+ */
+export const getPlatformSignals = catchAsync(async (req, res) => {
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    // ── Signal 1: Low rating alerts ──────────────────────────────────────────
+    const lowRatingRaw = await Feedback.aggregate([
+        {
+            $group: {
+                _id: "$eventId",
+                avgRating: { $avg: "$rating" },
+                reviewCount: { $sum: 1 },
+            },
+        },
+        { $match: { avgRating: { $lt: 2.5 }, reviewCount: { $gte: 3 } } },
+        {
+            $lookup: {
+                from: "events",
+                localField: "_id",
+                foreignField: "_id",
+                as: "event",
+            },
+        },
+        { $unwind: "$event" },
+        {
+            $lookup: {
+                from: "colleges",
+                localField: "event.college",
+                foreignField: "_id",
+                as: "college",
+            },
+        },
+        { $unwind: { path: "$college", preserveNullAndEmpty: true } },
+        {
+            $project: {
+                eventId: "$_id",
+                eventTitle: "$event.title",
+                collegeName: { $ifNull: ["$college.name", "Unknown"] },
+                avgRating: { $round: ["$avgRating", 2] },
+                reviewCount: 1,
+            },
+        },
+        { $sort: { avgRating: 1 } },
+        { $limit: 10 },
+    ]);
+
+    // ── Signal 2: High no-show events (past events, last 30 days) ────────────
+    const noShowRaw = await Registration.aggregate([
+        {
+            $match: {
+                status: { $in: ["attended", "no_show"] },
+                createdAt: { $gte: thirtyDaysAgo },
+            },
+        },
+        {
+            $group: {
+                _id: "$event",
+                attended: { $sum: { $cond: [{ $eq: ["$status", "attended"] }, 1, 0] } },
+                noShow: { $sum: { $cond: [{ $eq: ["$status", "no_show"] }, 1, 0] } },
+            },
+        },
+        {
+            $addFields: {
+                total: { $add: ["$attended", "$noShow"] },
+                noShowRate: {
+                    $cond: [
+                        { $gt: [{ $add: ["$attended", "$noShow"] }, 0] },
+                        {
+                            $divide: [
+                                "$noShow",
+                                { $add: ["$attended", "$noShow"] },
+                            ],
+                        },
+                        0,
+                    ],
+                },
+            },
+        },
+        { $match: { noShowRate: { $gt: 0.4 }, total: { $gte: 5 } } },
+        {
+            $lookup: {
+                from: "events",
+                localField: "_id",
+                foreignField: "_id",
+                as: "event",
+            },
+        },
+        { $unwind: "$event" },
+        {
+            $lookup: {
+                from: "colleges",
+                localField: "event.college",
+                foreignField: "_id",
+                as: "college",
+            },
+        },
+        { $unwind: { path: "$college", preserveNullAndEmpty: true } },
+        {
+            $project: {
+                eventId: "$_id",
+                eventTitle: "$event.title",
+                collegeName: { $ifNull: ["$college.name", "Unknown"] },
+                noShowRate: { $round: [{ $multiply: ["$noShowRate", 100] }, 1] },
+                attended: 1,
+                noShow: 1,
+                total: 1,
+            },
+        },
+        { $sort: { noShowRate: -1 } },
+        { $limit: 10 },
+    ]);
+
+    // ── Signal 3: Frequent event edits (AdminLog approach) ───────────────────
+    // Count EVENT_UPDATE log entries per event in the last 30 days
+    let frequentEditEvents = [];
+    try {
+        frequentEditEvents = await AdminLog.aggregate([
+            {
+                $match: {
+                    action: { $in: ["EVENT_UPDATE", "EVENT_EDIT"] },
+                    createdAt: { $gte: thirtyDaysAgo },
+                    targetType: "Event",
+                },
+            },
+            {
+                $group: {
+                    _id: "$targetId",
+                    editCount: { $sum: 1 },
+                    lastEdit: { $max: "$createdAt" },
+                },
+            },
+            { $match: { editCount: { $gte: 3 } } },
+            {
+                $lookup: {
+                    from: "events",
+                    localField: "_id",
+                    foreignField: "_id",
+                    as: "event",
+                },
+            },
+            { $unwind: { path: "$event", preserveNullAndEmpty: true } },
+            {
+                $lookup: {
+                    from: "colleges",
+                    localField: "event.college",
+                    foreignField: "_id",
+                    as: "college",
+                },
+            },
+            { $unwind: { path: "$college", preserveNullAndEmpty: true } },
+            {
+                $project: {
+                    eventId: "$_id",
+                    eventTitle: { $ifNull: ["$event.title", "Unknown"] },
+                    collegeName: { $ifNull: ["$college.name", "Unknown"] },
+                    editCount: 1,
+                    lastEdit: 1,
+                },
+            },
+            { $sort: { editCount: -1 } },
+            { $limit: 10 },
+        ]);
+    } catch (_err) {
+        // AdminLog may not have edit entries yet — degrade gracefully
+        frequentEditEvents = [];
+    }
+
+    // ── Signal 4: Capacity anomalies ─────────────────────────────────────────
+    const capacityAnomalies = await Event.find({
+        isActive: true,
+        isApproved: true,
+        $or: [
+            { maxParticipants: { $gt: 0, $lt: 5 } },      // unusually small cap
+            { maxParticipants: { $gt: 500 } },              // unusually large cap
+        ],
+    })
+        .populate("college", "name")
+        .select("title maxParticipants currentParticipants startDate college status")
+        .sort({ maxParticipants: 1 })
+        .limit(10);
+
+    const capacityAnomaliesFormatted = capacityAnomalies.map((e) => ({
+        eventId: e._id,
+        eventTitle: e.title,
+        collegeName: e.college?.name || "Unknown",
+        maxParticipants: e.maxParticipants,
+        currentParticipants: e.currentParticipants,
+        anomalyType: e.maxParticipants < 5 ? "very_low_cap" : "very_high_cap",
+    }));
+
+    res.status(200).json({
+        success: true,
+        data: {
+            lowRatingAlerts: lowRatingRaw,
+            highNoShowEvents: noShowRaw,
+            frequentEditEvents,
+            capacityAnomalies: capacityAnomaliesFormatted,
+            generatedAt: now,
+        },
+    });
+});

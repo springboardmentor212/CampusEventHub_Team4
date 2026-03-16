@@ -7,6 +7,7 @@ import catchAsync from "../utils/catchAsync.js";
 import sendEmail, { EmailTemplates } from "../utils/emailService.js";
 import { logAdminAction } from "../utils/logger.js";
 import { notifyUser } from "../utils/notificationService.js";
+import { enrichEventWithLifecycle, enrichEventsWithLifecycle } from "../utils/lifecycleMapper.js";
 
 // Create a new event (College Admin only)
 export const createEvent = catchAsync(async (req, res, next) => {
@@ -219,7 +220,7 @@ export const rejectEvent = catchAsync(async (req, res, next) => {
     event.hasPendingUpdate = false;
     event.pendingUpdate = null;
     event.pauseReason = null;
-    event.status = "upcoming"; // Revert to live
+    event.status = "approved"; // Keep enum-compatible live status
     await event.save();
 
     // Notify creator
@@ -395,7 +396,7 @@ export const registerForEvent = catchAsync(async (req, res, next) => {
     type: "REGISTRATION_STATUS",
     title: "Registration Confirmed",
     message: `You are confirmed for "${updatedEvent.title}".`,
-    link: `/student`,
+    link: `/student/dashboard`,
     email: req.user.email,
     shouldSendEmail: true,
   });
@@ -447,10 +448,10 @@ export const cancelEvent = catchAsync(async (req, res, next) => {
     // In-app
     await notifyUser({
       recipientId: reg.user._id,
-      type: "EVENT_ALERT",
+      type: "EVENT_UPDATE",
       title: "Event Cancelled",
       message: `The event "${event.title}" has been cancelled. Reason: ${reason || 'Not specified'}.`,
-      link: "/student",
+      link: "/student/dashboard",
     });
 
     // Email
@@ -604,14 +605,16 @@ export const getEvents = catchAsync(async (req, res, next) => {
   // Get total count for pagination
   const total = await Event.countDocuments(filter);
 
+  const enrichedEvents = enrichEventsWithLifecycle(events.map(e => e.toObject()));
+
   res.status(200).json({
     success: true,
-    results: events.length,
+    results: enrichedEvents.length,
     total,
     page: pageNum,
     pages: Math.ceil(total / limitNum),
     data: {
-      events,
+      events: enrichedEvents,
     },
   });
 });
@@ -628,10 +631,12 @@ export const getEvent = catchAsync(async (req, res, next) => {
     return next(new AppError("Event not found", 404));
   }
 
+  const enrichedEvent = enrichEventWithLifecycle(event.toObject());
+
   res.status(200).json({
     success: true,
     data: {
-      event,
+      event: enrichedEvent,
     },
   });
 });
@@ -866,14 +871,8 @@ export const resumeEvent = catchAsync(async (req, res, next) => {
     return next(new AppError("Event is not paused.", 400));
   }
 
-  const now = new Date();
-  if (now > event.endDate) {
-    event.status = "completed";
-  } else if (now >= event.startDate && now <= event.endDate) {
-    event.status = "ongoing";
-  } else {
-    event.status = "upcoming";
-  }
+  // Keep status enum-safe and let UI derive temporal state from dates.
+  event.status = "approved";
 
   event.isActive = true;
   await event.save();

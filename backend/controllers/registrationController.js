@@ -42,7 +42,7 @@ export const promoteNextWaitlistedRegistration = async (eventId) => {
     type: "REGISTRATION_STATUS",
     title: "You Are Now Confirmed",
     message: `A seat opened up for "${nextRegistration.event.title}" and you were automatically moved from waitlist to confirmed.`,
-    link: `/events/${eventId}`,
+    link: `/event/${eventId}`,
   });
 
   try {
@@ -59,7 +59,7 @@ export const promoteNextWaitlistedRegistration = async (eventId) => {
             <p style="margin: 0 0 10px;">Hi <strong>${nextRegistration.user.firstName}</strong>,</p>
             <p style="margin: 0 0 10px;">A seat opened up and your registration for <strong>${nextRegistration.event.title}</strong> is now confirmed.</p>
             <p style="margin: 0 0 14px;">Check event details in your dashboard.</p>
-            <a href="${process.env.FRONTEND_URL}/events/${eventId}" style="display: inline-block; padding: 8px 14px; background: #111827; color: #ffffff; text-decoration: none; border-radius: 6px; border: 1px solid #111827; font-size: 13px; font-weight: 600;">View event</a>
+            <a href="${process.env.FRONTEND_URL}/event/${eventId}" style="display: inline-block; padding: 8px 14px; background: #111827; color: #ffffff; text-decoration: none; border-radius: 6px; border: 1px solid #111827; font-size: 13px; font-weight: 600;">View event</a>
           </div>
         </div>
       </div>`
@@ -150,7 +150,7 @@ export const registerForEvent = catchAsync(async (req, res, next) => {
       type: "REGISTRATION_STATUS",
       title: "Added to Waitlist",
       message: `"${event.title}" is full. You have been added to the waitlist at position ${waitlistPosition}.`,
-      link: "/student",
+      link: "/student/dashboard",
     });
 
     try {
@@ -228,7 +228,7 @@ export const registerForEvent = catchAsync(async (req, res, next) => {
     message: registration.status === "waitlisted"
       ? `The event "${registration.event.title}" is full. You've been added to the waitlist.`
       : `You're confirmed for "${registration.event.title}".`,
-    link: "/student",
+    link: "/student/dashboard",
   });
 
   try {
@@ -344,7 +344,7 @@ export const approveRegistration = catchAsync(async (req, res, next) => {
     type: "REGISTRATION_STATUS",
     title: "Registration Approved",
     message: `Your registration for "${registration.event.title}" has been approved. See you there!`,
-    link: "/campus-feed",
+    link: "/student/dashboard",
   });
   try {
     const approvedEvent = await Event.findById(registration.event._id).select("startDate");
@@ -416,7 +416,7 @@ export const rejectRegistration = catchAsync(async (req, res, next) => {
     type: "REGISTRATION_STATUS",
     title: "Registration Update",
     message: `Your registration for "${registration.event.title}" was not approved.`,
-    link: "/campus-feed",
+    link: "/student/dashboard",
   });
   try {
     const tpl = EmailTemplates.registrationRejected(

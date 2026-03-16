@@ -66,11 +66,14 @@ const AdminDashboard = () => {
 
   const [stats, setStats] = useState(null);
   const [analytics, setAnalytics] = useState(null);
-  const [feedbackAnalytics, setFeedbackAnalytics] = useState({ summary: {}, perCollege: [] });
+  const [feedbackAnalytics, setFeedbackAnalytics] = useState({ summary: {}, perCollege: [], lowestRatedEvents: [] });
+  const [platformSignals, setPlatformSignals] = useState({ lowRatingAlerts: [], highNoShowEvents: [], frequentEditEvents: [], capacityAnomalies: [] });
+  const [signalsLoading, setSignalsLoading] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pendingAdmins, setPendingAdmins] = useState([]);
   const [pendingEvents, setPendingEvents] = useState([]);
+  const [moderationComments, setModerationComments] = useState([]);
   const [selectedPendingEvent, setSelectedPendingEvent] = useState(null);
   const [selectionDetail, setSelectionDetail] = useState({ show: false, type: null, data: null });
   const [creatingCollege, setCreatingCollege] = useState(false);
@@ -105,18 +108,20 @@ const AdminDashboard = () => {
     if (activeTab === 'colleges') fetchColleges();
     if (activeTab === 'users') fetchUsers();
     if (activeTab === 'events') fetchEvents();
+    if (activeTab === 'alerts') fetchSignals();
   }, [activeTab, eventSort, eventSearch]);
 
   const fetchData = async (signal) => {
     setLoading(true);
     try {
-      const [statsRes, analyticsRes, adminsRes, eventsRes, feedbackAnalyticsRes, notificationsRes] = await Promise.allSettled([
+      const [statsRes, analyticsRes, adminsRes, eventsRes, feedbackAnalyticsRes, notificationsRes, commentsRes] = await Promise.allSettled([
         API.get("/dashboards/super-admin", { signal }),
         API.get("/dashboards/analytics", { signal }),
         API.get("/auth/admin/pending-users", { signal }),
         API.get("/events?isApproved=false", { signal }),
-        API.get("/feedback/analytics", { signal }),
-        API.get("/notifications?role=admin&limit=10", { signal })
+        API.get("/feedback/admin/analytics", { signal }),
+        API.get("/notifications?role=admin&limit=10", { signal }),
+        API.get("/comments/admin/moderation?limit=20", { signal }),
       ]);
 
       if (statsRes.status === "fulfilled") {
@@ -150,11 +155,22 @@ const AdminDashboard = () => {
         setPendingAdmins(adminsRes.value.data.data.users);
       }
       if (eventsRes.status === "fulfilled") setPendingEvents(eventsRes.value.data.data.events);
-      if (feedbackAnalyticsRes.status === "fulfilled") setFeedbackAnalytics(feedbackAnalyticsRes.value.data.data);
+      if (feedbackAnalyticsRes.status === "fulfilled") {
+        const data = feedbackAnalyticsRes.value.data?.data || {};
+        setFeedbackAnalytics({
+          summary: data.summary || {},
+          perCollege: Array.isArray(data.perCollege) ? data.perCollege : [],
+          lowestRatedEvents: Array.isArray(data.lowestRatedEvents) ? data.lowestRatedEvents : [],
+        });
+      }
 
       if (notificationsRes.status === "fulfilled") {
         const notifs = notificationsRes.value.data?.data?.notifications || [];
         setNotifications(notifs);
+      }
+
+      if (commentsRes.status === "fulfilled") {
+        setModerationComments(commentsRes.value.data?.data?.comments || []);
       }
     } catch (err) {
       if (err.name !== 'AbortError') {
@@ -205,6 +221,21 @@ const AdminDashboard = () => {
       setAllEvents(res.data.data.events || []);
     } catch { toast.error('Failed to load global events'); }
     finally { setEventsLoading(false); }
+  };
+
+  const fetchSignals = async () => {
+    setSignalsLoading(true);
+    try {
+      const res = await API.get('/dashboards/signals');
+      const data = res.data?.data || {};
+      setPlatformSignals({
+        lowRatingAlerts: Array.isArray(data.lowRatingAlerts) ? data.lowRatingAlerts : [],
+        highNoShowEvents: Array.isArray(data.highNoShowEvents) ? data.highNoShowEvents : [],
+        frequentEditEvents: Array.isArray(data.frequentEditEvents) ? data.frequentEditEvents : [],
+        capacityAnomalies: Array.isArray(data.capacityAnomalies) ? data.capacityAnomalies : [],
+      });
+    } catch { /* signals are non-blocking */ }
+    finally { setSignalsLoading(false); }
   };
 
   const handleApproveAdmin = async (id) => {
@@ -315,6 +346,16 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleRemoveComment = async (commentId) => {
+    try {
+      await API.delete(`/comments/${commentId}`);
+      setModerationComments((prev) => prev.filter((item) => item._id !== commentId));
+      toast.success("Comment removed");
+    } catch (error) {
+      toast.error("Failed to remove comment");
+    }
+  };
+
   const totalApprovalQueue = (stats?.pendingAdmins || 0) + (stats?.pendingEvents || 0);
   const approvalRate = stats?.totalRegistrations
     ? Math.round(((stats.approvedRegistrations || 0) / stats.totalRegistrations) * 100)
@@ -396,11 +437,37 @@ const AdminDashboard = () => {
     .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
     .slice(0, 5);
 
+  const platformAlerts = [
+    ...(stats?.deadlineAlerts || []).map((event) => ({
+      kind: "deadline",
+      title: "Registration closing soon",
+      detail: `${event.title} closes within 48 hours.`,
+      target: `/event/${event._id}`,
+    })),
+    ...(stats?.capacityAlerts || []).map((event) => ({
+      kind: "capacity",
+      title: "High capacity usage",
+      detail: `${event.title} is above 80% capacity.`,
+      target: `/event/${event._id}`,
+    })),
+  ].slice(0, 8);
+
+  const lowRatedColleges = [...(feedbackAnalytics?.perCollege || [])]
+    .filter((row) => Number(row.avgRating || 0) > 0 && Number(row.avgRating || 0) < 2.5)
+    .sort((a, b) => Number(a.avgRating || 0) - Number(b.avgRating || 0));
+
   if (loading || !stats || !analytics) return (
     <DashboardLayout>
-      <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
-        <div className="w-12 h-12 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin"></div>
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Loading Dashboard...</p>
+      <div className="max-w-7xl mx-auto space-y-8 animate-pulse">
+        <div className="h-10 bg-slate-200 rounded-xl w-72" />
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+          {[1,2,3,4,5,6].map(i => <div key={i} className="h-24 bg-slate-100 rounded-2xl" />)}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 h-72 bg-slate-100 rounded-3xl" />
+          <div className="h-72 bg-slate-100 rounded-3xl" />
+        </div>
+        <div className="h-64 bg-slate-100 rounded-3xl" />
       </div>
     </DashboardLayout>
   );
@@ -412,6 +479,11 @@ const AdminDashboard = () => {
         <header className="flex flex-col gap-2 pb-3 border-b border-slate-100">
           <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">
             {activeTab === 'overview' && 'Superadmin Dashboard'}
+            {activeTab === 'alerts' && 'Platform Alerts'}
+            {activeTab === 'monitoring' && 'Admin Monitoring'}
+            {activeTab === 'moderation' && 'Event Moderation'}
+            {activeTab === 'feedback-insights' && 'Feedback Insights'}
+            {activeTab === 'governance-logs' && 'Governance Logs'}
             {activeTab === 'analytics' && 'Analytics'}
             {activeTab === 'colleges' && 'Colleges'}
             {activeTab === 'events' && 'Event Registry'}
@@ -420,6 +492,11 @@ const AdminDashboard = () => {
           </h1>
           <p className="text-slate-500 font-medium text-sm">
             {activeTab === 'overview' && 'Overview of all colleges, events, and users.'}
+            {activeTab === 'alerts' && 'System-wide risk and anomaly alerts requiring intervention.'}
+            {activeTab === 'monitoring' && 'Operational view of college admin workload and approval queues.'}
+            {activeTab === 'moderation' && 'Pending event decisions and quality signals for enforcement.'}
+            {activeTab === 'feedback-insights' && 'Cross-college rating trends, response volume, and quality indicators.'}
+            {activeTab === 'governance-logs' && 'Recent high-signal platform actions and governance-relevant events.'}
             {activeTab === 'analytics' && 'Registration trends, category distribution and college participation.'}
             {activeTab === 'colleges' && 'Manage all registered institutions on the platform.'}
             {activeTab === 'events' && 'Global registry of all campus events and their visibility.'}
@@ -665,6 +742,264 @@ const AdminDashboard = () => {
                 </div>
 
               </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "alerts" && (
+          <div className="space-y-6 animate-fade-in">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white border border-slate-200 rounded-2xl p-6">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Pending Actions</p>
+                <p className="text-3xl font-black text-slate-900 mt-2">{totalApprovalQueue}</p>
+              </div>
+              <div className="bg-white border border-slate-200 rounded-2xl p-6">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Deadline Alerts</p>
+                <p className="text-3xl font-black text-slate-900 mt-2">{stats?.deadlineAlerts?.length || 0}</p>
+              </div>
+              <div className="bg-white border border-slate-200 rounded-2xl p-6">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Capacity Alerts</p>
+                <p className="text-3xl font-black text-slate-900 mt-2">{stats?.capacityAlerts?.length || 0}</p>
+              </div>
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-3">
+              <h3 className="font-bold text-slate-900">Live Alerts</h3>
+              {platformAlerts.length === 0 && <p className="text-sm text-slate-500">No live alerts currently.</p>}
+              {platformAlerts.map((alert, index) => (
+                <div key={`${alert.kind}-${index}`} className="rounded-xl border border-slate-200 p-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">{alert.title}</p>
+                    <p className="text-xs text-slate-500 mt-1">{alert.detail}</p>
+                  </div>
+                  <button onClick={() => navigate(alert.target)} className="text-xs font-semibold text-indigo-600 hover:text-indigo-800">Open</button>
+                </div>
+              ))}
+            </div>
+
+            {/* Governance Signals Panel */}
+            {signalsLoading ? (
+              <div className="flex items-center justify-center py-10">
+                <div className="w-8 h-8 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin" />
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Low Rating Alerts */}
+                <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+                  <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
+                    <h4 className="font-bold text-sm text-slate-900">Low Rating Alerts</h4>
+                    <span className="ml-auto text-[10px] font-black text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full">{platformSignals.lowRatingAlerts.length}</span>
+                  </div>
+                  <div className="p-4 space-y-2">
+                    {platformSignals.lowRatingAlerts.length === 0 ? (
+                      <p className="text-xs text-slate-400">No low-rated events detected.</p>
+                    ) : platformSignals.lowRatingAlerts.map((item, idx) => (
+                      <div key={idx} className="flex items-center justify-between text-xs py-1 border-b border-slate-50 last:border-0">
+                        <div>
+                          <p className="font-semibold text-slate-800">{item.eventTitle}</p>
+                          <p className="text-slate-400">{item.collegeName} · {item.reviewCount} reviews</p>
+                        </div>
+                        <span className="font-black text-rose-600">{item.avgRating}/5</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* High No-Show Events */}
+                <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+                  <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                    <h4 className="font-bold text-sm text-slate-900">High No-Show Events</h4>
+                    <span className="ml-auto text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">{platformSignals.highNoShowEvents.length}</span>
+                  </div>
+                  <div className="p-4 space-y-2">
+                    {platformSignals.highNoShowEvents.length === 0 ? (
+                      <p className="text-xs text-slate-400">No high no-show events detected.</p>
+                    ) : platformSignals.highNoShowEvents.map((item, idx) => (
+                      <div key={idx} className="flex items-center justify-between text-xs py-1 border-b border-slate-50 last:border-0">
+                        <div>
+                          <p className="font-semibold text-slate-800">{item.eventTitle}</p>
+                          <p className="text-slate-400">{item.collegeName} · {item.total} checked</p>
+                        </div>
+                        <span className="font-black text-amber-600">{item.noShowRate}% no-show</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Frequent Event Edits */}
+                <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+                  <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0" />
+                    <h4 className="font-bold text-sm text-slate-900">Frequent Event Edits</h4>
+                    <span className="ml-auto text-[10px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">{platformSignals.frequentEditEvents.length}</span>
+                  </div>
+                  <div className="p-4 space-y-2">
+                    {platformSignals.frequentEditEvents.length === 0 ? (
+                      <p className="text-xs text-slate-400">No frequently edited events detected.</p>
+                    ) : platformSignals.frequentEditEvents.map((item, idx) => (
+                      <div key={idx} className="flex items-center justify-between text-xs py-1 border-b border-slate-50 last:border-0">
+                        <div>
+                          <p className="font-semibold text-slate-800">{item.eventTitle}</p>
+                          <p className="text-slate-400">{item.collegeName}</p>
+                        </div>
+                        <span className="font-black text-indigo-600">{item.editCount} edits</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Capacity Anomalies */}
+                <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+                  <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-violet-500 shrink-0" />
+                    <h4 className="font-bold text-sm text-slate-900">Capacity Anomalies</h4>
+                    <span className="ml-auto text-[10px] font-black text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full">{platformSignals.capacityAnomalies.length}</span>
+                  </div>
+                  <div className="p-4 space-y-2">
+                    {platformSignals.capacityAnomalies.length === 0 ? (
+                      <p className="text-xs text-slate-400">No capacity anomalies detected.</p>
+                    ) : platformSignals.capacityAnomalies.map((item, idx) => (
+                      <div key={idx} className="flex items-center justify-between text-xs py-1 border-b border-slate-50 last:border-0">
+                        <div>
+                          <p className="font-semibold text-slate-800">{item.eventTitle}</p>
+                          <p className="text-slate-400">{item.collegeName} · cap: {item.maxParticipants}</p>
+                        </div>
+                        <span className={`font-black px-1.5 py-0.5 rounded ${item.anomalyType === 'very_low_cap' ? 'text-violet-600 bg-violet-50' : 'text-slate-600 bg-slate-100'}`}>
+                          {item.anomalyType === 'very_low_cap' ? 'Very small' : 'Very large'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "monitoring" && (
+          <div className="space-y-6 animate-fade-in">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="bg-white border border-slate-200 rounded-2xl p-6"><p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Approved Admins</p><p className="text-3xl font-black text-slate-900 mt-2">{stats?.totalCollegeAdmins || 0}</p></div>
+              <div className="bg-white border border-slate-200 rounded-2xl p-6"><p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Pending Admins</p><p className="text-3xl font-black text-slate-900 mt-2">{stats?.pendingAdmins || 0}</p></div>
+              <div className="bg-white border border-slate-200 rounded-2xl p-6"><p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Admin Approval Rate</p><p className="text-3xl font-black text-slate-900 mt-2">{adminApprovalRate}%</p></div>
+              <div className="bg-white border border-slate-200 rounded-2xl p-6"><p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Active Events Ratio</p><p className="text-3xl font-black text-slate-900 mt-2">{activeEventsRatio}%</p></div>
+            </div>
+            <div className="bg-white border border-slate-200 rounded-2xl p-6">
+              <h3 className="font-bold text-slate-900 mb-3">Pending Admin Approvals</h3>
+              {pendingAdmins.length === 0 ? <p className="text-sm text-slate-500">No pending admin approvals.</p> : (
+                <div className="space-y-2">
+                  {pendingAdmins.slice(0, 10).map((admin) => (
+                    <div key={admin._id} className="rounded-xl border border-slate-200 p-3 flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">{admin.firstName} {admin.lastName}</p>
+                        <p className="text-xs text-slate-500">{admin.email}</p>
+                      </div>
+                      <button onClick={() => handleViewPendingAdmin(admin)} className="text-xs font-semibold text-indigo-600 hover:text-indigo-800">View</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "moderation" && (
+          <div className="space-y-6 animate-fade-in">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white border border-slate-200 rounded-2xl p-6"><p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Pending Events</p><p className="text-3xl font-black text-slate-900 mt-2">{pendingEvents.length}</p></div>
+              <div className="bg-white border border-slate-200 rounded-2xl p-6"><p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Event Acceptance Rate</p><p className="text-3xl font-black text-slate-900 mt-2">{eventAcceptanceRate}%</p></div>
+              <div className="bg-white border border-slate-200 rounded-2xl p-6"><p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Comments in Queue</p><p className="text-3xl font-black text-slate-900 mt-2">{moderationComments.length}</p></div>
+            </div>
+            <div className="bg-white border border-slate-200 rounded-2xl p-6">
+              <h3 className="font-bold text-slate-900 mb-3">Pending Event Queue</h3>
+              {pendingEvents.length === 0 ? <p className="text-sm text-slate-500">No events pending moderation.</p> : (
+                <div className="space-y-2">
+                  {pendingEvents.slice(0, 10).map((event) => (
+                    <div key={event._id} className="rounded-xl border border-slate-200 p-3 flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">{event.title}</p>
+                        <p className="text-xs text-slate-500">{event.college?.name || "Unknown college"}</p>
+                      </div>
+                      <button onClick={() => handleViewPendingEvent(event._id)} className="text-xs font-semibold text-indigo-600 hover:text-indigo-800">Review</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-2xl p-6">
+              <h3 className="font-bold text-slate-900 mb-3">Comment Moderation Queue</h3>
+              {moderationComments.length === 0 ? <p className="text-sm text-slate-500">No comments in moderation queue.</p> : (
+                <div className="space-y-2">
+                  {moderationComments.slice(0, 12).map((comment) => (
+                    <div key={comment._id} className="rounded-xl border border-slate-200 p-3 flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs text-slate-500">{comment.eventId?.title || "Unknown event"} | {comment.userId?.firstName || "Student"}</p>
+                        <p className="text-sm font-semibold text-slate-900 mt-1 line-clamp-2">{comment.message}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => navigate(`/event/${comment.eventId?._id}`)} className="text-xs font-semibold text-indigo-600 hover:text-indigo-800">Open</button>
+                        <button onClick={() => handleRemoveComment(comment._id)} className="text-xs font-semibold text-rose-600 hover:text-rose-800">Remove</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "feedback-insights" && (
+          <div className="space-y-8 animate-fade-in">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white border border-slate-200 rounded-2xl p-6"><p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Feedback</p><p className="text-3xl font-black text-slate-900 mt-2">{feedbackAnalytics.summary?.totalFeedback || 0}</p></div>
+              <div className="bg-white border border-slate-200 rounded-2xl p-6"><p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Platform Avg Rating</p><p className="text-3xl font-black text-slate-900 mt-2">{feedbackAnalytics.summary?.platformAverageRating || 0}</p></div>
+              <div className="bg-white border border-slate-200 rounded-2xl p-6"><p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Feedback Response Rate</p><p className="text-3xl font-black text-slate-900 mt-2">{feedbackAnalytics.summary?.responseRate || 0}%</p></div>
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-3">
+              <h3 className="font-bold text-slate-900">Lowest Rated Events</h3>
+              {(feedbackAnalytics.lowestRatedEvents || []).length === 0 && <p className="text-sm text-slate-500">No rated events found yet.</p>}
+              {(feedbackAnalytics.lowestRatedEvents || []).map((event, index) => (
+                <div key={`${event.eventId || index}`} className="rounded-xl border border-slate-200 p-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">{event.eventTitle}</p>
+                    <p className="text-xs text-slate-500 mt-1">{event.collegeName} | {event.feedbackCount || 0} reviews</p>
+                  </div>
+                  <p className="text-sm font-black text-rose-600">{event.avgRating || 0} / 5</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-100"><h3 className="font-bold text-slate-900">College Feedback Overview</h3></div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="text-[10px] text-slate-400 uppercase tracking-widest bg-slate-50/20 border-b border-slate-50"><tr><th className="px-6 py-4 font-bold">College</th><th className="px-6 py-4 font-bold">Avg Rating</th><th className="px-6 py-4 font-bold">Feedback</th><th className="px-6 py-4 font-bold">Registrations</th></tr></thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {(feedbackAnalytics.perCollege || []).length === 0 ? <tr><td colSpan="4" className="px-6 py-12 text-sm text-slate-500 text-center">No feedback analytics data yet.</td></tr> : (feedbackAnalytics.perCollege || []).map((row) => (
+                      <tr key={row.collegeId}><td className="px-6 py-4 text-sm font-semibold text-slate-800">{row.collegeName}</td><td className="px-6 py-4 text-sm text-slate-600">{row.avgRating || 0}</td><td className="px-6 py-4 text-sm text-slate-600">{row.feedbackCount || 0}</td><td className="px-6 py-4 text-sm text-slate-600">{row.registrationsCount || 0}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "governance-logs" && (
+          <div className="space-y-6 animate-fade-in">
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-3">
+              <h3 className="font-bold text-slate-900">Recent Governance Activity</h3>
+              {majorActivities.length === 0 && <p className="text-sm text-slate-500">No governance logs in the selected window.</p>}
+              {majorActivities.map((activity, idx) => (
+                <div key={`${activity._id || idx}`} className="rounded-xl border border-slate-200 p-3">
+                  <p className="text-sm font-semibold text-slate-900">{activity.displayMessage || formatActivity(activity.type)}</p>
+                  <p className="text-xs text-slate-500 mt-1">{timeAgo(activity.createdAt)}</p>
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -1432,11 +1767,15 @@ const EfficiencyRow = ({ label, value, progress }) => (
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
-    const value = payload[0].value || 0;
     return (
-      <div className="bg-slate-900 border-none shadow-2xl rounded-2xl p-4 animate-fade-in translate-y-[-10px]">
-        <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 text-center">{label || 'Metric Data'}</p>
-        <p className="text-xl font-black text-white text-center">{value} <span className="text-[10px] font-bold text-indigo-400 uppercase ml-1">Volume</span></p>
+      <div className="bg-slate-900 border-none shadow-2xl rounded-2xl p-4 min-w-[130px]">
+        <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">{label || 'Date'}</p>
+        {payload.map((entry, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: entry.color }} />
+            <p className="text-xs font-bold text-white">{entry.name}: <span className="text-indigo-300">{entry.value ?? 0}</span></p>
+          </div>
+        ))}
       </div>
     );
   }

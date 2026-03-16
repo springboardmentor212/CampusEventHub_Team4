@@ -55,10 +55,10 @@ export const sendEventReminders = async () => {
       
       await notifyUser({
         recipientId: reg.user._id,
-        type: "EVENT_ALERT",
+        type: "EVENT_REMINDER",
         title: "Event Reminder",
         message: `"${event.title}" starts in 24 hours!`,
-        link: `/events/${event._id}`
+        link: `/event/${event._id}`
       });
     }
     
@@ -83,10 +83,10 @@ export const sendEventReminders = async () => {
       
       await notifyUser({
         recipientId: reg.user._id,
-        type: "EVENT_ALERT",
+        type: "EVENT_REMINDER",
         title: "Event Reminder",
         message: `"${event.title}" starts in 1 hour! Get ready!`,
-        link: `/events/${event._id}`
+        link: `/event/${event._id}`
       });
     }
     

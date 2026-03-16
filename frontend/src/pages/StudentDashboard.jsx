@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout";
 import API from "../api/axios";
@@ -37,7 +37,7 @@ const canCancel = (registration) => {
   return new Date() <= cutoff;
 };
 
-const StudentDashboard = () => {
+const StudentDashboard = ({ view = "alias" }) => {
   const { user } = useAuth();
   const location = useLocation();
 
@@ -53,9 +53,31 @@ const StudentDashboard = () => {
   const [discoverTab, setDiscoverTab] = useState("upcoming");
   const [myEventsTab, setMyEventsTab] = useState("upcoming");
 
-  const myEventsRef = useRef(null);
-  const discoverRef = useRef(null);
-  const activityRef = useRef(null);
+  const sectionAlias = useMemo(() => {
+    const query = new URLSearchParams(location.search);
+    return query.get("section");
+  }, [location.search]);
+
+  const resolvedView = useMemo(() => {
+    if (view && view !== "alias") return view;
+    if (location.pathname === "/student/dashboard") return "dashboard";
+    if (location.pathname === "/student/explore") return "explore";
+    if (location.pathname === "/student/my-events") return "my-events";
+    if (location.pathname === "/student/activity") return "activity";
+
+    if (location.pathname === "/campus-feed") {
+      if (sectionAlias === "discover") return "explore";
+      if (sectionAlias === "my-events") return "my-events";
+      if (sectionAlias === "activity") return "activity";
+    }
+
+    return "dashboard";
+  }, [view, location.pathname, sectionAlias]);
+
+  const showDashboard = resolvedView === "dashboard";
+  const showExplore = resolvedView === "explore";
+  const showMyEvents = resolvedView === "my-events";
+  const showActivity = resolvedView === "activity";
 
   const fetchData = async () => {
     try {
@@ -96,21 +118,6 @@ const StudentDashboard = () => {
       setInstitutionFilter(collegeName);
     }
   }, [discover, user, institutionFilter]);
-
-  useEffect(() => {
-    const query = new URLSearchParams(location.search);
-    const section = query.get("section");
-
-    if (section === "my-events") {
-      myEventsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-    if (section === "discover") {
-      discoverRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-    if (section === "activity") {
-      activityRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }, [location.search]);
 
   const nextEvent = useMemo(() => {
     return registrations
@@ -216,6 +223,14 @@ const StudentDashboard = () => {
     return { topCategories, trending };
   }, [discover]);
 
+  const recommendedEvents = useMemo(() => {
+    const now = new Date();
+    return [...discover]
+      .filter((event) => event.startDate && new Date(event.startDate) > now)
+      .sort((a, b) => (b.currentParticipants || 0) - (a.currentParticipants || 0))
+      .slice(0, 3);
+  }, [discover]);
+
   const cancelRegistration = async (registrationId) => {
     try {
       await API.delete(`/registrations/${registrationId}`);
@@ -240,6 +255,7 @@ const StudentDashboard = () => {
   return (
     <DashboardLayout>
       <div className="max-w-7xl mx-auto space-y-8 pb-16">
+        {showDashboard && (
         <section className="rounded-3xl border border-slate-200 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-900 text-white p-6 md:p-8">
           <p className="text-xs uppercase tracking-widest text-indigo-200">Student Dashboard</p>
           <h1 className="text-2xl md:text-4xl font-black mt-2">Hello, {user?.firstName || "Student"} 👋</h1>
@@ -273,7 +289,9 @@ const StudentDashboard = () => {
             </div>
           )}
         </section>
+        )}
 
+        {showDashboard && (
         <section className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <StatCard label="Registered" value={stats?.totalRegistrations || registrations.length} icon={UserCheck} />
           <StatCard label="Waitlisted" value={stats?.waitlistedCount || registrations.filter((registration) => registration.status === "waitlisted").length} icon={Layers} />
@@ -281,8 +299,45 @@ const StudentDashboard = () => {
           <StatCard label="Attended" value={attendedCount} icon={Sparkles} />
           <StatCard label="Feedback" value={stats?.feedbackPending || 0} icon={TrendingUp} />
         </section>
+        )}
 
-        <section ref={myEventsRef} id="my-events" className="bg-white border border-slate-200 rounded-3xl p-4 md:p-6 space-y-4">
+        {showDashboard && (
+        <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="bg-white border border-slate-200 rounded-3xl p-4 md:p-6 space-y-4">
+            <h3 className="text-lg font-black text-slate-900">Recommended Events</h3>
+            {recommendedEvents.length === 0 && <p className="text-sm text-slate-500">No recommendations yet. Check Explore for all upcoming events.</p>}
+            <div className="space-y-3">
+              {recommendedEvents.map((event) => (
+                <Link key={event._id} to={`/event/${event._id}`} className="block rounded-2xl border border-slate-200 p-3 hover:border-indigo-300 transition-colors">
+                  <p className="font-bold text-slate-900">{event.title}</p>
+                  <p className="text-xs text-slate-500 mt-1">{event.startDate ? new Date(event.startDate).toLocaleString() : "TBA"}</p>
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-3xl p-4 md:p-6 space-y-4">
+            <h3 className="text-lg font-black text-slate-900">Recent Activity</h3>
+            <div className="space-y-3">
+              {activityTimeline.length === 0 && <p className="text-sm text-slate-500">No recent activity.</p>}
+              {activityTimeline.map((registration) => (
+                <div key={registration._id} className="flex items-start gap-3">
+                  <span className="mt-1 w-2.5 h-2.5 rounded-full bg-indigo-500" />
+                  <div>
+                    <p className="text-sm text-slate-800">
+                      {registration.status === "waitlisted" ? "Joined waitlist for" : "Registered for"} {registration.event?.title}
+                    </p>
+                    <p className="text-xs text-slate-500">{new Date(registration.createdAt || registration.registrationDate).toLocaleString()}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+        )}
+
+        {showMyEvents && (
+        <section id="my-events" className="bg-white border border-slate-200 rounded-3xl p-4 md:p-6 space-y-4">
           <h3 className="text-lg font-black text-slate-900">My Events</h3>
 
           <div className="flex flex-wrap gap-2">
@@ -302,12 +357,9 @@ const StudentDashboard = () => {
               <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-center bg-slate-50">
                 <p className="text-sm font-bold text-slate-800">You haven't joined any events yet.</p>
                 <p className="text-xs text-slate-500 mt-1">Start by exploring events across campuses.</p>
-                <button
-                  onClick={() => discoverRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
-                  className="mt-3 px-3 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold"
-                >
+                <Link to="/student/explore" className="inline-block mt-3 px-3 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold">
                   Explore Events
-                </button>
+                </Link>
               </div>
             )}
 
@@ -335,8 +387,10 @@ const StudentDashboard = () => {
             ))}
           </div>
         </section>
+        )}
 
-        <section ref={discoverRef} id="discover" className="bg-white border border-slate-200 rounded-3xl p-4 md:p-6 space-y-4">
+        {showExplore && (
+        <section id="discover" className="bg-white border border-slate-200 rounded-3xl p-4 md:p-6 space-y-4">
           <div className="flex flex-wrap gap-3 items-center justify-between">
             <h3 className="text-lg font-black text-slate-900">Discover Events</h3>
             <span className="text-xs px-2 py-1 rounded-full bg-indigo-50 text-indigo-700 font-bold">{discoverByTab.length} visible</span>
@@ -426,10 +480,18 @@ const StudentDashboard = () => {
                 </Link>
               );
             })}
+            {discoverByTab.length === 0 && (
+              <div className="md:col-span-2 xl:col-span-3 rounded-2xl border border-dashed border-slate-300 p-8 text-center bg-slate-50">
+                <p className="text-sm font-bold text-slate-800">No events match these filters.</p>
+                <p className="text-xs text-slate-500 mt-1">Try resetting campus, category, or date filters.</p>
+              </div>
+            )}
           </div>
         </section>
+        )}
 
-        <section ref={activityRef} id="activity" className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {showActivity && (
+        <section id="activity" className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="bg-white border border-slate-200 rounded-3xl p-4 md:p-6 space-y-4">
             <h3 className="text-lg font-black text-slate-900">Activity Timeline</h3>
             <div className="space-y-3">
@@ -478,6 +540,7 @@ const StudentDashboard = () => {
             </div>
           </div>
         </section>
+        )}
       </div>
     </DashboardLayout>
   );

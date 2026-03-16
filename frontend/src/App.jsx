@@ -95,21 +95,53 @@ function App() {
             path="/campus-feed"
             element={
               <ProtectedRoute role={["student", "college_admin"]}>
-                <StudentDashboard />
+                <StudentDashboard view="alias" />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/dashboard"
+            element={
+              <ProtectedRoute role="student">
+                <StudentDashboard view="dashboard" />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/explore"
+            element={
+              <ProtectedRoute role="student">
+                <StudentDashboard view="explore" />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/my-events"
+            element={
+              <ProtectedRoute role="student">
+                <StudentDashboard view="my-events" />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/activity"
+            element={
+              <ProtectedRoute role="student">
+                <StudentDashboard view="activity" />
               </ProtectedRoute>
             }
           />
           <Route
             path="/student"
-            element={<Navigate to="/campus-feed" replace />}
+            element={<Navigate to="/student/dashboard" replace />}
           />
           <Route
             path="/students"
-            element={<Navigate to="/campus-feed" replace />}
+            element={<Navigate to="/student/dashboard" replace />}
           />
           <Route
             path="/student-dashboard"
-            element={<Navigate to="/campus-feed" replace />}
+            element={<Navigate to="/student/dashboard" replace />}
           />
           <Route
             path="/profile"
