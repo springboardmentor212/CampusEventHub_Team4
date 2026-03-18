@@ -1,8 +1,10 @@
 import axios from "axios";
 
-// Standardizing API URL via Environment Variables
+// Prefer explicit env URL, otherwise same-origin /api. This avoids protocol/host mismatches in deployed environments.
+const resolvedApiBaseUrl = import.meta.env.VITE_API_URL || "/api";
+
 const API = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000/api",
+  baseURL: resolvedApiBaseUrl,
   withCredentials: true, // Crucial for HttpOnly Cookies
   timeout: 15000,
 });
