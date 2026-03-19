@@ -5,14 +5,8 @@ import AppError from "../utils/appError.js";
 
 // Middleware to authenticate user
 export const authenticate = catchAsync(async (req, res, next) => {
-  let token;
-
-  // 1) Get token from Header or Cookie
-  if (req.header("Authorization")?.startsWith("Bearer")) {
-    token = req.header("Authorization").split(" ")[1];
-  } else if (req.cookies.token) {
-    token = req.cookies.token;
-  }
+  // Cookie-only auth path.
+  const token = req.cookies.token;
 
   if (!token) {
     return next(new AppError("You are not logged in! Please log in to get access.", 401));
@@ -139,7 +133,8 @@ export const sameCollegeOrAdmin = (req, res, next) => {
   }
 
   if (req.userRole === "college_admin") {
-    const targetCollegeId = req.params.collegeId || req.body.collegeId;
+    // Supports the canonical :collegeId param and tolerates legacy :id consumers.
+    const targetCollegeId = req.params.collegeId || req.params.id || req.body.collegeId;
 
     if (req.user.college && req.user.college.toString() === targetCollegeId) {
       return next();

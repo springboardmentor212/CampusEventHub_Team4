@@ -9,6 +9,18 @@ import catchAsync from "../utils/catchAsync.js";
 import AppError from "../utils/appError.js";
 import sendToken from "../utils/sendToken.js";
 
+const logAuth = (level, message, meta = {}) => {
+    const payload = {
+        timestamp: new Date().toISOString(),
+        module: "authController",
+        level,
+        message,
+        ...meta,
+    };
+    const writer = level === "error" ? console.error : console.info;
+    writer(JSON.stringify(payload));
+};
+
 // Helper function to send in-app notification
 const sendInAppNotification = async (userId, title, message, type = "info") => {
     try {
@@ -19,7 +31,11 @@ const sendInAppNotification = async (userId, title, message, type = "info") => {
             message
         });
     } catch (err) {
-        console.error("Failed to send in-app notification:", err.message);
+        logAuth("error", "Failed to send in-app notification", {
+            userId: String(userId),
+            type,
+            error: err.message,
+        });
     }
 };
 
@@ -46,18 +62,10 @@ export const register = catchAsync(async (req, res, next) => {
     });
     if (blockedUser) return res.status(400).json({ success: false, message: "Try again after 24 hours" });
 
-    // 3. Student-specific check: Does college have an active admin?
+    // 3. Student-specific validation
     let resolvedCollegeId = collegeId;
     if (assignedRole === "student") {
         if (!collegeId) return next(new AppError("Please select a college.", 400));
-        const activeAdmin = await User.findOne({
-            role: "college_admin",
-            college: collegeId,
-            isApproved: true,
-            isActive: true,
-            accountStatus: "active"
-        });
-        if (!activeAdmin) return res.status(403).json({ success: false, message: "No active admin for this college yet" });
     }
 
     // 4. Create User
@@ -94,7 +102,32 @@ export const register = catchAsync(async (req, res, next) => {
         const tpl = EmailTemplates.onboarding(firstName, verifyUrl, reportLink);
         await sendEmail({ email: newUser.email, ...tpl });
     } catch (e) {
-        console.error("Registration email failed:", e.message);
+        logAuth("error", "Registration email failed", {
+            email: newUser.email,
+            error: e.message,
+        });
+    }
+
+    if (assignedRole === "student" && collegeId) {
+        const activeAdmin = await User.findOne({
+            role: "college_admin",
+            college: collegeId,
+            isApproved: true,
+            isActive: true,
+            accountStatus: "active"
+        });
+
+        if (!activeAdmin) {
+            try {
+                const tpl = EmailTemplates.studentPendingAdminReady(firstName);
+                await sendEmail({ email: newUser.email, ...tpl });
+            } catch (e) {
+                logAuth("error", "Pending-admin email failed", {
+                    email: newUser.email,
+                    error: e.message,
+                });
+            }
+        }
     }
 
     res.status(201).json({
@@ -353,7 +386,10 @@ export const resendVerification = catchAsync(async (req, res, next) => {
         const tpl = EmailTemplates.onboarding(user.firstName, verifyUrl, reportLink);
         await sendEmail({ email: user.email, ...tpl });
     } catch (e) {
-        console.error("Resend email failed:", e.message);
+        logAuth("error", "Verification resend email failed", {
+            email: user.email,
+            error: e.message,
+        });
     }
 
     res.status(200).json({ success: true, message: "Verification link resent." });
@@ -491,7 +527,10 @@ export const deleteAccountByToken = catchAsync(async (req, res, next) => {
         const tpl = EmailTemplates.registrationCancelled(firstName);
         await sendEmail({ email, ...tpl });
     } catch (err) {
-        console.error("Failed to send cancellation email:", err.message);
+        logAuth("error", "Failed to send cancellation email", {
+            email,
+            error: err.message,
+        });
     }
 
     res.status(200).json({
