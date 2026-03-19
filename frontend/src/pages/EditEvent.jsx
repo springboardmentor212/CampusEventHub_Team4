@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import DashboardLayout from "../components/DashboardLayout";
-import API from "../api/axios";
 import toast from "react-hot-toast";
 import { useNavigate, useParams } from "react-router-dom";
 import FormInput from "../components/FormInput";
 import ImageUpload from "../components/ImageUpload";
+import { fetchEventById, updateEvent } from "../services/eventService";
 import {
     Plus,
     MapPin,
@@ -57,7 +57,7 @@ const EditEvent = () => {
     useEffect(() => {
         const fetchEvent = async () => {
             try {
-                const res = await API.get(`/events/${id}`);
+                const res = await fetchEventById(id);
                 const event = res.data.data.event;
 
                 const formatForInput = (dateStr) => {
@@ -142,7 +142,7 @@ const EditEvent = () => {
         }
 
         try {
-            await API.patch(`/events/${id}`, {
+            await updateEvent(id, {
                 ...form,
                 category: form.category.toLowerCase(),
                 requirements: requirementsArray,
