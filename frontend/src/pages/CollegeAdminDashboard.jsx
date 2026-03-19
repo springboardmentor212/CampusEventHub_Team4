@@ -4,6 +4,8 @@ import useAuth from "../hooks/useAuth";
 import API from "../api/axios";
 import toast from "react-hot-toast";
 import { useNavigate, useLocation, Link } from "react-router-dom";
+import { fetchMyEvents } from "../services/eventService";
+import { fetchEventRegistrations, rejectRegistration } from "../services/registrationService";
 import {
   Users,
   Calendar,
@@ -104,7 +106,7 @@ const CollegeAdminDashboard = () => {
     }
 
     const registrationResults = await Promise.allSettled(
-      events.map((event) => API.get(`/registrations/event/${event._id}`))
+      events.map((event) => fetchEventRegistrations(event._id))
     );
 
     const nextRegistrations = registrationResults.flatMap((result, index) => {
@@ -169,7 +171,7 @@ const CollegeAdminDashboard = () => {
         toast.success("Student application rejected");
         fetchPendingStudents();
       } else {
-        await API.patch(`/registrations/${rejectionModal.id}/reject`, { reason: rejectionReason });
+        await rejectRegistration(rejectionModal.id, { reason: rejectionReason });
         toast.success("Registration rejected");
         fetchDashboardData();
       }
@@ -188,7 +190,7 @@ const CollegeAdminDashboard = () => {
       const [statsRes, analyticsRes, eventsRes] = await Promise.allSettled([
         API.get("/dashboards/college-admin"),
         API.get("/dashboards/analytics"),
-        API.get("/events/my/events")
+        fetchMyEvents()
       ]);
       setStats(statsRes.status === "fulfilled" ? { ...emptyStats, ...statsRes.value?.data?.data } : emptyStats);
       setAnalytics(analyticsRes.status === "fulfilled" ? analyticsRes.value?.data?.data : null);
@@ -381,19 +383,19 @@ const CollegeAdminDashboard = () => {
 
   return (
     <DashboardLayout pendingRegistrations={pendingRegistrations.length} pendingStudents={pendingStudents.length}>
-      <div className="max-w-7xl mx-auto space-y-9 animate-fade-in relative">
+      <div className="max-w-7xl mx-auto space-y-8 relative">
         {/* Admin Header */}
-        <header className="flex flex-col gap-2 pb-4 border-b border-slate-100">
+        <header className="flex flex-col gap-3 pb-5 border-b border-slate-200">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
             <div>
-              <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">
+              <h1 className="text-3xl md:text-[2.4rem] font-bold text-slate-900 tracking-tight">
                 {activeTab === 'overview' && 'Dashboard'}
                 {activeTab === 'events' && 'My Events'}
                 {activeTab === 'registrations' && 'Registrations'}
                 {activeTab === 'approvals' && 'Students'}
                 {activeTab === 'feedback' && 'Feedback'}
               </h1>
-              <p className="text-slate-500 font-medium text-sm mt-1">
+              <p className="text-slate-600 font-medium text-sm mt-1">
                 {activeTab === 'overview' && 'Your college at a glance'}
                 {activeTab === 'events' && "All events you've created"}
                 {activeTab === 'registrations' && 'Manage registration requests'}
@@ -405,7 +407,7 @@ const CollegeAdminDashboard = () => {
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => navigate("/create-event")}
-                  className="hero-btn px-6 py-3 text-sm italic shadow-xl shadow-indigo-100"
+                  className="px-5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-700 text-sm font-semibold hover:bg-indigo-100 transition-colors flex items-center gap-2"
                 >
                   <Plus className="w-4 h-4" />
                   Create Event
@@ -416,31 +418,28 @@ const CollegeAdminDashboard = () => {
         </header>
 
         {activeTab === 'overview' && (
-          <div className="space-y-8">
-            <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-              <button onClick={() => navigate('/create-event')} className="text-left bg-white border border-slate-200 rounded-2xl p-4 hover:border-indigo-300 transition-colors">
-                <p className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Immediate Actions</p>
-                <p className="text-sm font-bold text-slate-900 mt-2">Create and launch new event proposals.</p>
-                <p className="text-xs text-indigo-600 mt-3 font-semibold">Open Create Event</p>
-              </button>
-              <button onClick={() => navigate('/admin?tab=events')} className="text-left bg-white border border-slate-200 rounded-2xl p-4 hover:border-indigo-300 transition-colors">
-                <p className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Event Operations</p>
-                <p className="text-sm font-bold text-slate-900 mt-2">Track approvals, paused updates, and live events.</p>
-                <p className="text-xs text-indigo-600 mt-3 font-semibold">Open My Events</p>
-              </button>
-              <button onClick={() => navigate('/admin?tab=registrations')} className="text-left bg-white border border-slate-200 rounded-2xl p-4 hover:border-indigo-300 transition-colors">
-                <p className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Participation Metrics</p>
-                <p className="text-sm font-bold text-slate-900 mt-2">Manage attendance outcomes and registration flow.</p>
-                <p className="text-xs text-indigo-600 mt-3 font-semibold">Open Registrations</p>
-              </button>
-              <button onClick={() => navigate('/admin?tab=feedback')} className="text-left bg-white border border-slate-200 rounded-2xl p-4 hover:border-indigo-300 transition-colors">
-                <p className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Insights</p>
-                <p className="text-sm font-bold text-slate-900 mt-2">Review ratings, comments, and response quality.</p>
-                <p className="text-xs text-indigo-600 mt-3 font-semibold">Open Feedback</p>
-              </button>
+          <div className="space-y-6">
+            <section className="admin-panel px-6 py-6 md:px-8">
+              <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+                <div className="max-w-3xl">
+                  <p className="admin-kicker">Operations overview</p>
+                  <h2 className="mt-1 text-3xl font-bold tracking-tight text-slate-900">Manage events, student approvals, and registration momentum from one dashboard.</h2>
+                  <p className="mt-2 text-sm text-slate-600 leading-6">Today&apos;s priority: keep the approval queue clear, monitor live event health, and protect participation quality.</p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button onClick={() => navigate('/admin?tab=approvals')} className="text-left rounded-xl border border-slate-200 bg-white px-4 py-3 hover:border-indigo-300 hover:bg-indigo-50/50 transition-colors">
+                    <p className="text-xs font-semibold text-slate-500">Student approvals</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">{pendingStudents.length} pending review</p>
+                  </button>
+                  <button onClick={() => navigate('/admin?tab=registrations')} className="text-left rounded-xl border border-slate-200 bg-white px-4 py-3 hover:border-indigo-300 hover:bg-indigo-50/50 transition-colors">
+                    <p className="text-xs font-semibold text-slate-500">Registrations</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">{pendingRegistrations.length} pending actions</p>
+                  </button>
+                </div>
+              </div>
             </section>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
               <MetricCard icon={Calendar} label="Live Events" value={stats.totalEvents || 0} trend={`${stats.pendingApprovalCount || 0} pending approval`} trendTone="info" accent="text-indigo-600 bg-indigo-50 border-indigo-100" />
               <MetricCard icon={Users} label="Total Registrations" value={stats.totalRegistrations || 0} trend={`${registrationsThisMonth} this month`} trendTone="success" accent="text-emerald-600 bg-emerald-50 border-emerald-100" />
               <MetricCard icon={UserCheck} label="Pending Students" value={pendingStudents.length} trend="Needs review" trendTone={pendingStudents.length > 0 ? "warning" : "neutral"} accent="text-amber-600 bg-amber-50 border-amber-100" />
@@ -448,10 +447,10 @@ const CollegeAdminDashboard = () => {
               <MetricCard icon={Star} label="Avg Rating" value={ratingDisplay} trend={`${feedbackRows.length} reviews`} trendTone="warning" accent="text-yellow-600 bg-yellow-50 border-yellow-100" />
             </div>
 
-            <div className="flex flex-col xl:flex-row gap-8">
-              <section className="flex-[3] bg-white rounded-[2.5rem] border border-slate-100 p-7 shadow-sm">
-                <h3 className="font-extrabold text-xl text-slate-900 tracking-tight">Registration Activity</h3>
-                <p className="text-xs text-slate-500 font-medium mt-1 mb-8">Registrations over the last 30 days</p>
+            <div className="flex flex-col xl:flex-row gap-6">
+              <section className="flex-[3] admin-panel p-6">
+                <h3 className="font-bold text-xl text-slate-900 tracking-tight">Registration Activity</h3>
+                <p className="text-sm text-slate-600 font-medium mt-1 mb-6">Registrations over the last 30 days</p>
                 <div className="min-h-[300px] h-[320px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={analytics?.registrationTrend || []}>
@@ -471,8 +470,8 @@ const CollegeAdminDashboard = () => {
                 </div>
               </section>
 
-              <section className="flex-[2] bg-white rounded-[2.5rem] border border-slate-100 p-7 shadow-sm flex flex-col">
-                <h3 className="font-extrabold text-lg text-slate-900 tracking-tight">Recent Activity</h3>
+              <section className="flex-[2] admin-panel p-6 flex flex-col">
+                <h3 className="font-bold text-lg text-slate-900 tracking-tight">Recent Activity</h3>
                 <div className="space-y-5 mt-6 flex-1">
                   {filteredActivity.length > 0 ? (
                     filteredActivity.map((activity, index) => (
@@ -487,9 +486,11 @@ const CollegeAdminDashboard = () => {
                       </div>
                     ))
                   ) : (
-                    <div className="h-full min-h-40 flex items-center justify-center text-slate-400 text-sm font-medium">
-                      No activity yet.
-                    </div>
+                    <EmptyState
+                      icon={Activity}
+                      title="No recent activity"
+                      description="Activity updates will appear here when students apply, registrations change, or events are updated."
+                    />
                   )}
                 </div>
                 <button onClick={() => navigate('/admin?tab=registrations')} className="mt-6 text-xs font-semibold tracking-widest text-indigo-600 hover:text-indigo-700 text-left">
@@ -499,13 +500,19 @@ const CollegeAdminDashboard = () => {
             </div>
 
             <div className="flex flex-col xl:flex-row gap-8">
-              <section className="flex-[3] bg-white rounded-[2.5rem] border border-slate-100 p-7 shadow-sm">
+              <section className="flex-[3] admin-panel p-6">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="font-extrabold text-lg text-slate-900 tracking-tight">Recent Events</h3>
                 </div>
 
                 {recentEvents.length === 0 ? (
-                  <div className="text-sm text-slate-500 font-medium py-10">No events yet. Create your first one.</div>
+                  <EmptyState
+                    icon={Calendar}
+                    title="No events created yet"
+                    description="Create your first event to start registrations and collect feedback."
+                    actionLabel="Create Event"
+                    onAction={() => navigate('/create-event')}
+                  />
                 ) : (
                   <div className="space-y-4">
                     {recentEvents.map((event) => (
@@ -531,8 +538,8 @@ const CollegeAdminDashboard = () => {
               </section>
 
               <section className="flex-[2] space-y-6">
-                <div className="bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm">
-                  <h3 className="font-black text-lg text-slate-900 tracking-tight italic mb-6">Quick Actions</h3>
+                <div className="admin-panel p-6">
+                  <h3 className="font-bold text-lg text-slate-900 tracking-tight mb-4">Quick Actions</h3>
                   <div className="grid grid-cols-2 gap-3">
                     <button onClick={() => navigate('/create-event')} className="p-4 rounded-2xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-slate-800 transition-colors">Create Event</button>
                     <button onClick={() => navigate('/admin?tab=events')} className="p-4 rounded-2xl bg-white border border-slate-200 text-slate-600 text-xs font-black uppercase tracking-widest hover:bg-slate-50 transition-colors">Manage Events</button>
@@ -541,8 +548,8 @@ const CollegeAdminDashboard = () => {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm">
-                  <h3 className="font-black text-slate-900 mb-6 flex items-center gap-2 uppercase tracking-widest text-[10px] italic">
+                <div className="admin-panel p-6">
+                  <h3 className="font-semibold text-slate-900 mb-4 flex items-center gap-2 text-xs">
                     <PieIcon className="w-4 h-4 text-indigo-500" />
                     Events by Category
                   </h3>
@@ -704,88 +711,69 @@ const CollegeAdminDashboard = () => {
         )}
 
         {activeTab === 'approvals' && (
-          <div className="space-y-8 animate-fade-in">
-            <section className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm">
-              <div className="px-8 py-6 border-b border-slate-50 bg-slate-50/50 flex justify-between items-center">
+          <div className="space-y-6">
+            <section className="admin-panel overflow-hidden">
+              <div className="px-6 py-5 border-b border-slate-200 bg-slate-50/70 flex justify-between items-center">
                 <div className="flex flex-col">
-                  <h3 className="font-black text-slate-900 flex items-center gap-3 text-lg italic">
+                  <h3 className="font-bold text-slate-900 flex items-center gap-3 text-lg">
                     <Shield className="w-5 h-5 text-indigo-600" />
                     Student Applications
                   </h3>
-                  <p className="text-sm text-slate-500 font-medium mt-1">Students waiting to join your college</p>
+                  <p className="text-sm text-slate-600 font-medium mt-1">Students waiting to join your college</p>
                 </div>
-                <button onClick={fetchPendingStudents} className="p-2.5 bg-slate-50 text-slate-400 rounded-xl hover:text-indigo-600 transition-all">
-                  <Activity className="w-4 h-4" />
+                <button onClick={fetchPendingStudents} className="px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:border-indigo-300 hover:text-indigo-700 transition-all text-xs font-semibold">
+                  Refresh
                 </button>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead className="text-[10px] text-slate-400 uppercase tracking-widest bg-slate-50/20 border-b border-slate-50">
-                    <tr>
-                      <th className="px-8 py-5 font-bold">Student</th>
-                      <th className="px-8 py-5 font-bold">Student ID</th>
-                      <th className="px-8 py-5 font-bold">Phone</th>
-                      <th className="px-8 py-5 font-bold">Applied</th>
-                      <th className="px-8 py-5 font-bold">Status</th>
-                      <th className="px-8 py-5 font-bold text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {pendingStudents.length === 0 ? (
-                      <tr>
-                        <td colSpan="6" className="px-8 py-20 text-center opacity-40 grayscale">
-                          <Users className="w-12 h-12 mx-auto mb-4 text-slate-300" />
-                          <p className="text-sm font-black text-slate-400 uppercase tracking-widest">No pending applications.</p>
-                          <p className="text-xs text-slate-400 mt-2">New student applications will appear here.</p>
-                        </td>
-                      </tr>
-                    ) : (
-                      pendingStudents.map(student => (
-                        <tr key={student._id} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="px-8 py-5">
-                            <div className="flex items-center gap-4">
-                              <div className="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center font-black text-[10px]">
-                                {student.firstName?.[0] || '?'}{student.lastName?.[0] || ''}
-                              </div>
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <p className="font-black text-slate-900 italic text-sm">{student.firstName} {student.lastName}</p>
-                                  <button onClick={() => handleViewStudent(student)} className="p-1 hover:bg-slate-100 rounded text-slate-300 hover:text-indigo-500 transition-colors">
-                                    <Info className="w-3 h-3" />
-                                  </button>
-                                </div>
-                                <p className="text-[10px] text-slate-400 font-medium">{student.email}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-8 py-5 text-center">
-                            <div className="flex flex-col">
-                              <span className="text-xs font-bold text-slate-700">{student.officialId || student.staffId || "-"}</span>
-                              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Student ID</span>
-                            </div>
-                          </td>
-                          <td className="px-8 py-5">
-                            <span className="text-xs font-bold text-slate-700">{student.phone || "-"}</span>
-                          </td>
-                          <td className="px-8 py-5">
-                            <span className="text-xs font-bold text-slate-600">{timeAgo(student.createdAt)}</span>
-                          </td>
-                          <td className="px-8 py-5">
-                            <span className="text-[10px] font-black uppercase tracking-widest bg-amber-50 text-amber-600 border border-amber-100 px-2.5 py-1 rounded-full">Pending Review</span>
-                          </td>
-                          <td className="px-8 py-5 text-right">
-                            <div className="flex items-center justify-end gap-3">
-                              <button onClick={() => handlePendingStudentAction(student._id, "approve")} className="px-5 py-2.5 bg-slate-900 text-white text-[10px] font-black uppercase rounded-xl hover:bg-slate-800 shadow-lg shadow-slate-200 tracking-widest transition-all active:scale-95">Approve</button>
-                              <button onClick={() => handlePendingStudentAction(student._id, "reject")} className="p-2.5 border border-rose-100 text-rose-500 rounded-xl hover:bg-rose-50 transition-all">
-                                <XCircle className="w-4 h-4" />
+              <div className="p-6 space-y-3">
+                {pendingStudentsLoading ? (
+                  <div className="py-10 flex justify-center">
+                    <div className="w-8 h-8 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin" />
+                  </div>
+                ) : pendingStudents.length === 0 ? (
+                  <EmptyState
+                    icon={Users}
+                    title="No student applications pending"
+                    description="New student signups from your college will appear here for review."
+                  />
+                ) : (
+                  pendingStudents.map((student) => (
+                    <div key={student._id} className="rounded-xl border border-slate-200 bg-white px-4 py-4">
+                      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                        <div className="flex items-start gap-3 min-w-0">
+                          <div className="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold text-xs shrink-0">
+                            {student.firstName?.[0] || "?"}{student.lastName?.[0] || ""}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-semibold text-slate-900 truncate">{student.firstName} {student.lastName}</p>
+                              <button onClick={() => handleViewStudent(student)} className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-indigo-600">
+                                <Info className="w-3.5 h-3.5" />
                               </button>
                             </div>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+                            <p className="text-xs text-slate-500 truncate">{student.email}</p>
+                            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                              <span>ID: {student.officialId || student.staffId || "-"}</span>
+                              <span className="text-slate-300">|</span>
+                              <span>Phone: {student.phone || "-"}</span>
+                              <span className="text-slate-300">|</span>
+                              <span>Applied {timeAgo(student.createdAt)}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 lg:justify-end">
+                          <span className="inline-flex rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">Pending</span>
+                          <button onClick={() => handlePendingStudentAction(student._id, "approve")} className="px-3 py-2 bg-slate-900 text-white text-xs font-semibold rounded-lg hover:bg-slate-800 transition-colors">
+                            Approve
+                          </button>
+                          <button onClick={() => handlePendingStudentAction(student._id, "reject")} className="px-3 py-2 border border-rose-200 text-rose-700 text-xs font-semibold rounded-lg hover:bg-rose-50 transition-colors">
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </section>
           </div>
@@ -976,9 +964,10 @@ const CollegeAdminDashboard = () => {
                   <tbody className="divide-y divide-slate-50">
                     {filteredRegistrations.length === 0 ? (
                       <tr>
-                        <td colSpan="6" className="px-8 py-20 text-center opacity-50">
-                          <CheckCircle className="w-12 h-12 mx-auto mb-4 text-slate-200" />
-                          <p className="text-sm font-black text-slate-400 uppercase tracking-widest">{registrationEmptyLabel}</p>
+                        <td colSpan="6" className="px-8 py-16 text-center">
+                          <CheckCircle className="w-10 h-10 mx-auto mb-3 text-slate-300" />
+                          <p className="text-sm font-semibold text-slate-700">{registrationEmptyLabel}</p>
+                          <p className="text-xs text-slate-500 mt-1">Try changing filters or selecting another event.</p>
                         </td>
                       </tr>
                     ) : (
@@ -1238,6 +1227,22 @@ const CollegeAdminDashboard = () => {
     </DashboardLayout>
   );
 };
+
+const EmptyState = ({ icon: Icon, title, description, actionLabel, onAction }) => (
+  <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/60 px-6 py-10 text-center">
+    <Icon className="w-10 h-10 mx-auto text-slate-300" />
+    <p className="mt-4 text-sm font-semibold text-slate-800">{title}</p>
+    <p className="mt-1 text-sm text-slate-500">{description}</p>
+    {actionLabel && onAction && (
+      <button
+        onClick={onAction}
+        className="mt-5 px-4 py-2 bg-slate-900 text-white text-xs font-semibold rounded-lg hover:bg-slate-800 transition-colors"
+      >
+        {actionLabel}
+      </button>
+    )}
+  </div>
+);
 
 const MetricCard = ({ icon: Icon, label, value, trend, accent, trendTone = "neutral" }) => {
   const trendClass = trendTone === "warning"

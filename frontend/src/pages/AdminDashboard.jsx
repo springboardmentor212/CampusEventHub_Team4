@@ -5,6 +5,13 @@ import toast from "react-hot-toast";
 import { useLocation, useNavigate } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
 import {
+  approveEvent,
+  fetchEventById,
+  fetchEvents as fetchEventsRequest,
+  rejectEvent,
+  updateEvent,
+} from "../services/eventService";
+import {
   Users,
   Calendar,
   CheckCircle,
@@ -15,10 +22,7 @@ import {
   Building2,
   Clock,
   UserCheck,
-  ArrowUpRight,
-  ArrowDownRight,
   Activity,
-  Zap,
   Globe,
   ArrowRight,
   Plus,
@@ -30,7 +34,6 @@ import {
   Shield,
   ShieldCheck,
   AlertCircle,
-  Bookmark
 } from "lucide-react";
 import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area,
@@ -118,7 +121,7 @@ const AdminDashboard = () => {
         API.get("/dashboards/super-admin", { signal }),
         API.get("/dashboards/analytics", { signal }),
         API.get("/auth/admin/pending-users", { signal }),
-        API.get("/events?isApproved=false", { signal }),
+        fetchEventsRequest({ isApproved: false }, { signal }),
         API.get("/feedback/admin/analytics", { signal }),
         API.get("/notifications?role=admin&limit=10", { signal }),
         API.get("/comments/admin/moderation?limit=20", { signal }),
@@ -151,7 +154,6 @@ const AdminDashboard = () => {
       }
 
       if (adminsRes.status === "fulfilled") {
-        console.log("Pending admins response:", adminsRes.value.data);
         setPendingAdmins(adminsRes.value.data.data.users);
       }
       if (eventsRes.status === "fulfilled") setPendingEvents(eventsRes.value.data.data.events);
@@ -174,7 +176,6 @@ const AdminDashboard = () => {
       }
     } catch (err) {
       if (err.name !== 'AbortError') {
-        console.error("Dashboard fetch error:", err);
         toast.error("Failed to refresh dashboard data");
       }
     } finally {
@@ -211,12 +212,10 @@ const AdminDashboard = () => {
   const fetchEvents = async () => {
     setEventsLoading(true);
     try {
-      const res = await API.get('/events', {
-        params: {
-          limit: 1000,
-          search: eventSearch || undefined,
-          sort: eventSort
-        }
+      const res = await fetchEventsRequest({
+        limit: 1000,
+        search: eventSearch || undefined,
+        sort: eventSort,
       });
       setAllEvents(res.data.data.events || []);
     } catch { toast.error('Failed to load global events'); }
@@ -267,7 +266,7 @@ const AdminDashboard = () => {
         toast.success("College Admin application rejected");
         setPendingAdmins(prev => prev.filter(a => a._id !== rejectionModal.id));
       } else {
-        await API.delete(`/events/${rejectionModal.id}/reject`, { data: { reason: rejectionReason.trim() } });
+        await rejectEvent(rejectionModal.id, { reason: rejectionReason.trim() });
         toast.success("Event proposal rejected");
         setPendingEvents(prev => prev.filter(e => e._id !== rejectionModal.id));
       }
@@ -288,7 +287,7 @@ const AdminDashboard = () => {
 
   const handleApproveEvent = async (id) => {
     try {
-      await API.patch(`/events/${id}/approve`);
+      await approveEvent(id);
       toast.success("Event approved and live");
       setPendingEvents(prev => prev.filter(e => e._id !== id));
       if (selectionDetail?.data?._id === id) setSelectionDetail({ show: false, type: null, data: null });
@@ -300,7 +299,7 @@ const AdminDashboard = () => {
 
   const handleToggleVisibility = async (eventId, currentVisibility) => {
     try {
-      await API.patch(`/events/${eventId}`, { isVisible: !currentVisibility });
+      await updateEvent(eventId, { isVisible: !currentVisibility });
       toast.success(`Event ${!currentVisibility ? 'visible' : 'hidden'} on feed`);
       fetchEvents();
     } catch (err) {
@@ -310,7 +309,7 @@ const AdminDashboard = () => {
 
   const handleViewPendingEvent = async (eventId) => {
     try {
-      const res = await API.get(`/events/${eventId}`);
+      const res = await fetchEventById(eventId);
       setSelectionDetail({ show: true, type: 'event', data: res.data.data.event });
     } catch (error) {
       toast.error("Failed to fetch full event details");
@@ -456,6 +455,67 @@ const AdminDashboard = () => {
     .filter((row) => Number(row.avgRating || 0) > 0 && Number(row.avgRating || 0) < 2.5)
     .sort((a, b) => Number(a.avgRating || 0) - Number(b.avgRating || 0));
 
+  const overviewStats = [
+    {
+      label: "Colleges",
+      value: stats?.totalColleges || 0,
+      meta: `${stats?.totalColleges || 0} active`,
+      icon: Building2,
+      tone: "indigo",
+      action: () => navigate("/superadmin?tab=colleges"),
+    },
+    {
+      label: "Admins",
+      value: stats?.totalCollegeAdmins || 0,
+      meta: `${stats?.pendingAdmins || 0} pending approval`,
+      icon: ShieldCheck,
+      tone: (stats?.pendingAdmins || 0) > 0 ? "amber" : "indigo",
+      action: () => navigate("/superadmin?tab=approvals"),
+    },
+    {
+      label: "Students",
+      value: stats?.totalStudents || 0,
+      meta: `${stats?.pendingStudents || 0} pending review`,
+      icon: Users,
+      tone: "slate",
+      action: () => navigate("/superadmin?tab=users"),
+    },
+    {
+      label: "Live Events",
+      value: stats?.totalEvents || 0,
+      meta: `${stats?.pendingEvents || 0} in queue`,
+      icon: Calendar,
+      tone: (stats?.pendingEvents || 0) > 0 ? "amber" : "indigo",
+      action: () => navigate("/superadmin?tab=events"),
+    },
+    {
+      label: "Registrations",
+      value: stats?.totalRegistrations || 0,
+      meta: `${stats?.registrationsThisMonth || 0} this month`,
+      icon: Activity,
+      tone: "indigo",
+      action: () => navigate("/superadmin?tab=analytics"),
+    },
+    {
+      label: "Pending Actions",
+      value: totalApprovalQueue,
+      meta: totalApprovalQueue > 0 ? "Needs attention" : "Queue is clear",
+      icon: AlertTriangle,
+      tone: totalApprovalQueue > 0 ? "rose" : "slate",
+      action: () => navigate("/superadmin?tab=approvals"),
+    },
+  ];
+
+  const overviewHealth = [
+    { label: "Approval Rate", value: `${approvalRate}%`, detail: "approved registrations / total", icon: CheckCircle },
+    { label: "Event Acceptance", value: `${eventAcceptanceRate}%`, detail: "approved events / total", icon: Calendar },
+    { label: "Avg Registrations", value: `${avgRegistrationsPerEvent}`, detail: "average per live event", icon: UserCheck },
+  ];
+
+  const topCollegeRows = [...(feedbackAnalytics?.perCollege || [])]
+    .sort((a, b) => (b.registrationsCount || 0) - (a.registrationsCount || 0))
+    .slice(0, 5);
+
   if (loading || !stats || !analytics) return (
     <DashboardLayout>
       <div className="max-w-7xl mx-auto space-y-8 animate-pulse">
@@ -506,243 +566,283 @@ const AdminDashboard = () => {
         </header>
 
         {activeTab === "overview" && (
-          <div className="space-y-12">
-            {/* Executive Metrics - 6 Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
-              <ExecutiveMetric
-                icon={Building2}
-                label="Colleges"
-                value={stats.totalColleges || 0}
-                trend={`${stats.totalColleges || 0} active`}
-                trendType="neutral"
-                accent="bg-indigo-50 text-indigo-600 border-indigo-100"
-                onClick={() => navigate('/superadmin?tab=colleges')}
-              />
-              <ExecutiveMetric
-                icon={ShieldCheck}
-                label="Admins"
-                value={stats.totalCollegeAdmins || 0}
-                trend={`${stats.pendingAdmins || 0} pending approval`}
-                trendType={(stats.pendingAdmins || 0) > 0 ? "warning" : "up"}
-                accent="bg-indigo-50 text-indigo-600 border-indigo-100"
-                onClick={() => navigate('/superadmin?tab=approvals')}
-              />
-              <ExecutiveMetric
-                icon={Users}
-                label="Students"
-                value={stats.totalStudents || 0}
-                trend={`${stats.pendingStudents || 0} pending approval`} // Fallback to 0 if not provided
-                trendType={(stats.pendingStudents || 0) > 0 ? "warning" : "up"}
-                accent="bg-emerald-50 text-emerald-600 border-emerald-100"
-                onClick={() => navigate('/superadmin?tab=users')}
-              />
-              <ExecutiveMetric
-                icon={Calendar}
-                label="Live Events"
-                value={stats.totalEvents || 0}
-                trend={`${stats.pendingEvents || 0} pending review`}
-                trendType={(stats.pendingEvents || 0) > 0 ? "warning" : "up"}
-                accent="bg-amber-50 text-amber-600 border-amber-100"
-                onClick={() => navigate('/superadmin?tab=events')}
-              />
-              <ExecutiveMetric
-                icon={Activity}
-                label="Registrations"
-                value={stats.totalRegistrations || 0}
-                trend={`${stats.registrationsThisMonth || 0} this month`}
-                trendType="up"
-                accent="bg-indigo-50 text-indigo-600 border-indigo-100"
-                onClick={() => navigate('/superadmin?tab=analytics')}
-              />
-              <ExecutiveMetric
-                icon={AlertTriangle}
-                label="Pending Actions"
-                value={(stats.pendingAdmins || 0) + (stats.pendingEvents || 0)}
-                trend="Needs your attention"
-                trendType="down"
-                highlight={(stats.pendingAdmins || 0) + (stats.pendingEvents || 0) > 0}
-                accent="bg-rose-50 text-rose-600 border-rose-100"
-                onClick={() => navigate('/superadmin?tab=approvals')}
-              />
-            </div>
+          <div className="space-y-8">
+            <section className="admin-panel px-6 py-6 md:px-8">
+              <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+                <div className="max-w-3xl space-y-3">
+                  <p className="admin-kicker">Platform oversight</p>
+                  <h2 className="text-3xl font-bold tracking-tight text-slate-900 md:text-[2.5rem]">
+                    One place to review platform health, approval pressure, and institutional performance.
+                  </h2>
+                  <p className="max-w-2xl text-sm leading-6 text-slate-600 md:text-[15px]">
+                    This view prioritizes approval load, operational signals, and adoption momentum so the next action is obvious without digging through tabs.
+                  </p>
+                </div>
 
-            {/* Platform Health Row */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              <div className="greta-card p-6 border-slate-100 bg-white flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] font-semibold text-slate-500 tracking-widest">Approval Rate</p>
-                  <h4 className="text-2xl font-extrabold text-slate-900 mt-1">{approvalRate}%</h4>
-                </div>
-                <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600">
-                  <CheckCircle className="w-6 h-6" />
-                </div>
-              </div>
-              <div className="greta-card p-6 border-slate-100 bg-white flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] font-semibold text-slate-500 tracking-widest">Event Acceptance</p>
-                  <h4 className="text-2xl font-extrabold text-slate-900 mt-1">
-                    {stats.totalEvents ? Math.round(((stats.totalEvents - stats.pendingEvents) / stats.totalEvents) * 100) : 0}%
-                  </h4>
-                </div>
-                <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600">
-                  <Activity className="w-6 h-6" />
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <button
+                    onClick={() => navigate("/superadmin?tab=approvals")}
+                    className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-left transition-colors hover:border-indigo-300 hover:bg-indigo-50/40"
+                  >
+                    <p className="text-xs font-semibold text-slate-500">Approval queue</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">Review admins and event proposals</p>
+                  </button>
+                  <button
+                    onClick={() => navigate("/superadmin?tab=alerts")}
+                    className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-left transition-colors hover:border-indigo-300 hover:bg-indigo-50/40"
+                  >
+                    <p className="text-xs font-semibold text-slate-500">Risk watch</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">Open live alerts and anomalies</p>
+                  </button>
                 </div>
               </div>
-              <div className="greta-card p-6 border-slate-100 bg-white flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] font-semibold text-slate-500 tracking-widest">Avg Regs / Event</p>
-                  <h4 className="text-2xl font-extrabold text-slate-900 mt-1">{avgRegistrationsPerEvent}</h4>
-                </div>
-                <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-600">
-                  <Users className="w-6 h-6" />
-                </div>
-              </div>
-            </div>
+            </section>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-              {/* College Performance Table */}
-              <div className="lg:col-span-2 space-y-8">
-                <div className="greta-card overflow-hidden">
-                  <div className="px-8 py-6 border-b border-slate-50 bg-slate-50/30 flex justify-between items-center">
+            <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {overviewStats.map((item) => {
+                const Icon = item.icon;
+                const toneClass = item.tone === "rose"
+                  ? "border-rose-200 bg-rose-50 text-rose-700"
+                  : item.tone === "amber"
+                    ? "border-amber-200 bg-amber-50 text-amber-700"
+                    : item.tone === "slate"
+                      ? "border-slate-200 bg-slate-100 text-slate-700"
+                      : "border-indigo-200 bg-indigo-50 text-indigo-700";
+
+                return (
+                  <button
+                    key={item.label}
+                    onClick={item.action}
+                    className="admin-panel group px-5 py-5 text-left transition-all hover:border-indigo-300 hover:shadow-md"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-xs font-semibold text-slate-500">{item.label}</p>
+                        <p className="admin-metric-value mt-3">{item.value}</p>
+                      </div>
+                      <span className={`inline-flex h-10 w-10 items-center justify-center rounded-xl border ${toneClass}`}>
+                        <Icon className="h-5 w-5" />
+                      </span>
+                    </div>
+                    <div className="mt-5 flex items-center justify-between">
+                      <p className="text-sm font-medium text-slate-600">{item.meta}</p>
+                      <ArrowRight className="h-4 w-4 text-slate-300 transition-colors group-hover:text-indigo-600" />
+                    </div>
+                  </button>
+                );
+              })}
+            </section>
+
+            <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+              {overviewHealth.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <div key={item.label} className="admin-panel px-5 py-5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-semibold text-slate-500">{item.label}</p>
+                        <p className="mt-3 text-2xl font-bold tracking-tight text-slate-900">{item.value}</p>
+                      </div>
+                      <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-700">
+                        <Icon className="h-5 w-5" />
+                      </span>
+                    </div>
+                    <p className="mt-4 text-sm text-slate-500">{item.detail}</p>
+                  </div>
+                );
+              })}
+            </section>
+
+            <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.65fr)_minmax(320px,0.95fr)]">
+              <div className="space-y-6">
+                <div className="admin-panel overflow-hidden">
+                  <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
                     <div>
-                      <h3 className="font-bold text-lg text-slate-900 italic tracking-tight">College Performance</h3>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Ranked by total registrations</p>
+                      <p className="admin-kicker">Growth</p>
+                      <h3 className="admin-section-title mt-1">Registration momentum</h3>
+                    </div>
+                    <button
+                      onClick={() => navigate("/superadmin?tab=analytics")}
+                      className="text-sm font-semibold text-indigo-600 transition-colors hover:text-indigo-700"
+                    >
+                      Open analytics
+                    </button>
+                  </div>
+                  <div className="px-4 py-5 md:px-6">
+                    <div className="h-[320px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={analytics?.registrationTrend || []}>
+                          <defs>
+                            <linearGradient id="adminOverviewRegistrations" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#4f46e5" stopOpacity={0.18} />
+                              <stop offset="100%" stopColor="#4f46e5" stopOpacity={0.02} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid vertical={false} stroke="#e2e8f0" strokeDasharray="2 4" />
+                          <XAxis dataKey="_id" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "#64748b" }} dy={10} />
+                          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "#64748b" }} dx={-10} />
+                          <Tooltip content={<CustomTooltip />} />
+                          <Area
+                            type="monotone"
+                            dataKey="count"
+                            name="Registrations"
+                            stroke="#4f46e5"
+                            strokeWidth={2.5}
+                            fill="url(#adminOverviewRegistrations)"
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
                     </div>
                   </div>
+                </div>
+
+                <div className="admin-panel overflow-hidden">
+                  <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
+                    <div>
+                      <p className="admin-kicker">Institutions</p>
+                      <h3 className="admin-section-title mt-1">Top college performance</h3>
+                    </div>
+                    <button
+                      onClick={() => navigate("/superadmin?tab=feedback-insights")}
+                      className="text-sm font-semibold text-indigo-600 transition-colors hover:text-indigo-700"
+                    >
+                      View insights
+                    </button>
+                  </div>
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                      <thead className="text-[10px] text-slate-400 uppercase tracking-widest bg-slate-50/20 border-b border-slate-50">
-                        <tr>
-                          <th className="px-8 py-4 font-bold">College</th>
-                          <th className="px-8 py-4 font-bold text-center">Admins</th>
-                          <th className="px-8 py-4 font-bold text-center">Live Events</th>
-                          <th className="px-8 py-4 font-bold text-center">Registrations</th>
-                          <th className="px-8 py-4 font-bold text-center">Rating</th>
+                    <table className="min-w-full">
+                      <thead className="border-b border-slate-200 bg-slate-50/80">
+                        <tr className="text-left">
+                          <th className="px-6 py-4 text-xs font-semibold text-slate-500">College</th>
+                          <th className="px-6 py-4 text-xs font-semibold text-slate-500">Events</th>
+                          <th className="px-6 py-4 text-xs font-semibold text-slate-500">Registrations</th>
+                          <th className="px-6 py-4 text-xs font-semibold text-slate-500">Rating</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-50">
-                        {feedbackAnalytics.perCollege
-                          ?.sort((a, b) => b.registrationsCount - a.registrationsCount)
-                          .slice(0, 5)
-                          .map((college, idx) => (
-                            <tr key={college.collegeId} className="hover:bg-slate-50/50 transition-colors">
-                              <td className="px-8 py-4">
-                                <div className="flex items-center gap-3">
-                                  <span className="text-xs font-black text-slate-300">#{idx + 1}</span>
-                                  <span className="text-sm font-bold text-slate-900">{college.collegeName}</span>
-                                </div>
-                              </td>
-                              <td className="px-8 py-4 text-center">
-                                <span className="text-xs font-semibold text-slate-600">{allUsers.filter(u => u.college?._id === college.collegeId && u.role === 'college_admin').length || '1'}</span>
-                              </td>
-                              <td className="px-8 py-4 text-center text-sm font-bold text-indigo-600">{college.eventsCount}</td>
-                              <td className="px-8 py-4 text-center">
-                                <span className="text-xs font-black bg-indigo-50 text-indigo-600 px-2 py-1 rounded-lg">{college.registrationsCount}</span>
-                              </td>
-                              <td className="px-8 py-4 text-center">
-                                <div className="flex items-center justify-center gap-1">
-                                  <span className="text-xs font-bold text-slate-900">{college.avgRating || '4.5'}</span>
-                                  <Zap className="w-3 h-3 text-amber-500 fill-amber-500" />
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        {(!feedbackAnalytics.perCollege || feedbackAnalytics.perCollege.length === 0) && (
-                          <tr><td colSpan="5" className="px-8 py-10 text-center text-xs text-slate-400 font-bold uppercase">No performance data yet</td></tr>
+                      <tbody className="divide-y divide-slate-200">
+                        {topCollegeRows.map((college) => (
+                          <tr key={college.collegeId} className="bg-white">
+                            <td className="px-6 py-4">
+                              <div>
+                                <p className="text-sm font-semibold text-slate-900">{college.collegeName}</p>
+                                <p className="mt-1 text-xs text-slate-500">Operational footprint across approved activity</p>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-sm font-semibold text-slate-700">{college.eventsCount || 0}</td>
+                            <td className="px-6 py-4">
+                              <span className="inline-flex rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700">
+                                {college.registrationsCount || 0}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-sm font-semibold text-slate-700">{Number(college.avgRating || 0).toFixed(1)}</td>
+                          </tr>
+                        ))}
+                        {topCollegeRows.length === 0 && (
+                          <tr>
+                            <td colSpan="4" className="px-6 py-12 text-center text-sm text-slate-500">
+                              No college performance data is available yet.
+                            </td>
+                          </tr>
                         )}
                       </tbody>
                     </table>
                   </div>
                 </div>
-
-                {/* Growth Chart */}
-                <div className="greta-card p-8">
-                  <div className="flex items-center justify-between mb-10">
-                    <div>
-                      <h3 className="font-bold text-xl text-slate-900 tracking-tight italic">Platform Growth</h3>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Monthly performance trend</p>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full bg-indigo-600" />
-                        <span className="text-[10px] font-bold text-slate-600 uppercase">Registrations</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                        <span className="text-[10px] font-bold text-slate-600 uppercase">New Students</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={analytics?.registrationTrend || []}>
-                        <defs>
-                          <linearGradient id="colorReg" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#6366f1" stopOpacity={0.1} />
-                            <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                          </linearGradient>
-                          <linearGradient id="colorStu" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.1} />
-                            <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                        <XAxis dataKey="_id" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} dy={10} />
-                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} dx={-10} />
-                        <Tooltip content={<CustomTooltip />} />
-                        <Area type="monotone" dataKey="count" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorReg)" name="Registrations" />
-                        {/* Mocking second line if data not available, otherwise map from analytics */}
-                        <Area type="monotone" dataKey={(d) => Math.round(d.count * 0.7)} stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorStu)" name="New Students" />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
               </div>
 
-              {/* Activity Feed */}
-              <div className="lg:col-span-1 space-y-8">
-                <div className="greta-card flex flex-col h-full overflow-hidden">
-                  <div className="px-8 py-6 border-b border-slate-50 bg-slate-50/30">
-                    <h3 className="font-bold text-lg text-slate-900 italic tracking-tight">Recent Activity</h3>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Major platform updates (latest 5)</p>
+              <div className="space-y-6">
+                <div className="admin-panel overflow-hidden">
+                  <div className="border-b border-slate-200 px-6 py-5">
+                    <p className="admin-kicker">Attention</p>
+                    <h3 className="admin-section-title mt-1">Queue and alerts</h3>
                   </div>
-                  <div className="flex-1 overflow-y-auto p-8 space-y-6 max-h-[800px] no-scrollbar">
-                    {majorActivities.map((activity, idx) => (
-                      <div key={idx} className="flex gap-4 group">
-                        <div className={`w-10 h-10 rounded-xl shrink-0 flex items-center justify-center transition-all group-hover:scale-110 text-lg ${(activity.type || '').includes('REJECT') ? 'bg-rose-50' :
-                          (activity.type || '').includes('APPROVE') ? 'bg-emerald-50' :
-                            'bg-slate-50'
-                          }`}>
-                          {activity.icon || activityIcon(activity.type || '')}
+                  <div className="space-y-4 px-6 py-5">
+                    <div className="admin-panel-muted px-4 py-4">
+                      <p className="text-xs font-semibold text-slate-500">Open approvals</p>
+                      <p className="mt-2 text-2xl font-bold tracking-tight text-slate-900">{totalApprovalQueue}</p>
+                      <p className="mt-2 text-sm text-slate-600">
+                        {stats.pendingAdmins || 0} admin requests and {stats.pendingEvents || 0} event proposals waiting.
+                      </p>
+                    </div>
+                    <div className="space-y-3">
+                      {platformAlerts.slice(0, 4).map((alert, index) => (
+                        <button
+                          key={`${alert.kind}-${index}`}
+                          onClick={() => navigate(alert.target)}
+                          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-4 text-left transition-colors hover:border-indigo-300 hover:bg-indigo-50/30"
+                        >
+                          <p className="text-sm font-semibold text-slate-900">{alert.title}</p>
+                          <p className="mt-1 text-sm text-slate-600">{alert.detail}</p>
+                        </button>
+                      ))}
+                      {platformAlerts.length === 0 && (
+                        <div className="rounded-xl border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500">
+                          No active platform alerts right now.
                         </div>
-                        <div className="space-y-1">
-                          <p className="text-sm font-bold text-slate-900 leading-tight">
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="admin-panel overflow-hidden">
+                  <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
+                    <div>
+                      <p className="admin-kicker">Activity</p>
+                      <h3 className="admin-section-title mt-1">Recent changes</h3>
+                    </div>
+                    <button
+                      onClick={() => navigate("/superadmin?tab=governance-logs")}
+                      className="text-sm font-semibold text-indigo-600 transition-colors hover:text-indigo-700"
+                    >
+                      Governance logs
+                    </button>
+                  </div>
+                  <div className="space-y-4 px-6 py-5">
+                    {majorActivities.map((activity, idx) => (
+                      <div key={idx} className="flex gap-3">
+                        <div className="mt-0.5 h-2.5 w-2.5 rounded-full bg-indigo-500" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium leading-6 text-slate-900">
                             {activity.displayMessage || formatActivity(activity.type)}
                           </p>
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                            {timeAgo(activity.createdAt)}
-                          </p>
+                          <p className="mt-1 text-xs font-medium text-slate-500">{timeAgo(activity.createdAt)}</p>
                         </div>
                       </div>
                     ))}
                     {majorActivities.length === 0 && (
-                      <div className="py-20 px-8 text-center opacity-40">
-                        <Activity className="w-12 h-12 mx-auto mb-4" />
-                        <p className="text-xs font-bold uppercase tracking-widest leading-relaxed">
-                          No major platform updates yet.<br />
-                          Important event and college changes<br />
-                          will appear here.
-                        </p>
+                      <div className="rounded-xl border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500">
+                        No major platform activity has been recorded yet.
                       </div>
                     )}
                   </div>
-                  <div className="px-8 py-4 bg-slate-50 border-t border-slate-100 flex justify-end">
-                    <button onClick={() => toast.success("Activity log redirected")} className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 transition-colors uppercase tracking-widest">View all activity</button>
-                  </div>
                 </div>
 
+                <div className="admin-panel overflow-hidden">
+                  <div className="border-b border-slate-200 px-6 py-5">
+                    <p className="admin-kicker">Quality</p>
+                    <h3 className="admin-section-title mt-1">Colleges to review</h3>
+                  </div>
+                  <div className="space-y-3 px-6 py-5">
+                    {lowRatedColleges.slice(0, 4).map((college) => (
+                      <div key={college.collegeId} className="flex items-start justify-between gap-4 rounded-xl border border-slate-200 px-4 py-4">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">{college.collegeName}</p>
+                          <p className="mt-1 text-sm text-slate-600">{college.feedbackCount || 0} responses contributing to current score</p>
+                        </div>
+                        <span className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700">
+                          {Number(college.avgRating || 0).toFixed(1)}
+                        </span>
+                      </div>
+                    ))}
+                    {lowRatedColleges.length === 0 && (
+                      <div className="rounded-xl border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500">
+                        No low-rated colleges require review at the moment.
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
+            </section>
           </div>
         )}
 
@@ -1717,53 +1817,6 @@ const AdminDashboard = () => {
     </DashboardLayout>
   );
 };
-
-const ExecutiveMetric = ({ icon: Icon, label, value, trend, trendType, accent, onClick, highlight }) => (
-  <div
-    onClick={onClick}
-    className={`${highlight ? 'bg-rose-50/50 border-rose-100' : 'bg-white border-slate-200'} border rounded-2xl p-6 hover:shadow-xl hover:border-indigo-200 transition-all duration-300 overflow-hidden relative group cursor-pointer active:scale-[0.98] shadow-sm`}
-  >
-    <div className="flex items-center justify-between">
-      <div className={`p-2.5 rounded-xl border group-hover:scale-110 transition-transform ${accent}`}>
-        <Icon className="w-5 h-5" />
-      </div>
-      <div className="p-1 px-2 bg-slate-50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
-        <ArrowRight className="w-4 h-4 text-indigo-600" />
-      </div>
-    </div>
-    <div className="mt-6 relative z-10 space-y-3">
-      <div>
-        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">{label}</p>
-        <p className="text-3xl font-black text-slate-900 tracking-tight">{value}</p>
-      </div>
-      <div className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full border border-slate-100 uppercase tracking-widest ${trendType === 'up' ? 'text-emerald-600 bg-emerald-50' :
-        trendType === 'down' ? 'text-rose-600 bg-rose-50' :
-          trendType === 'warning' ? 'text-amber-600 bg-amber-50' :
-            'text-slate-500 bg-slate-50'
-        }`}>
-        {trendType === 'up' && <ArrowUpRight className="w-3 h-3" />}
-        {trendType === 'down' && <ArrowDownRight className="w-3 h-3" />}
-        {trend}
-      </div>
-    </div>
-    <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-indigo-50 rounded-full opacity-0 group-hover:opacity-20 transition-all duration-500" />
-  </div>
-);
-
-const EfficiencyRow = ({ label, value, progress }) => (
-  <div className="space-y-2">
-    <div className="flex justify-between text-[11px] font-bold">
-      <span className="text-slate-400 uppercase tracking-widest">{label}</span>
-      <span className="text-slate-900 tracking-tighter">{value}</span>
-    </div>
-    <div className="h-1.5 w-full bg-slate-50 rounded-full overflow-hidden border border-slate-100">
-      <div
-        className="h-full bg-indigo-600 rounded-full transition-all duration-1000"
-        style={{ width: `${progress}%` }}
-      />
-    </div>
-  </div>
-);
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
