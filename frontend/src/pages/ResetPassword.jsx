@@ -1,139 +1,126 @@
 import { useState } from "react";
 import API from "../api/axios";
-import { useNavigate, useParams, Link } from "react-router-dom";
-import toast from "react-hot-toast";
+import { useNavigate, useParams } from "react-router-dom";
 import FormInput from "../components/FormInput";
-import {
-    Lock,
-    ArrowRight,
-    ShieldCheck,
-    Eye,
-    EyeOff,
-    CheckCircle2
-} from "lucide-react";
+import { ArrowRight, Loader2, Lock, ShieldCheck } from "lucide-react";
 
 const ResetPassword = () => {
-    const { token } = useParams();
-    const navigate = useNavigate();
-    const [showPassword, setShowPassword] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [form, setForm] = useState({
-        password: "",
-        confirmPassword: "",
-    });
+  const { token } = useParams();
+  const navigate = useNavigate();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [statusBanner, setStatusBanner] = useState(null);
+  const [form, setForm] = useState({
+    password: "",
+    confirmPassword: "",
+  });
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setStatusBanner(null);
 
-        if (form.password !== form.confirmPassword) {
-            toast.error("Passwords do not match");
-            return;
-        }
+    if (form.password !== form.confirmPassword) {
+      setStatusBanner({
+        type: "error",
+        message: "That link has expired. Request a new reset link.",
+      });
+      return;
+    }
 
-        setIsSubmitting(true);
-        const loadingToast = toast.loading("Updating password...");
-        try {
-            await API.post("/auth/reset-password", {
-                token: token,
-                newPassword: form.password,
-            });
-            toast.success("Password updated successfully!", { id: loadingToast });
-            navigate("/login");
-        } catch (err) {
-            toast.error(err.response?.data?.message || "Failed to reset password", { id: loadingToast });
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
+    setIsSubmitting(true);
 
-    return (
-        <div className="h-screen bg-white flex flex-col md:flex-row overflow-hidden">
-            {/* Visual Section */}
-            <div className="hidden md:flex md:w-1/2 relative p-12 bg-slate-50 border-r border-slate-100 items-center justify-center">
-                <div className="relative z-10 w-full max-w-lg mx-auto">
-                    <div className="mb-8">
-                        <h1 className="editorial-header mt-4 italic">Reset Password</h1>
-                        <p className="mt-4 text-slate-600 text-lg leading-relaxed">
-                            Create a strong, unique password to secure your account.
-                        </p>
-                    </div>
+    try {
+      await API.post("/auth/reset-password", {
+        token,
+        newPassword: form.password,
+      });
+      setStatusBanner({
+        type: "success",
+        message: "Password updated. You can sign in now.",
+      });
+      setTimeout(() => navigate("/login"), 1200);
+    } catch (err) {
+      setStatusBanner({
+        type: "error",
+        message: "That link has expired. Request a new reset link.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
-                    <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-slate-200 bg-white">
-                        <img
-                            src="/images/campus_life_professional.png"
-                            alt="Campus Security"
-                            className="w-full h-auto object-cover opacity-90"
-                        />
-                    </div>
-                </div>
+  return (
+    <div className="min-h-screen bg-slate-50 px-6 py-10 text-slate-900 md:px-8">
+      <div className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-md items-center justify-center">
+        <div className="w-full rounded-3xl border border-slate-200 bg-white p-8 shadow-sm md:p-10">
+          <div className="mb-8">
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5">
+              <ShieldCheck className="h-4 w-4 text-indigo-600" />
+              <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+                Password reset
+              </span>
             </div>
 
-            {/* Form Section */}
-            <div className="flex-1 flex flex-col items-center justify-center p-8 md:p-12 lg:p-24 bg-white overflow-y-auto no-scrollbar">
-                <div className="w-full max-w-sm">
-                    <header className="mb-10">
-                        <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Set New Password</h2>
-                        <p className="text-slate-500 mt-2 font-medium leading-relaxed">
-                            Enter your new password below.
-                        </p>
-                    </header>
+            <h1 className="text-3xl font-semibold tracking-tight text-slate-950">
+              Set a new password
+            </h1>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Make it something strong you haven't used before.
+            </p>
+          </div>
 
-                    <form onSubmit={handleSubmit} className="space-y-6">
-                        <FormInput
-                            label="New Password"
-                            icon={Lock}
-                            type={showPassword ? "text" : "password"}
-                            placeholder="8+ characters recommended"
-                            value={form.password}
-                            onChange={(e) => setForm({ ...form, password: e.target.value })}
-                            required
-                            suffix={
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="text-slate-400 hover:text-indigo-600 transition-colors p-1"
-                                >
-                                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                </button>
-                            }
-                        />
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <FormInput
+              label="New password"
+              icon={Lock}
+              type="password"
+              placeholder="Create a new password"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              autoComplete="new-password"
+              required
+            />
 
-                        <FormInput
-                            label="Confirm New Password"
-                            icon={Lock}
-                            type={showPassword ? "text" : "password"}
-                            placeholder="Verify password"
-                            value={form.confirmPassword}
-                            onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
-                            required
-                        />
+            <FormInput
+              label="Confirm password"
+              icon={Lock}
+              type="password"
+              placeholder="Repeat your new password"
+              value={form.confirmPassword}
+              onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+              autoComplete="new-password"
+              required
+            />
 
-                        <button
-                            type="submit"
-                            disabled={isSubmitting}
-                            className="hero-btn w-full py-4 text-sm group"
-                        >
-                            Update Password
-                            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                        </button>
+            {statusBanner && (
+              <div className={`rounded-2xl border p-4 ${statusBanner.type === "success" ? "border-emerald-200 bg-emerald-50" : "border-rose-200 bg-rose-50"}`}>
+                <p className={`text-sm leading-6 ${statusBanner.type === "success" ? "text-emerald-800" : "text-rose-700"}`}>
+                  {statusBanner.message}
+                </p>
+              </div>
+            )}
 
-                        <div className="space-y-4 pt-4 border-t border-slate-50">
-                            {[
-                                "Minimum 8 characters",
-                                "Mix of letters and numerals",
-                                "Not a previous password"
-                            ].map((rule, i) => (
-                                <div key={i} className="flex items-center gap-3">
-                                    <CheckCircle2 className="w-3.5 h-3.5 text-indigo-500" />
-                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{rule}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </form>
-                </div>
-            </div>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-300"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Setting password
+                </>
+              ) : (
+                <>
+                  Set password
+                  <ArrowRight className="h-4 w-4" />
+                </>
+              )}
+            </button>
+          </form>
         </div>
-    );
+      </div>
+    </div>
+  );
 };
 
 export default ResetPassword;

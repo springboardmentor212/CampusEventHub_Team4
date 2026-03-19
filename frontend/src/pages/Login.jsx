@@ -11,7 +11,7 @@ import {
   EyeOff,
   ArrowRight,
   ShieldCheck,
-  Loader2
+  Loader2,
 } from "lucide-react";
 
 const Login = () => {
@@ -34,17 +34,18 @@ const Login = () => {
     e.preventDefault();
     setIsSubmitting(true);
     setStatusError(null);
-    const loadingToast = toast.loading("Verifying access...");
+
+    const loadingToast = toast.loading("Checking your details...");
+
     try {
       const loggedUser = await login(email, password);
-      toast.success("Welcome back!", { id: loadingToast });
-
+      toast.success("Welcome back.", { id: loadingToast });
       navigate(getRoleHomeRoute(loggedUser.role));
     } catch (err) {
       const errorData = err.response?.data;
       setStatusError({
-          code: errorData?.code || "INVALID_CREDENTIALS",
-          message: errorData?.message || "Incorrect email or password."
+        code: errorData?.code || "INVALID_CREDENTIALS",
+        message: errorData?.message || "That email and password combination didn't match our records.",
       });
       toast.dismiss(loadingToast);
     } finally {
@@ -52,47 +53,43 @@ const Login = () => {
     }
   };
 
+  const errorTitle = {
+    EMAIL_NOT_VERIFIED: "Check your email first",
+    PENDING_APPROVAL: "Your account is still being reviewed",
+    ACCOUNT_BLOCKED: "This account is currently blocked",
+    ACCOUNT_INACTIVE: "This account is not active yet",
+    INVALID_CREDENTIALS: "We couldn't sign you in",
+  };
+
   return (
-    <div className="min-h-screen bg-white flex flex-col md:flex-row overflow-y-auto">
-      {/* Visual Section */}
-      <div className="hidden md:flex md:w-1/2 relative p-12 bg-slate-50 border-r border-slate-100 items-center justify-center">
-        <div className="relative z-10 w-full max-w-lg mx-auto flex flex-col">
+    <div className="min-h-screen bg-slate-50 px-6 py-10 md:px-8">
+      <div className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-md items-center justify-center">
+        <div className="w-full rounded-3xl border border-slate-200 bg-white p-8 shadow-sm md:p-10">
           <div className="mb-8">
-            <span className="inline-badge">University Partner</span>
-            <h1 className="editorial-header mt-4">
-              Connect. Engage. Succeed.
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5">
+              <ShieldCheck className="h-4 w-4 text-indigo-600" />
+              <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+                Secure sign in
+              </span>
+            </div>
+
+            <h1 className="text-3xl font-semibold tracking-tight text-slate-950">
+              Welcome back
             </h1>
-            <p className="mt-4 text-slate-600 text-lg">
-              The simplest way to discover and manage campus events.
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Sign in to pick up where you left off and get back to your campus dashboard.
             </p>
           </div>
 
-          <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-slate-200">
-            <img
-              src="/images/campus_life_professional.png"
-              alt="Campus Life"
-              className="w-full h-auto object-cover"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Form Section */}
-      <div className="flex-1 flex flex-col items-center justify-center p-8 md:p-12 lg:p-24 bg-white overflow-y-auto">
-        <div className="w-full max-w-sm">
-          <header className="mb-10 text-slate-900">
-            <h2 className="text-3xl font-bold tracking-tight">Sign In</h2>
-            <p className="text-slate-500 mt-2 font-medium">Access your campus dashboard</p>
-          </header>
-
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <FormInput
-              label="Email Address"
+              label="Email address"
               icon={Mail}
               type="email"
-              placeholder="uday.somapuram@university.edu"
+              placeholder="name@college.edu"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
               required
             />
 
@@ -100,87 +97,83 @@ const Login = () => {
               label="Password"
               icon={Lock}
               type={showPassword ? "text" : "password"}
-              placeholder="••••••••"
+              placeholder="Enter your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
               required
               suffix={
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="text-slate-400 hover:text-indigo-600 transition-colors p-1"
+                  className="rounded-md p-1 text-slate-400 transition-colors hover:text-indigo-600"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               }
             />
 
-            <div className="flex justify-end -mt-4">
-              <Link to="/forgot-password" title="Forgot Password" className="text-[10px] font-black text-indigo-600 hover:text-indigo-700 uppercase tracking-widest">Forgot Password?</Link>
+            <div className="flex justify-end">
+              <Link
+                to="/forgot-password"
+                className="text-sm font-medium text-indigo-600 transition-colors hover:text-indigo-700"
+              >
+                Forgot your password?
+              </Link>
             </div>
 
             {statusError && (
-              <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 animate-shake text-slate-900">
-                <div className="flex gap-3">
-                  <div className="w-5 h-5 bg-rose-500 rounded-full flex items-center justify-center shrink-0 mt-0.5">
-                    <span className="text-[10px] font-black text-white">!</span>
+              <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4">
+                <p className="text-sm font-semibold text-rose-900">
+                  {errorTitle[statusError.code] || "We couldn't sign you in"}
+                </p>
+                <p className="mt-1 text-sm leading-6 text-rose-700">
+                  {statusError.message}
+                </p>
+                {statusError.code === "EMAIL_NOT_VERIFIED" && (
+                  <div className="mt-3">
+                    <Link
+                      to="/resend-verification"
+                      className="text-sm font-medium text-rose-800 underline underline-offset-4"
+                    >
+                      Send the verification link again
+                    </Link>
                   </div>
-                  <div>
-                    <p className="text-sm font-bold text-rose-900 leading-tight mb-1">
-                      {statusError.code === "EMAIL_NOT_VERIFIED" && "Email Not Verified"}
-                      {statusError.code === "PENDING_APPROVAL" && "Pending Approval"}
-                      {statusError.code === "ACCOUNT_BLOCKED" && "Account Blocked"}
-                      {statusError.code === "ACCOUNT_INACTIVE" && "Account Inactive"}
-                      {statusError.code === "INVALID_CREDENTIALS" && "Access Denied"}
-                    </p>
-                    <p className="text-xs font-medium text-rose-600 leading-relaxed uppercase tracking-wide">
-                      {statusError.message}
-                    </p>
-                    {statusError.code === "EMAIL_NOT_VERIFIED" && (
-                      <div className="mt-3">
-                        <Link to="/resend-verification" className="text-xs font-black text-rose-700 hover:text-rose-800 underline underline-offset-4 decoration-rose-300">
-                          Resend Verification Link
-                        </Link>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                )}
               </div>
             )}
 
             <button
               type="submit"
               disabled={isSubmitting}
-              className="hero-btn w-full mt-2"
+              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-300"
             >
               {isSubmitting ? (
-                 <>
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    Signing In...
-                 </>
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Signing you in
+                </>
               ) : (
                 <>
-                    Sign In
-                    <ArrowRight className="w-4 h-4" />
+                  Continue to dashboard
+                  <ArrowRight className="h-4 w-4" />
                 </>
               )}
             </button>
 
-            <div className="pt-6 text-center text-slate-900">
-              <p className="text-sm font-medium text-slate-500">
-                New member?{" "}
-                <Link to="/register" className="text-indigo-600 hover:text-indigo-700 font-bold transition-colors">Create an account</Link>
+            <div className="border-t border-slate-200 pt-5 text-center">
+              <p className="text-sm text-slate-600">
+                New here?{" "}
+                <Link
+                  to="/register"
+                  className="font-semibold text-indigo-600 transition-colors hover:text-indigo-700"
+                >
+                  Create your account
+                </Link>
               </p>
             </div>
           </form>
-
-          {/* Minimal Trust Footer */}
-          <div className="mt-12 flex items-center justify-center gap-6 border-t border-slate-100 pt-8 opacity-60">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="w-3 h-3 text-slate-400" />
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">SSL Encrypted</span>
-            </div>
-          </div>
         </div>
       </div>
     </div>
