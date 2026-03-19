@@ -25,7 +25,8 @@ export const requestPasswordReset = catchAsync(async (req, res, next) => {
   user.passwordResetExpires = resetTokenExpiry;
   await user.save();
 
-  const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+  const baseUrl = process.env.FRONTEND_URL?.split(",")[0] || "http://localhost:5173";
+  const resetUrl = `${baseUrl}/reset-password/${resetToken}`;
   const message = `Forgot your password? Reset it here: ${resetUrl}. If you didn't, please ignore.`;
 
   try {

@@ -1,0 +1,43 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "5555:5555"
+    environment:
+      PORT: ${PORT:-5555}
+      NODE_ENV: production
+      MONGO_URI: ${MONGO_URI}
+      JWT_SECRET: ${JWT_SECRET}
+      FRONTEND_URL: ${FRONTEND_URL}
+      BACKEND_URL: ${BACKEND_URL}
+      EMAIL_HOST: ${EMAIL_HOST}
+      EMAIL_PORT: ${EMAIL_PORT}
+      EMAIL_USER: ${EMAIL_USER}
+      EMAIL_PASS: ${EMAIL_PASS}
+      EMAIL_FROM: ${EMAIL_FROM}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
+      APP_NAME: ${APP_NAME:-CampusEventHub}
+      APP_VERSION: ${APP_VERSION:-1.0.0}
+    restart: unless-stopped
+    networks:
+      - campushub
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: ${VITE_API_URL}
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - campushub
+
+networks:
+  campushub:
+    driver: bridge

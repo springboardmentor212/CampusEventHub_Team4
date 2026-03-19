@@ -1,6 +1,24 @@
 import { Notification } from "../models/Notification.js";
 import sendEmail from "./emailService.js";
 
+const ALLOWED_NOTIFICATION_TYPES = new Set(Notification.schema.path("type")?.enumValues || []);
+const LEGACY_NOTIFICATION_TYPE_MAP = {
+    EVENT_ALERT: "EVENT_UPDATE",
+};
+
+const normalizeNotificationType = (type) => {
+    if (!type || typeof type !== "string") {
+        return "ACCOUNT_UPDATE";
+    }
+
+    const mapped = LEGACY_NOTIFICATION_TYPE_MAP[type] || type;
+    if (ALLOWED_NOTIFICATION_TYPES.has(mapped)) {
+        return mapped;
+    }
+
+    return "ACCOUNT_UPDATE";
+};
+
 /**
  * Sends a notification to a user (In-app and optionally Email)
  * @param {Object} params
@@ -21,10 +39,12 @@ export const notifyUser = async ({
     shouldSendEmail = false
 }) => {
     try {
+        const normalizedType = normalizeNotificationType(type);
+
         // 1. Create In-App Notification
         await Notification.create({
             recipient: recipientId,
-            type,
+            type: normalizedType,
             title,
             message,
             link,

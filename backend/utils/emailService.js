@@ -19,22 +19,22 @@ const baseTemplate = (title, body) => `
 <head>
   <meta charset="utf-8"/>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #ffffff; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
-    .wrapper { background-color: #f9fafb; padding: 48px 20px; }
-    .container { max-width: 560px; margin: 0 auto; background: white; border-radius: 8px; border: 1px solid #e5e7eb; overflow: hidden; }
-    .header { padding: 40px 40px 20px; text-align: left; border-bottom: 1px solid #f3f4f6; }
-    .header h1 { color: #111827; margin: 0; font-size: 18px; font-weight: 700; letter-spacing: -0.02em; text-transform: uppercase; }
-    .header p { color: #6b7280; margin: 4px 0 0; font-size: 12px; font-weight: 500; }
-    .body { padding: 40px; color: #374151; }
-    .body h2 { font-size: 16px; color: #111827; margin: 0 0 16px; font-weight: 600; }
-    .body p { line-height: 1.6; font-size: 14px; color: #4b5563; margin-bottom: 16px; }
-    .action-row { margin-top: 32px; display: flex; gap: 12px; }
-    .btn { display: inline-block; padding: 10px 24px; background: #111827; color: #ffffff !important; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 13px; transition: background 0.2s ease; }
-    .btn-secondary { background: #ffffff; color: #374151 !important; border: 1px solid #d1d5db; }
-    .btn-danger { background: #ef4444; color: #ffffff !important; border: none; }
-    .footer { text-align: left; padding: 32px 40px; font-size: 11px; color: #9ca3af; border-top: 1px solid #f3f4f6; background-color: #f9fafb; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, sans-serif; background: #f5f5f5; margin: 0; padding: 0; color: #1f2937; }
+    .wrapper { padding: 24px 12px; }
+    .container { max-width: 560px; margin: 0 auto; background: #ffffff; border: 1px solid #d1d5db; }
+    .header { padding: 18px 20px; border-bottom: 1px solid #e5e7eb; }
+    .header h1 { color: #111827; margin: 0; font-size: 14px; font-weight: 600; }
+    .header p { color: #6b7280; margin: 2px 0 0; font-size: 12px; }
+    .body { padding: 20px; color: #374151; }
+    .body h2 { font-size: 16px; color: #111827; margin: 0 0 14px; font-weight: 600; }
+    .body p { line-height: 1.5; font-size: 14px; color: #374151; margin: 0 0 12px; }
+    .action-row { margin-top: 16px; display: block; }
+    .btn { display: inline-block; padding: 8px 14px; background: #111827; color: #ffffff !important; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 13px; border: 1px solid #111827; }
+    .btn-secondary { background: #ffffff; color: #111827 !important; border: 1px solid #d1d5db; margin-left: 8px; }
+    .btn-danger { background: #991b1b; color: #ffffff !important; border: 1px solid #991b1b; }
+    .footer { text-align: left; padding: 14px 20px; font-size: 11px; color: #6b7280; border-top: 1px solid #e5e7eb; background-color: #fafafa; }
     .footer p { margin: 4px 0; }
-    .divider { height: 1px; background-color: #f3f4f6; margin: 32px 0; }
+    .divider { height: 1px; background-color: #e5e7eb; margin: 14px 0; }
   </style>
 </head>
 <body>
@@ -42,15 +42,15 @@ const baseTemplate = (title, body) => `
     <div class="container">
       <div class="header">
         <h1>CampusEventHub</h1>
-        <p>Institutional Event Management Infrastructure</p>
+        <p>Inter-college Event Management Platform</p>
       </div>
       <div class="body">
         <h2>${title}</h2>
         ${body}
       </div>
       <div class="footer">
-        <p>&copy; ${new Date().getFullYear()} CampusEventHub Infrastructure</p>
-        <p>This is a system-generated transmission. Please contact institutional support for inquiries.</p>
+        <p>&copy; ${new Date().getFullYear()} CampusEventHub</p>
+        <p>This is an automated email. Please do not reply directly to this message.</p>
       </div>
     </div>
   </div>
@@ -59,195 +59,208 @@ const baseTemplate = (title, body) => `
 
 export const EmailTemplates = {
   welcome: (firstName) => ({
-    subject: "Account Verified - CampusEventHub",
+    subject: "Welcome to CampusEventHub!",
     html: baseTemplate(
-      "Verification Successful",
-      `<p>Hello ${firstName}, your account has been successfully verified. You now have full access to discover and participate in institutional events.</p>
-       <p>We recommend updating your profile to ensure seamless communication with event organizers.</p>
+      "Account verified",
+      `<p>Hi ${firstName}, your account has been successfully verified. You can now explore and register for events happening at your college and beyond.</p>
        <div class="action-row">
-         <a href="${getBaseUrl()}/login" class="btn">Access Dashboard</a>
+         <a href="${getBaseUrl()}/login" class="btn">Go to Dashboard</a>
        </div>`
     ),
   }),
 
   registrationReceived: (firstName, eventTitle) => ({
-    subject: `Application Received: ${eventTitle}`,
+    subject: `Registration Received: ${eventTitle}`,
     html: baseTemplate(
-      "Application Under Review",
-      `<p>Hello ${firstName}, your application for <strong>${eventTitle}</strong> has been logged in our system.</p>
-       <p>The event coordinator is currently reviewing your eligibility. You will be notified of the decision shortly.</p>
+      "Registration Under Review",
+      `<p>Hi ${firstName}, your registration for <strong>${eventTitle}</strong> has been received.</p>
+       <p>The event organizer is currently reviewing your request. You'll hear from us soon.</p>
        <div class="action-row">
-         <a href="${getBaseUrl()}/student" class="btn">Track Application</a>
+         <a href="${getBaseUrl()}/student" class="btn">View My Registrations</a>
        </div>`
     ),
   }),
 
   registrationApproved: (firstName, eventTitle, eventDate) => ({
-    subject: `Application Approved: ${eventTitle}`,
+    subject: `Registration Approved: ${eventTitle}`,
     html: baseTemplate(
-      "Admission Confirmed",
-      `<p>Hello ${firstName}, your application for <strong>${eventTitle}</strong> has been approved.</p>
+      "Registration Confirmed",
+      `<p>Hi ${firstName}, your registration for <strong>${eventTitle}</strong> has been approved!</p>
        <div class="divider"></div>
-       <p><strong>Scheduled Date:</strong> ${new Date(eventDate).toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</p>
-       <p>Please ensure you have your institutional credentials available for attendance verification.</p>
+       <p><strong>Date:</strong> ${new Date(eventDate).toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</p>
+       <p>We look forward to seeing you there.</p>
        <div class="action-row">
-         <a href="${getBaseUrl()}/student" class="btn">View Event Access</a>
+         <a href="${getBaseUrl()}/student" class="btn">View Event Details</a>
        </div>`
     ),
   }),
 
   registrationRejected: (firstName, eventTitle, reason) => ({
-    subject: `Application Decision: ${eventTitle}`,
+    subject: `Application Update: ${eventTitle}`,
     html: baseTemplate(
-      "Application Status Update",
-      `<p>Hello ${firstName}, we have completed the review of your application for <strong>${eventTitle}</strong>.</p>
+      "Registration Status Update",
+      `<p>Hi ${firstName}, thank you for your interest in <strong>${eventTitle}</strong>.</p>
        <p>Unfortunately, your application was not accepted at this time.</p>
-       ${reason ? `<p><strong>Decision Detail:</strong> ${reason}</p>` : ""}
+       ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ""}
        <div class="divider"></div>
-       <p>You may continue to browse other available institutional activities.</p>
        <div class="action-row">
-         <a href="${getBaseUrl()}/student" class="btn">Browse Other Events</a>
+         <a href="${getBaseUrl()}/student" class="btn">Browse More Events</a>
        </div>`
     ),
   }),
 
-  eventApproved: (adminName, eventTitle) => ({
-    subject: `Event Publication: ${eventTitle}`,
+  onboarding: (firstName, verifyUrl, reportLink) => ({
+    subject: "Confirm your email — CampusEventHub",
     html: baseTemplate(
-      "Publication Status: Live",
-      `<p>Hello ${adminName}, your event project <strong>${eventTitle}</strong> has been authorized by the SuperAdmin.</p>
-       <p>The project is now live and visible to all eligible participants across the institutional network.</p>
+      "Confirm Your Email",
+      `<p>Hi ${firstName},</p>
+       <p>Thanks for signing up for CampusEventHub.</p>
+       <p>Please confirm your email address by clicking the button below. After confirmation, your account will be reviewed by an admin before you can log in.</p>
        <div class="action-row">
-         <a href="${getBaseUrl()}/manage-events" class="btn">Manage Broadcast</a>
+         <a href="${verifyUrl}" class="btn">Confirm Email</a>
+         <a href="${reportLink}" class="btn btn-secondary">This wasn't me</a>
+       </div>
+       <p style="margin-top:24px; font-size:12px; color:#9ca3af;">This link expires in 24 hours.</p>`
+    )
+  }),
+
+  studentPendingAdminReady: (firstName) => ({
+    subject: "You're on the list - CampusEventHub",
+    html: baseTemplate(
+      "You're on the list",
+      `<p>Hi ${firstName},</p>
+       <p>Your account has been created and we'll keep your place in line.</p>
+       <p>We'll let you know when your college admin is ready to approve student accounts.</p>
+       <div class="action-row">
+         <a href="${getBaseUrl()}/register" class="btn">Open CampusEventHub</a>
        </div>`
     ),
   }),
 
-  onboarding: (firstName, verifyUrl, deleteUrl) => ({
-    subject: "Action Required: Verify Your Identity",
+  resendVerification: (firstName, verifyUrl) => ({
+    subject: "Confirm your email — CampusEventHub",
     html: baseTemplate(
-      "Identity Verification",
-      `<p>Hello ${firstName}, an account has been initiated on CampusEventHub using this email address.</p>
-       <p>To confirm your identity and complete the registration sequence, please use the verification bridge below.</p>
+      "Verification Required",
+      `<p>Hi ${firstName}, please confirm your email address to continue.</p>
        <div class="action-row">
-         <a href="${verifyUrl}" class="btn">Verify Identity</a>
-         <a href="${deleteUrl}" class="btn btn-secondary btn-danger">I Did Not Do This</a>
+         <a href="${verifyUrl}" class="btn">Confirm Email</a>
        </div>
        <p style="margin-top:24px; font-size:12px; color:#9ca3af;">This link expires in 24 hours.</p>`
     ),
   }),
 
-  resendVerification: (firstName, verifyUrl) => ({
-    subject: "Security: New Verification Bridge Generated",
-    html: baseTemplate(
-      "Identity Verification Reset",
-      `<p>Hello ${firstName}, a new authentication bridge has been generated for your account.</p>
-       <div class="action-row">
-         <a href="${verifyUrl}" class="btn">Verify Identity</a>
-       </div>
-       <p style="margin-top:24px; font-size:12px; color:#9ca3af;">This bridge expires in 24 hours.</p>`
-    ),
-  }),
-
   passwordReset: (resetUrl) => ({
-    subject: "Security: Password Recovery Sequence",
+    subject: "Password Reset Request",
     html: baseTemplate(
-      "Recovery Sequence Initiated",
-      `<p>An authentication recovery sequence was initiated for your account.</p>
-       <p>Click the secure link below to establish new credentials. This link is operational for 60 minutes.</p>
+      "Reset your password",
+      `<p>We received a request to reset the password for your CampusEventHub account.</p>
+       <p>Click the link below to set a new password. This link expires in 60 minutes.</p>
        <div class="action-row">
-         <a href="${resetUrl}" class="btn">Reset Credentials</a>
+         <a href="${resetUrl}" class="btn">Reset Password</a>
        </div>`
     ),
   }),
 
-  newCollegeAdminPending: (adminName, collegeName) => ({
-    subject: "Action Required: New Administrative Applicant",
+  adminApproved: (firstName, collegeName) => ({
+    subject: "Approved: You can now log in",
     html: baseTemplate(
-      "Institutional Admin Request",
-      `<p>A new Administrative Applicant, <strong>${adminName}</strong> from <strong>${collegeName}</strong>, has completed identity verification.</p>
-       <p>The applicant is now awaiting your final authorization to manage institutional event infrastructure.</p>
+      "Application Approved",
+      `<p>Hi ${firstName},</p>
+       <p>Your application for <strong>${collegeName}</strong> has been approved. You can now log in to access your dashboard.</p>
        <div class="action-row">
-         <a href="${getBaseUrl()}/superadmin" class="btn">Authorize Applicant</a>
+         <a href="${getBaseUrl()}/login" class="btn">Login Now</a>
        </div>`
     ),
   }),
 
-  collegeAdminApproved: (adminName) => ({
-    subject: "Authorization Level: Institutional Admin",
+  adminRejected: (firstName, reason) => ({
+    subject: "Application Update",
     html: baseTemplate(
-      "Administrative Privileges Granted",
-      `<p>Hello ${adminName}, your application for Administrative access has been authorized by the SuperAdmin.</p>
-       <p>You may now proceed to configure institutional event protocols and manage participant applications.</p>
-       <div class="action-row">
-         <a href="${getBaseUrl()}/login" class="btn">Access Terminal</a>
-       </div>`
+      "Application Not Approved",
+      `<p>Hi ${firstName},</p>
+       <p>Thank you for your interest in CampusEventHub.</p>
+       <p>Unfortunately, your application was not approved at this time.</p>
+       <p><strong>Reason:</strong> ${reason}</p>
+       <p>You may apply again after resolving the issue mentioned above.</p>`
     ),
   }),
 
-  collegeAdminRejected: (adminName, reason) => ({
-    subject: "Application Status: Administrative Level",
+  registrationCancelled: (firstName) => ({
+    subject: "Registration Cancelled",
     html: baseTemplate(
-      "Institutional Admin Application",
-      `<p>Hello ${adminName}, we have concluded the review of your request for administrative privileges.</p>
-       <p>The request has been declined at this time.</p>
-       ${reason ? `<p><strong>Feedback:</strong> ${reason}</p>` : ""}
-       <p>Your associated account data will be purged from the security protocols.</p>`
+      "Registration Cancelled",
+      `<p>Hi ${firstName},</p>
+       <p>We've received your report, and your registration attempt has been cancelled. Your data has been removed from our system.</p>`
     ),
   }),
 
   newEventPending: (eventTitle, collegeName) => ({
-    subject: "Action Required: New Event Publication Request",
+    subject: `New Event Approval Required: ${eventTitle}`,
     html: baseTemplate(
-      "Broadcast Authorization",
-      `<p>A new event project, <strong>${eventTitle}</strong>, has been submitted for authorization by <strong>${collegeName}</strong>.</p>
-       <p>Review the project specifications to ensure compliance with institutional standards.</p>
+      "New Event Pending Approval",
+      `<p>A new event "<strong>${eventTitle}</strong>" has been created by ${collegeName}.</p>
+       <p>Please review the details and approve/reject the event to make it live.</p>
        <div class="action-row">
-         <a href="${getBaseUrl()}/superadmin" class="btn">Review Project</a>
+         <a href="${getBaseUrl()}/admin" class="btn">Go to Admin Dashboard</a>
        </div>`
     ),
   }),
 
-  eventRejected: (adminName, eventTitle, reason) => ({
-    subject: "Publication Status: Action Required",
+  eventApproved: (firstName, eventTitle) => ({
+    subject: `Event Approved: ${eventTitle}`,
     html: baseTemplate(
-      "Broadcast Authorization Declined",
-      `<p>Hello ${adminName}, the publication request for <strong>${eventTitle}</strong> has been declined.</p>
-       ${reason ? `<p><strong>Reviewer Notes:</strong> ${reason}</p>` : ""}
+      "Event Approved",
+      `<p>Hi ${firstName},</p>
+       <p>Good news! Your event "<strong>${eventTitle}</strong>" has been approved and is now live on the platform.</p>
+       <div class="action-row">
+         <a href="${getBaseUrl()}/manage-events" class="btn">Manage Event</a>
+       </div>`
+    ),
+  }),
+
+  eventRejected: (firstName, eventTitle, reason) => ({
+    subject: `Event Rejection Notice: ${eventTitle}`,
+    html: baseTemplate(
+      "Event Not Approved",
+      `<p>Hi ${firstName},</p>
+       <p>Your event application for "<strong>${eventTitle}</strong>" was not approved.</p>
+       <p><strong>Reason:</strong> ${reason}</p>
        <div class="divider"></div>
-       <p>Please revise the project according to institutional standards and resubmit for review.</p>
-       <div class="action-row">
-         <a href="${getBaseUrl()}/manage-events" class="btn">Revise Project</a>
-       </div>`
+       <p>You can revise the event details and submit again.</p>`
     ),
   }),
 
-  eventModified: (title, originalTitle) => ({
-    subject: `Update: Modifications to ${originalTitle}`,
+  waitlistAdded: (firstName, eventTitle, position) => ({
+    subject: `Waitlist Notification: ${eventTitle}`,
     html: baseTemplate(
-      "Event Configuration Update",
-      `<p>There have been critical updates to the configuration of <strong>${originalTitle}</strong> (now: ${title}).</p>
-       <p>Please review the updated details and schedule to ensure alignment with your participation.</p>
-       <div class="action-row">
-         <a href="${getBaseUrl()}/student" class="btn">Review Changes</a>
-       </div>`
+      "Added to Waitlist",
+      `<p>Hi ${firstName},</p>
+       <p>The event "<strong>${eventTitle}</strong>" is currently at full capacity. You've been added to the waitlist.</p>
+       <p><strong>Waitlist Position:</strong> #${position}</p>
+       <p>We'll notify you immediately if a spot opens up.</p>`
     ),
   }),
 
-  eventCancelled: (title) => ({
-    subject: `Notice: Cancellation of ${title}`,
+  eventReminder: (firstName, eventTitle, timeLabel, eventDate, location) => ({
+    subject: `Reminder: ${eventTitle} starts in ${timeLabel}`,
     html: baseTemplate(
-      "Event Broadcast Terminated",
-      `<p>Please be advised that <strong>${title}</strong> has been cancelled by the institutional administration.</p>
-       <p>Your participation record has been updated. We apologize for the disruption.</p>
+      "Event Reminder",
+      `<p>Hi ${firstName}, this is a reminder that the event <strong>${eventTitle}</strong> is starting soon.</p>
+       <div class="divider"></div>
+       <p><strong>Time:</strong> ${timeLabel === "1 hour" ? "In 1 hour" : "Tomorrow"} at ${new Date(eventDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+       <p><strong>Location:</strong> ${location}</p>
        <div class="action-row">
-         <a href="${getBaseUrl()}/student" class="btn">Browse Other Events</a>
+         <a href="${getBaseUrl()}/events" class="btn">View Details</a>
        </div>`
     ),
   }),
 };
 
 const sendEmail = async ({ email, subject, message, html }) => {
+  if (process.env.NODE_ENV === "test") {
+    return;
+  }
+
   const transporter = createTransporter();
   await transporter.sendMail({
     from: `CampusEventHub <${process.env.EMAIL_FROM}>`,

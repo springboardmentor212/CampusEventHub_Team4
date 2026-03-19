@@ -31,7 +31,9 @@ const userSchema = new mongoose.Schema({
   college: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "College",
-    required: true,
+    required: function () {
+      return this.role !== "admin" && !this.pendingCollegeName;
+    },
   },
   firstName: {
     type: String,
@@ -45,10 +47,19 @@ const userSchema = new mongoose.Schema({
   phone: {
     type: String,
     trim: true,
+    unique: true,
+    sparse: true,
+  },
+  pendingCollegeName: {
+    type: String,
+    trim: true,
+    default: null,
   },
   officialId: {
     type: String,
     trim: true,
+    unique: true,
+    sparse: true,
   },
   academicClass: {
     type: String,
@@ -58,11 +69,19 @@ const userSchema = new mongoose.Schema({
     type: String,
     trim: true,
   },
+  notMeCount: {
+    type: Number,
+    default: 0,
+  },
+  notMeCoolingUntil: {
+    type: Date,
+    default: null,
+  },
   avatar: {
     type: String,
     default: "",
   },
-  isEmailVerified: {
+  isVerified: {
     type: Boolean,
     default: false,
   },
@@ -74,12 +93,16 @@ const userSchema = new mongoose.Schema({
   },
   isApproved: {
     type: Boolean,
-    default: true,
+    default: false,
   },
   accountStatus: {
     type: String,
-    enum: ["pending", "active", "deleted"],
-    default: "pending", // All new accounts start as pending until email verified
+    enum: ["pending_verification", "pending_approval", "active", "blocked", "rejected", "deleted"],
+    default: "pending_verification",
+  },
+  rejectionReason: {
+    type: String,
+    default: null,
   },
   passwordResetToken: {
     type: String,
@@ -120,11 +143,13 @@ userSchema.pre("save", async function () {
     if (this.role === "admin") {
       this.isApproved = true;
       this.isActive = true;
-      this.accountStatus = "active"; // Seeded admins are always active
-    } else if (this.role === "college_admin") {
-      // College admins need SuperAdmin approval but email verification first
+      this.isVerified = true;
+      this.accountStatus = "active";
+    } else {
       this.isApproved = false;
       this.isActive = false;
+      this.isVerified = false;
+      this.accountStatus = "pending_verification";
     }
   }
 

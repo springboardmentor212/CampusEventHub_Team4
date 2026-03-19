@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import DashboardLayout from "../components/DashboardLayout";
-import API from "../api/axios";
 import toast from "react-hot-toast";
 import { useNavigate, useParams } from "react-router-dom";
 import FormInput from "../components/FormInput";
 import ImageUpload from "../components/ImageUpload";
+import { fetchEventById, updateEvent } from "../services/eventService";
 import {
     Plus,
     MapPin,
@@ -46,6 +46,7 @@ const EditEvent = () => {
         requirements: "",
         dosAndDonts: "",
         bannerImage: "",
+        audience: "all_colleges",
         participationMode: "solo",
         isTeamEvent: false,
         participationRequirements: []
@@ -56,7 +57,7 @@ const EditEvent = () => {
     useEffect(() => {
         const fetchEvent = async () => {
             try {
-                const res = await API.get(`/events/${id}`);
+                const res = await fetchEventById(id);
                 const event = res.data.data.event;
 
                 const formatForInput = (dateStr) => {
@@ -77,6 +78,7 @@ const EditEvent = () => {
                     requirements: event.requirements ? event.requirements.join(", ") : "",
                     dosAndDonts: event.dosAndDonts ? event.dosAndDonts.join(", ") : "",
                     bannerImage: event.bannerImage || "",
+                    audience: event.audience || "all_colleges",
                     participationMode: event.participationMode || "solo",
                     isTeamEvent: !!event.isTeamEvent,
                     participationRequirements: event.participationRequirements || []
@@ -140,7 +142,7 @@ const EditEvent = () => {
         }
 
         try {
-            await API.patch(`/events/${id}`, {
+            await updateEvent(id, {
                 ...form,
                 category: form.category.toLowerCase(),
                 requirements: requirementsArray,
@@ -372,6 +374,21 @@ const EditEvent = () => {
                                             onChange={(e) => setForm({ ...form, maxParticipants: e.target.value })}
                                         />
                                     </div>
+                                </div>
+
+                                <div className="flex items-center justify-between mt-6">
+                                    <div>
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Event Audience</p>
+                                        <p className="text-[10px] text-slate-500 mt-1">Update registration visibility</p>
+                                    </div>
+                                    <select
+                                        className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-[9px] font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-indigo-100"
+                                        value={form.audience}
+                                        onChange={(e) => setForm({ ...form, audience: e.target.value })}
+                                    >
+                                        <option value="my_college">Only My College</option>
+                                        <option value="all_colleges">All Colleges</option>
+                                    </select>
                                 </div>
 
                                 <div className="flex items-center justify-between mt-6">

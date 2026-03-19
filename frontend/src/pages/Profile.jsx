@@ -1,199 +1,203 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout";
 import useAuth from "../hooks/useAuth";
 import API from "../api/axios";
-import toast from "react-hot-toast";
-import {
-    User,
-    Mail,
-    Phone,
-    BookOpen,
-    LayoutGrid,
-    Building2,
-    Save,
-    ShieldCheck,
-    CreditCard,
-    Award,
-    Hash
-} from "lucide-react";
 import FormInput from "../components/FormInput";
+import { Building2, Mail, Phone, ShieldCheck, User } from "lucide-react";
 
 const Profile = () => {
-    const { user, loadUser } = useAuth();
-    const [loading, setLoading] = useState(false);
-    const [form, setForm] = useState({
-        firstName: user?.firstName || "",
-        lastName: user?.lastName || "",
-        phone: user?.phone || "",
-        academicClass: user?.academicClass || "",
-        section: user?.section || ""
-    });
+  const { user, loadUser } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [statusBanner, setStatusBanner] = useState(null);
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setLoading(true);
-        const loadingToast = toast.loading("Saving profile changes...");
-        try {
-            await API.put("/auth/profile", form);
-            await loadUser();
-            toast.success("Profile updated successfully!", { id: loadingToast });
-        } catch (err) {
-            toast.error(err.response?.data?.message || "Failed to update profile", { id: loadingToast });
-        } finally {
-            setLoading(false);
-        }
-    };
+  const [form, setForm] = useState({
+    firstName: user?.firstName || "",
+    lastName: user?.lastName || "",
+    phone: user?.phone || "",
+    email: user?.email || "",
+  });
 
-    return (
-        <DashboardLayout>
-            <div className="max-w-4xl mx-auto space-y-10 animate-fade-in pb-20">
-                <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
-                    <div>
-                        <div className="flex items-center gap-2 mb-2">
-                            <span className="h-[2px] w-8 bg-indigo-600 rounded-full"></span>
-                            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-600">Personal Identity</span>
-                        </div>
-                        <h1 className="text-4xl font-black text-slate-900 tracking-tight italic">My Account Profile</h1>
-                        <p className="text-slate-500 mt-2 font-medium">Manage your personal information and academic credentials.</p>
-                    </div>
-                </header>
+  useEffect(() => {
+    if (user) {
+      setForm({
+        firstName: user.firstName || "",
+        lastName: user.lastName || "",
+        phone: user.phone || "",
+        email: user.email || "",
+      });
+    }
+  }, [user]);
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-                    {/* Left side: Avatar and Badges */}
-                    <div className="lg:col-span-1 space-y-8">
-                        <section className="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm text-center">
-                            <div className="relative inline-block mb-6">
-                                <div className="w-32 h-32 bg-indigo-100 rounded-[2rem] flex items-center justify-center border-4 border-indigo-50 shadow-inner group overflow-hidden">
-                                    {user?.avatar ? (
-                                        <img src={user.avatar} className="w-full h-full object-cover" alt="" />
-                                    ) : (
-                                        <User className="w-12 h-12 text-indigo-600" />
-                                    )}
-                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
-                                        <span className="text-white text-[10px] font-bold uppercase tracking-widest">Update</span>
-                                    </div>
-                                </div>
-                                <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-emerald-500 text-white rounded-xl border-4 border-white flex items-center justify-center shadow-lg">
-                                    <ShieldCheck className="w-5 h-5" />
-                                </div>
-                            </div>
-                            <h2 className="text-xl font-black text-slate-900 leading-tight">{user?.firstName} {user?.lastName}</h2>
-                            <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mt-1">{user?.role?.replace('_', ' ')}</p>
+  const handleProfileSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setStatusBanner(null);
 
-                            <div className="mt-8 pt-8 border-t border-slate-50 grid grid-cols-2 gap-4">
-                                <div className="p-4 bg-slate-50 rounded-2xl flex flex-col items-center">
-                                    <Award className="w-5 h-5 text-amber-500 mb-2" />
-                                    <span className="text-[9px] font-black text-slate-400 uppercase">Points</span>
-                                    <span className="text-sm font-bold text-slate-900">1250</span>
-                                </div>
-                                <div className="p-4 bg-slate-50 rounded-2xl flex flex-col items-center">
-                                    <CreditCard className="w-5 h-5 text-indigo-500 mb-2" />
-                                    <span className="text-[9px] font-black text-slate-400 uppercase">Credits</span>
-                                    <span className="text-sm font-bold text-slate-900">42</span>
-                                </div>
-                            </div>
-                        </section>
+    try {
+      await API.patch("/auth/profile", form);
+      await loadUser();
+      setStatusBanner({
+        type: "success",
+        message: "Profile updated.",
+      });
+    } catch (err) {
+      setStatusBanner({
+        type: "error",
+        message: "We couldn't save that. Try again.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
-                        <section className="bg-slate-900 text-white rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden group">
-                            <div className="relative z-10">
-                                <h3 className="text-sm font-black uppercase tracking-[0.2em] mb-4 text-indigo-400">Security Note</h3>
-                                <p className="text-xs text-slate-400 leading-relaxed font-medium">Keep your profile details updated to ensure smooth event registration and certificate generation.</p>
-                                <button className="mt-8 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 text-white hover:text-indigo-300 transition-colors">
-                                    <BookOpen className="w-4 h-4" /> Usage Guidelines
-                                </button>
-                            </div>
-                            <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-indigo-500/10 rounded-full blur-3xl group-hover:bg-indigo-500/20 transition-all duration-700" />
-                        </section>
-                    </div>
+  const collegeName =
+    user?.role === "admin"
+      ? "Not linked to a college"
+      : typeof user?.college === "object"
+        ? user?.college?.name
+        : user?.collegeName || user?.college || "No college assigned";
 
-                    {/* Right side: Edit Form */}
-                    <div className="lg:col-span-2">
-                        <form onSubmit={handleSubmit} className="bg-white border border-slate-100 rounded-[3rem] p-10 shadow-sm space-y-8">
-                            <div className="flex items-center gap-3 pb-6 border-b border-slate-50">
-                                <div className="p-3 rounded-2xl bg-slate-900 text-white">
-                                    <LayoutGrid className="w-5 h-5" />
-                                </div>
-                                <div>
-                                    <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm italic">Credential Management</h3>
-                                    <p className="text-[10px] font-bold text-slate-400 mt-0.5">Edit your account specifications.</p>
-                                </div>
-                            </div>
+  const roleLabel =
+    user?.role === "college_admin"
+      ? "College admin"
+      : user?.role === "admin"
+        ? "Superadmin"
+        : "Student";
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <FormInput
-                                    label="First Name"
-                                    icon={User}
-                                    value={form.firstName}
-                                    required
-                                    onChange={(e) => setForm({ ...form, firstName: e.target.value })}
-                                />
-                                <FormInput
-                                    label="Last Name"
-                                    icon={User}
-                                    value={form.lastName}
-                                    onChange={(e) => setForm({ ...form, lastName: e.target.value })}
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <FormInput
-                                    label="Email Address (Locked)"
-                                    icon={Mail}
-                                    value={user?.email || ""}
-                                    disabled
-                                />
-                                <FormInput
-                                    label="Mobile Number"
-                                    icon={Phone}
-                                    placeholder="+91 00000 00000"
-                                    value={form.phone}
-                                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                                />
-                            </div>
-
-                            <div className="pt-6 mt-6 border-t border-slate-50 grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <FormInput
-                                    label="Academic Class"
-                                    icon={BookOpen}
-                                    placeholder="e.g. B.Tech III Year"
-                                    value={form.academicClass}
-                                    onChange={(e) => setForm({ ...form, academicClass: e.target.value })}
-                                />
-                                <FormInput
-                                    label="Section"
-                                    icon={Hash}
-                                    placeholder="e.g. CSE-A"
-                                    value={form.section}
-                                    onChange={(e) => setForm({ ...form, section: e.target.value })}
-                                />
-                            </div>
-
-                            <div className="p-6 bg-slate-50 rounded-2xl flex items-center gap-4">
-                                <div className="p-3 bg-white rounded-xl text-slate-400">
-                                    <Building2 className="w-5 h-5" />
-                                </div>
-                                <div className="flex-1">
-                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Enrolled Institution</p>
-                                    <p className="text-sm font-bold text-slate-700">{user?.college?.name} ({user?.college?.code})</p>
-                                </div>
-                            </div>
-
-                            <div className="pt-8 flex justify-end">
-                                <button
-                                    type="submit"
-                                    disabled={loading}
-                                    className="hero-btn px-12 py-5 italic shadow-3xl shadow-indigo-100/50"
-                                >
-                                    <Save className="w-5 h-5" />
-                                    {loading ? "Syncing..." : "Save Identity"}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
+  return (
+    <DashboardLayout>
+      <div className="mx-auto max-w-3xl px-6 py-10">
+        <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm md:p-10">
+          <div className="mb-8">
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5">
+              <ShieldCheck className="h-4 w-4 text-indigo-600" />
+              <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+                Account settings
+              </span>
             </div>
-        </DashboardLayout>
-    );
+
+            <h1 className="text-3xl font-semibold tracking-tight text-slate-950">
+              Your profile
+            </h1>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Keep your account details up to date so approvals, reminders, and account access stay smooth.
+            </p>
+          </div>
+
+          <form onSubmit={handleProfileSubmit} className="space-y-8">
+            <section className="space-y-5 rounded-2xl border border-slate-200 bg-slate-50 p-6">
+              <div>
+                <h2 className="text-lg font-semibold tracking-tight text-slate-950">
+                  Personal info
+                </h2>
+                <p className="mt-1 text-sm text-slate-600">
+                  The basics tied to your account.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                <FormInput
+                  label="First name"
+                  icon={User}
+                  required
+                  value={form.firstName}
+                  onChange={(e) => setForm({ ...form, firstName: e.target.value })}
+                />
+                <FormInput
+                  label="Last name"
+                  icon={User}
+                  required
+                  value={form.lastName}
+                  onChange={(e) => setForm({ ...form, lastName: e.target.value })}
+                />
+              </div>
+
+              <FormInput
+                label="Phone"
+                icon={Phone}
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              />
+            </section>
+
+            <section className="space-y-5 rounded-2xl border border-slate-200 bg-slate-50 p-6">
+              <div>
+                <h2 className="text-lg font-semibold tracking-tight text-slate-950">
+                  Account
+                </h2>
+                <p className="mt-1 text-sm text-slate-600">
+                  The details used to identify and sign in to your account.
+                </p>
+              </div>
+
+              <FormInput
+                label="Email"
+                icon={Mail}
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+              />
+
+              <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  Role
+                </p>
+                <p className="mt-1 text-sm text-slate-800">{roleLabel}</p>
+              </div>
+            </section>
+
+            <section className="space-y-5 rounded-2xl border border-slate-200 bg-slate-50 p-6">
+              <div>
+                <h2 className="text-lg font-semibold tracking-tight text-slate-950">
+                  College
+                </h2>
+                <p className="mt-1 text-sm text-slate-600">
+                  Your current campus association on the platform.
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                <div className="flex items-start gap-3">
+                  <Building2 className="mt-0.5 h-4 w-4 text-indigo-600" />
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                      College
+                    </p>
+                    <p className="mt-1 text-sm text-slate-800">{collegeName}</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {statusBanner && (
+              <div className={`rounded-2xl border p-4 ${statusBanner.type === "success" ? "border-emerald-200 bg-emerald-50" : "border-rose-200 bg-rose-50"}`}>
+                <p className={`text-sm leading-6 ${statusBanner.type === "success" ? "text-emerald-800" : "text-rose-700"}`}>
+                  {statusBanner.message}
+                </p>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="inline-flex h-12 w-full items-center justify-center rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-300"
+            >
+              {loading ? "Saving changes..." : "Save changes"}
+            </button>
+
+            <div className="border-t border-slate-200 pt-5">
+              <Link
+                to="/delete-account"
+                className="text-sm font-medium text-rose-600 transition-colors hover:text-rose-700"
+              >
+                Delete account
+              </Link>
+            </div>
+          </form>
+        </div>
+      </div>
+    </DashboardLayout>
+  );
 };
 
 export default Profile;

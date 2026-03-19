@@ -4,99 +4,110 @@ import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import FormInput from "../components/FormInput";
 import {
-    Mail,
-    ArrowRight,
-    ShieldCheck,
-    ArrowLeft
+  Mail,
+  ArrowRight,
+  ShieldCheck,
+  ArrowLeft,
+  Loader2,
 } from "lucide-react";
 
 const ForgotPassword = () => {
-    const [email, setEmail] = useState("");
-    const [isSubmitting, setIsSubmitting] = useState(false);
+  const [email, setEmail] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setIsSubmitting(true);
-        const loadingToast = toast.loading("Verifying identity...");
-        try {
-            const res = await API.post("/auth/request-password-reset", { email });
-            toast.success(res.data.message || "Reset link dispatched if account exists.", { id: loadingToast });
-        } catch (err) {
-            toast.error(err.response?.data?.message || "Verification failure", { id: loadingToast });
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
 
-    return (
-        <div className="h-screen bg-white flex flex-col md:flex-row overflow-hidden">
-            {/* Visual Section */}
-            <div className="hidden md:flex md:w-1/2 relative p-12 bg-slate-50 border-r border-slate-100 items-center justify-center">
-                <div className="relative z-10 w-full max-w-lg mx-auto">
-                    <div className="mb-8">
-                        <span className="inline-badge">Security Control</span>
-                        <h1 className="editorial-header mt-4">Access Recovery.</h1>
-                        <p className="mt-4 text-slate-600 text-lg leading-relaxed">
-                            Verify your university credentials to regain secure access to your campus dashboard.
-                        </p>
-                    </div>
+    const loadingToast = toast.loading("Preparing your reset link...");
 
-                    <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-slate-200 bg-white">
-                        <img
-                            src="/images/campus_life_professional.png"
-                            alt="Campus Life Recovery"
-                            className="w-full h-auto object-cover opacity-90"
-                        />
-                    </div>
-                </div>
+    try {
+      await API.post("/auth/request-password-reset", { email });
+      toast.success(
+        "Check your inbox. If that email is registered, a reset link is on its way.",
+        { id: loadingToast }
+      );
+    } catch (err) {
+      toast.error(
+        "Something went wrong. Try again or contact your college admin.",
+        { id: loadingToast }
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 px-6 py-10 text-slate-900 md:px-8">
+      <div className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-md items-center justify-center">
+        <div className="w-full rounded-3xl border border-slate-200 bg-white p-8 shadow-sm md:p-10">
+          <Link
+            to="/login"
+            className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition-colors hover:text-indigo-600"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to sign in
+          </Link>
+
+          <div className="mb-8">
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5">
+              <ShieldCheck className="h-4 w-4 text-indigo-600" />
+              <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+                Account recovery
+              </span>
             </div>
 
-            {/* Form Section */}
-            <div className="flex-1 flex flex-col items-center justify-center p-8 md:p-12 lg:p-24 bg-white overflow-y-auto no-scrollbar">
-                <div className="w-full max-w-sm">
-                    <Link to="/login" className="inline-flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-indigo-600 transition-colors mb-12 uppercase tracking-widest">
-                        <ArrowLeft className="w-3 h-3" />
-                        Back to Sign In
-                    </Link>
+            <h1 className="text-3xl font-semibold tracking-tight text-slate-950">
+              Locked out?
+            </h1>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Enter your college email and we'll send you a reset link.
+            </p>
+          </div>
 
-                    <header className="mb-10">
-                        <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Recover Access</h2>
-                        <p className="text-slate-500 mt-2 font-medium leading-relaxed">
-                            Dispatch a verification link to your registered university email.
-                        </p>
-                    </header>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <FormInput
+              label="College email"
+              icon={Mail}
+              type="email"
+              placeholder="name@college.edu"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+              required
+            />
 
-                    <form onSubmit={handleSubmit} className="space-y-6">
-                        <FormInput
-                            label="Email Address"
-                            icon={Mail}
-                            type="email"
-                            placeholder="uday.somapuram@university.edu"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            required
-                        />
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-300"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Sending reset link
+                </>
+              ) : (
+                <>
+                  Send reset link
+                  <ArrowRight className="h-4 w-4" />
+                </>
+              )}
+            </button>
 
-                        <button
-                            type="submit"
-                            disabled={isSubmitting}
-                            className="hero-btn w-full py-4 text-sm group"
-                        >
-                            Dispatch Reset Link
-                            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                        </button>
-
-                        <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100">
-                            <ShieldCheck className="w-5 h-5 text-indigo-600 shrink-0" />
-                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed">
-                                Reset protocols are encrypted and valid for 60 minutes for your security.
-                            </p>
-                        </div>
-                    </form>
-                </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex gap-3">
+                <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-indigo-600" />
+                <p className="text-sm leading-6 text-slate-600">
+                  Reset links are time-limited and meant for the email address connected to your account.
+                </p>
+              </div>
             </div>
+          </form>
         </div>
-    );
+      </div>
+    </div>
+  );
 };
 
 export default ForgotPassword;

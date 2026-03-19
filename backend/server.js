@@ -1,24 +1,16 @@
-import express from "express";
 import mongoose from "mongoose";
-import cors from "cors";
 import dotenv from "dotenv";
-import cookieParser from "cookie-parser";
-import rateLimit from "express-rate-limit";
-import authRoutes from "./routes/auth.js";
-import collegeRoutes from "./routes/colleges.js";
-import eventRoutes from "./routes/events.js";
-import registrationRoutes from "./routes/registrations.js";
-import globalErrorHandler from "./middleware/errorMiddleware.js";
-import AppError from "./utils/appError.js";
+import { initJobs } from "./jobs/eventJobs.js";
+import { seedSuperAdmin } from "./nodeSeed.js";
+import app from "./app.js";
+
+const PORT = process.env.PORT || 5000;
 
 /*
-  Environment configuration 
+  Environment configuration
 */
-if (process.env.NODE_ENV === "docker") {
-  dotenv.config({ path: "./.env" });
-} else {
-  dotenv.config({ path: "./.env.local" });
-}
+dotenv.config({ path: ".env.local" });
+dotenv.config();
 
 // Critical Environment Variable Check
 const requiredEnv = ["MONGO_URI", "JWT_SECRET", "FRONTEND_URL"];
@@ -28,85 +20,28 @@ requiredEnv.forEach((env) => {
   }
 });
 
-const app = express();
+if (process.env.NODE_ENV !== "test") {
+  const MONGO_URI = process.env.MONGO_URI;
 
-/*
-  Middleware
-*/
-// CORS Hardening
-app.use(
-  cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
-    credentials: true,
-  })
-);
-
-app.use(express.json());
-app.use(cookieParser());
-
-// Rate Limiting
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 200, // Higher limit for development, lower for production in real scenarios
-  message: {
-    success: false,
-    message: "Too many attempts from this IP, please try again after 15 minutes.",
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-/*
-  Routes
-*/
-app.use("/api/auth", authLimiter, authRoutes);
-app.use("/api/colleges", collegeRoutes);
-app.use("/api/events", eventRoutes);
-app.use("/api/registrations", registrationRoutes);
-
-/*
-  Basic Health Route
-*/
-app.get("/", (req, res) => {
-  res.status(200).json({
-    status: "Backend running",
-    message: "CampusEventHub API is ready",
-    version: "1.0.0",
-  });
-});
-
-// Handling Unhandled Routes
-app.use((req, res, next) => {
-  next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
-});
-
-// Global Error Handling Middleware
-app.use(globalErrorHandler);
-
-/*
-  MongoDB Connection
-*/
-const MONGO_URI = process.env.MONGO_URI;
-
-if (MONGO_URI) {
-  mongoose
-    .connect(MONGO_URI)
-    .then(() => {
-      console.log("MongoDB connected successfully");
-    })
-    .catch((err) => {
-      console.error("MongoDB connection error:", err.message);
-      process.exit(1);
-    });
-} else {
-  console.error("error: MONGO_URI is not defined");
+  if (MONGO_URI) {
+    mongoose
+      .connect(MONGO_URI)
+      .then(async () => {
+        console.log("MongoDB connected successfully");
+        await seedSuperAdmin();
+        initJobs();
+        app.listen(PORT, () => {
+          console.log(`Server running on port ${PORT}`);
+        });
+      })
+      .catch((err) => {
+        console.error("MongoDB connection error:", err.message);
+        process.exit(1);
+      });
+  } else {
+    console.error("error: MONGO_URI is not defined");
+  }
 }
 
-/*
-  Start Server
-*/
-const PORT = process.env.PORT || 5000;
+export default app;
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});

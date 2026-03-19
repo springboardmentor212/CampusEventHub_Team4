@@ -15,9 +15,10 @@ import {
     getAllUsers,
     getAllColleges,
     createStudent,
+    reportNotMe,
 } from "../controllers/authController.js";
 import { requestPasswordReset, resetPassword, changePassword } from "../controllers/passwordController.js";
-import { authenticate, isSuperAdmin, isApprovedCollegeAdmin } from "../middleware/auth.js";
+import { authenticate, isSuperAdmin, isApprovedCollegeAdmin, isSuperAdminOrCollegeAdmin } from "../middleware/auth.js";
 import validateRequest, {
     registerSchema,
     loginSchema,
@@ -36,6 +37,7 @@ router.get("/logout", logout);
 // Email verification & onboarding
 router.get("/verify-email/:token", verifyEmail);
 router.get("/delete-account/:token", deleteAccountByToken);
+router.post("/not-me", reportNotMe);
 router.post("/resend-verification", resendVerification);
 
 // Password reset
@@ -45,6 +47,7 @@ router.post("/reset-password", validateRequest(resetPasswordSchema), resetPasswo
 // Protected routes
 router.get("/profile", authenticate, getProfile);
 router.put("/profile", authenticate, updateProfile);
+router.patch("/profile", authenticate, updateProfile);
 router.post("/change-password", authenticate, validateRequest(changePasswordSchema), changePassword);
 
 // Admin routes
@@ -53,8 +56,8 @@ router.get("/admin/pending-users", authenticate, isSuperAdmin, getPendingUsers);
 router.get("/admin/all-users", authenticate, isSuperAdmin, getAllUsers);
 router.get("/admin/all-colleges", authenticate, isSuperAdmin, getAllColleges);
 router.get("/college/pending-students", authenticate, isApprovedCollegeAdmin, getPendingStudents);
-router.post("/admin/create-student", authenticate, createStudent); // Middleware check inside controller
-router.patch("/admin/approve-user/:id", authenticate, approveUser); // Middlewares inside controller check permissions
-router.delete("/admin/reject-user/:id", authenticate, rejectUser);
+router.post("/admin/create-student", authenticate, isSuperAdminOrCollegeAdmin, createStudent);
+router.patch("/admin/approve-user/:id", authenticate, isSuperAdminOrCollegeAdmin, approveUser);
+router.delete("/admin/reject-user/:id", authenticate, isSuperAdminOrCollegeAdmin, rejectUser);
 
 export default router;

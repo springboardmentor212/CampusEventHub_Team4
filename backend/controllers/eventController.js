@@ -1,12 +1,13 @@
+import { Registration } from "../models/Registration.js";
 import { Event } from "../models/Event.js";
 import { User } from "../models/User.js";
-import { College } from "../models/College.js";
-import { Registration } from "../models/Registration.js";
+import { promoteNextWaitlistedRegistration } from "./registrationController.js";
 import AppError from "../utils/appError.js";
 import catchAsync from "../utils/catchAsync.js";
 import sendEmail, { EmailTemplates } from "../utils/emailService.js";
 import { logAdminAction } from "../utils/logger.js";
 import { notifyUser } from "../utils/notificationService.js";
+import { enrichEventWithLifecycle, enrichEventsWithLifecycle } from "../utils/lifecycleMapper.js";
 
 // Create a new event (College Admin only)
 export const createEvent = catchAsync(async (req, res, next) => {
@@ -16,7 +17,7 @@ export const createEvent = catchAsync(async (req, res, next) => {
   // SECURITY: Whitelist allowed fields — prevent injection of isApproved, currentParticipants etc.
   const { title, description, category, location, startDate, endDate, maxParticipants,
     registrationDeadline, requirements, dosAndDonts, participationRequirements, imageUrl, bannerImage,
-    isTeamEvent, minTeamSize, maxTeamSize, participationMode } = req.body;
+    isTeamEvent, minTeamSize, maxTeamSize, participationMode, customCategory, audience } = req.body;
 
   // Validate: Start date must be in the future
   if (new Date(startDate) <= new Date()) {
@@ -28,13 +29,30 @@ export const createEvent = catchAsync(async (req, res, next) => {
     return next(new AppError("Registration deadline must be before the event start date.", 400));
   }
 
+  if (maxParticipants !== null && maxParticipants !== undefined && Number(maxParticipants) <= 0) {
+    return next(new AppError("maxParticipants must be greater than 0 when provided.", 400));
+  }
+
+  // Duplicate check
+  const duplicate = await Event.findOne({
+    title,
+    location,
+    startDate: new Date(startDate),
+    isActive: true
+  });
+
   const event = await Event.create({
     title, description, category, location, startDate, endDate, maxParticipants,
-    registrationDeadline, requirements, dosAndDonts, participationRequirements, imageUrl, bannerImage,
+    registrationDeadline,
+    registrationClosesAt: req.body.registrationClosesAt || registrationDeadline,
+    requirements, dosAndDonts, participationRequirements, imageUrl, bannerImage,
     isTeamEvent, minTeamSize, maxTeamSize, participationMode: participationMode || "solo",
+    audience: audience || "all_colleges",
+    customCategory: category === "other" ? (customCategory || "") : "",
     college: collegeId,
     createdBy: req.userId,
-    isApproved: req.userRole === "admin", // SuperAdmins bypass approval
+    isApproved: req.userRole === "admin" || (req.userRole === "college_admin" && req.user.isApproved),
+    status: (req.userRole === "admin" || (req.userRole === "college_admin" && req.user.isApproved)) ? "approved" : "pending_approval",
     currentParticipants: 0, // Always start at 0
   });
 
@@ -82,6 +100,7 @@ export const createEvent = catchAsync(async (req, res, next) => {
   res.status(201).json({
     success: true,
     message: event.isApproved ? "Event created and live!" : "Event submitted for approval.",
+    isDuplicate: !!duplicate,
     data: { event },
   });
 });
@@ -95,7 +114,60 @@ export const approveEvent = catchAsync(async (req, res, next) => {
     return next(new AppError("Event not found", 404));
   }
 
+  if (event.hasPendingUpdate) {
+    // Handling pending update approval
+    const updatedFields = event.pendingUpdate;
+    const oldMaxParticipants = event.maxParticipants;
+    const newMaxParticipants = updatedFields.maxParticipants;
+
+    // Compare and apply
+    for (const key in updatedFields) {
+      if (event[key] !== undefined) {
+        event[key] = updatedFields[key];
+      }
+    }
+
+    event.hasPendingUpdate = false;
+    event.pendingUpdate = null;
+    event.pauseReason = null;
+    event.status = "approved";
+    event.lastApprovedData = event.toObject();
+    await event.save();
+
+    // If capacity was increased, check if there are waitlisted students
+    if (newMaxParticipants > oldMaxParticipants) {
+      const waitlistedCount = await Registration.countDocuments({ event: id, status: "waitlisted" });
+      if (waitlistedCount > 0) {
+        // Find how many new spots were created
+        const newSpots = newMaxParticipants - oldMaxParticipants;
+        // Promote up to newSpots people
+        for (let i = 0; i < newSpots; i++) {
+          await promoteNextWaitlistedRegistration(event._id);
+        }
+      }
+    }
+
+    // Notify Admin
+    await notifyUser({
+      recipientId: event.createdBy._id,
+      type: "REGISTRATION_STATUS",
+      title: "Update Approved",
+      message: `Your update for "${event.title}" has been approved.`,
+      link: "/manage-events"
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Event update approved and applied.",
+      data: { event }
+    });
+  }
+
+  // Initial approval logic
   event.isApproved = true;
+  event.isVisible = true;
+  event.status = "approved";
+  event.lastApprovedData = event.toObject();
   await event.save();
 
   // Log action
@@ -111,13 +183,13 @@ export const approveEvent = catchAsync(async (req, res, next) => {
   // Notify creator in-app
   await notifyUser({
     recipientId: event.createdBy._id,
-    type: "REGISTRATION_STATUS",
+    type: "EVENT_APPROVE",
     title: "Event Approved",
     message: `Your event "${event.title}" has been approved and is now live!`,
     link: `/manage-events`,
   });
 
-  // Notify creator via email non-blocking
+  // Notify creator via email
   try {
     const tpl = EmailTemplates.eventApproved(event.createdBy.firstName, event.title);
     sendEmail({ email: event.createdBy.email, ...tpl }).catch(err => console.error(err));
@@ -143,6 +215,40 @@ export const rejectEvent = catchAsync(async (req, res, next) => {
     return next(new AppError("Event not found", 404));
   }
 
+  if (event.hasPendingUpdate) {
+    // Rejecting a pending update
+    event.hasPendingUpdate = false;
+    event.pendingUpdate = null;
+    event.pauseReason = null;
+    event.status = "approved"; // Keep enum-compatible live status
+    await event.save();
+
+    // Notify creator
+    await notifyUser({
+      recipientId: event.createdBy._id,
+      type: "EVENT_UPDATE",
+      title: "Update Rejected",
+      message: `Your update for "${event.title}" was rejected. Reason: ${reason || "Does not meet requirements."}`,
+      link: "/manage-events"
+    });
+
+    try {
+      const message = `Hello ${event.createdBy.firstName}, unfortunately your requested update for "${event.title}" was rejected by the administrator.\n\nReason: ${reason || "Not specified."}`;
+      await sendEmail({
+        email: event.createdBy.email,
+        subject: "Event Update Rejected",
+        message,
+        html: `<h1>Update Rejected</h1><p>Hi ${event.createdBy.firstName},</p><p>Your update for event <strong>"${event.title}"</strong> was rejected.</p><p><strong>Reason:</strong> ${reason || "Not specified."}</p>`
+      });
+    } catch (e) { console.error("Rejection email failed", e); }
+
+    return res.status(200).json({
+      success: true,
+      message: "Event update rejected. Live version preserved."
+    });
+  }
+
+  // Initial rejection logic
   // Soft delete or completely remove the unapproved event
   await Event.findByIdAndDelete(id);
 
@@ -156,7 +262,15 @@ export const rejectEvent = catchAsync(async (req, res, next) => {
     ipAddress: req.ip,
   });
 
-  // Notify creator via email non-blocking
+  // Notify creator via email and in-app
+  await notifyUser({
+    recipientId: event.createdBy._id,
+    type: "EVENT_REJECT",
+    title: "Event Rejected",
+    message: `Your event "${event.title}" was rejected. Reason: ${reason || "Documentation requirements not met."}`,
+    link: "/manage-events"
+  });
+
   try {
     const tpl = EmailTemplates.eventRejected(event.createdBy.firstName, event.title, reason || "Documentation requirements not met.");
     sendEmail({ email: event.createdBy.email, ...tpl }).catch(err => console.error(err));
@@ -184,8 +298,8 @@ export const registerForEvent = catchAsync(async (req, res, next) => {
   }
 
   // Check capacity
-  if (event.maxParticipants && event.currentParticipants >= event.maxParticipants) {
-    return next(new AppError("Event is at maximum capacity", 400));
+  if (event.maxParticipants === 0) {
+    return next(new AppError("Registration is disabled for this event", 400));
   }
 
   // Check deadline
@@ -199,9 +313,41 @@ export const registerForEvent = catchAsync(async (req, res, next) => {
   }
 
   // Check if already registered
-  const existingReg = await Registration.findOne({ event: id, user: req.userId });
+  const existingReg = await Registration.findOne({
+    event: id,
+    user: req.userId,
+    status: { $in: ["approved", "waitlisted", "attended", "no_show"] },
+  });
   if (existingReg) {
     return next(new AppError("You are already registered for this event", 400));
+  }
+
+  if (event.maxParticipants && event.currentParticipants >= event.maxParticipants) {
+    const waitlistPosition = await Registration.countDocuments({ event: id, status: "waitlisted" }) + 1;
+    const registration = await Registration.create({
+      event: id,
+      user: req.userId,
+      college: event.college,
+      status: "waitlisted",
+      waitlistPosition,
+      customRequirements: req.body.customResponses,
+    });
+
+    await notifyUser({
+      recipientId: req.userId,
+      type: "REGISTRATION_STATUS",
+      title: "Added to Waitlist",
+      message: `"${event.title}" is full. You are now waitlisted at position ${waitlistPosition}.`,
+      link: `/event/${id}`,
+      email: req.user.email,
+      shouldSendEmail: true,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `Event is full. You are waitlisted at position ${waitlistPosition}.`,
+      data: { registration, waitlistPosition },
+    });
   }
 
   // Create Registration within a session or using atomic updates
@@ -228,7 +374,8 @@ export const registerForEvent = catchAsync(async (req, res, next) => {
       event: id,
       user: req.userId,
       college: updatedEvent.college,
-      status: "pending", // Default to pending for Milestone-3 approval flow
+      status: "approved",
+      approvalDate: new Date(),
       customRequirements: req.body.customResponses, // for custom requirements
     });
   } catch (err) {
@@ -247,16 +394,16 @@ export const registerForEvent = catchAsync(async (req, res, next) => {
   await notifyUser({
     recipientId: req.userId,
     type: "REGISTRATION_STATUS",
-    title: "Registration Received",
-    message: `You have successfully applied for "${updatedEvent.title}". Status: Pending Approval.`,
-    link: `/student`,
+    title: "Registration Confirmed",
+    message: `You are confirmed for "${updatedEvent.title}".`,
+    link: `/student/dashboard`,
     email: req.user.email,
     shouldSendEmail: true,
   });
 
   res.status(200).json({
     success: true,
-    message: "Registration successful. Pending approval.",
+    message: "Registration confirmed.",
     data: { registration },
   });
 });
@@ -301,10 +448,10 @@ export const cancelEvent = catchAsync(async (req, res, next) => {
     // In-app
     await notifyUser({
       recipientId: reg.user._id,
-      type: "EVENT_ALERT",
+      type: "EVENT_UPDATE",
       title: "Event Cancelled",
       message: `The event "${event.title}" has been cancelled. Reason: ${reason || 'Not specified'}.`,
-      link: "/student",
+      link: "/student/dashboard",
     });
 
     // Email
@@ -343,11 +490,44 @@ export const getEvents = catchAsync(async (req, res, next) => {
     endDate,
     status,
     search,
+    availability,
+    sort,
   } = req.query;
 
   // Build filter object
-  const filter = { isActive: true, isApproved: true };
+  const { scope } = req.query;
+  const filter = { isActive: true, isApproved: true, isVisible: true };
 
+  if (req.user && req.userRole === "admin") {
+    // SuperAdmin can see everything for management
+    delete filter.isVisible;
+    delete filter.isApproved;
+    delete filter.isActive;
+  } else if (!req.user) {
+    // Public/Unauthenticated: Only "all_colleges" events
+    filter.audience = "all_colleges";
+  } else if (req.userRole === "student") {
+    // Student: Handle audience and scope
+    const userCollegeId = req.user.college;
+
+    if (scope === "my_college") {
+      filter.college = userCollegeId;
+    } else if (scope === "other_colleges") {
+      filter.college = { $ne: userCollegeId };
+      filter.audience = "all_colleges"; // Only see other colleges' events if they are for all colleges
+    } else {
+      // Default view: Show events from their college OR "all_colleges" events
+      filter.$or = [
+        { audience: "all_colleges" },
+        { audience: "my_college", college: userCollegeId }
+      ];
+    }
+  } else if (req.userRole === "college_admin") {
+    // College Admin hitting /api/events: return only own college events per Task 6/14
+    filter.college = req.user.college;
+  }
+
+  // rest of existing filter logic continues below unchanged
   if (category) {
     filter.category = category;
   }
@@ -358,9 +538,9 @@ export const getEvents = catchAsync(async (req, res, next) => {
 
   if (status && status !== "all") {
     filter.status = status;
-  } else if (!status) {
-    // Default: Show upcoming and ongoing events for students
-    filter.status = { $in: ["upcoming", "ongoing"] };
+  } else if (!status && req.userRole !== "admin") {
+    // Default feed behavior for non-admins: show events that have not ended yet.
+    filter.endDate = { $gte: new Date() };
   }
   // if status is "all", we don't add status filter
 
@@ -373,6 +553,25 @@ export const getEvents = catchAsync(async (req, res, next) => {
     if (endDate) {
       filter.startDate.$lte = new Date(endDate);
     }
+  }
+
+  // Availability filter (Task 17)
+  if (availability === "open") {
+    // Show events with spots OR open events (maxParticipants is null or 0)
+    filter.$and = filter.$and || [];
+    filter.$and.push({
+      $or: [
+        { maxParticipants: null },
+        { maxParticipants: 0 },
+        { $expr: { $lt: ["$currentParticipants", "$maxParticipants"] } }
+      ]
+    });
+  } else if (availability === "full") {
+    filter.$and = filter.$and || [];
+    filter.$and.push({
+      maxParticipants: { $gt: 0 },
+      $expr: { $gte: ["$currentParticipants", "$maxParticipants"] }
+    });
   }
 
   // Search filter (title and description)
@@ -388,25 +587,34 @@ export const getEvents = catchAsync(async (req, res, next) => {
   const limitNum = parseInt(limit);
   const skip = (pageNum - 1) * limitNum;
 
+  // Sort logic (Task 18)
+  let sortObj = { startDate: 1 };
+  if (sort === "newest") sortObj = { createdAt: -1 };
+  else if (sort === "oldest") sortObj = { createdAt: 1 };
+  else if (sort === "popularity") sortObj = { currentParticipants: -1 };
+  else if (sort === "startDate") sortObj = { startDate: 1 };
+
   // Get events
   const events = await Event.find(filter)
     .populate("college", "name code")
     .populate("createdBy", "firstName lastName")
-    .sort({ startDate: 1 })
+    .sort(sortObj)
     .skip(skip)
     .limit(limitNum);
 
   // Get total count for pagination
   const total = await Event.countDocuments(filter);
 
+  const enrichedEvents = enrichEventsWithLifecycle(events.map(e => e.toObject()));
+
   res.status(200).json({
     success: true,
-    results: events.length,
+    results: enrichedEvents.length,
     total,
     page: pageNum,
     pages: Math.ceil(total / limitNum),
     data: {
-      events,
+      events: enrichedEvents,
     },
   });
 });
@@ -423,10 +631,12 @@ export const getEvent = catchAsync(async (req, res, next) => {
     return next(new AppError("Event not found", 404));
   }
 
+  const enrichedEvent = enrichEventWithLifecycle(event.toObject());
+
   res.status(200).json({
     success: true,
     data: {
-      event,
+      event: enrichedEvent,
     },
   });
 });
@@ -457,15 +667,52 @@ export const updateEvent = catchAsync(async (req, res, next) => {
     (req.body.title && req.body.title !== event.title);
 
   // SECURITY: Whitelist allowed update fields — prevent injecting isApproved, currentParticipants, createdBy etc
-  const allowedFields = ["title", "description", "category", "location", "startDate", "endDate", "maxParticipants",
+  const allowedFields = ["title", "description", "category", "customCategory", "location", "audience", "startDate", "endDate", "maxParticipants",
     "registrationDeadline", "requirements", "dosAndDonts", "participationRequirements", "bannerImage", "isTeamEvent",
     "minTeamSize", "maxTeamSize", "participationMode"];
+
   const sanitizedUpdate = { updatedAt: Date.now() };
   for (const key of allowedFields) {
     if (req.body[key] !== undefined) sanitizedUpdate[key] = req.body[key];
   }
 
-  // Update
+  // If the event is already live (approved), we buffer the update
+  if (event.isApproved) {
+    event.pendingUpdate = sanitizedUpdate;
+    event.hasPendingUpdate = true;
+    event.status = "paused";
+    event.pauseReason = "This event is paused while an update is under review.";
+    await event.save();
+
+    // Notify SuperAdmin
+    const superAdmins = await User.find({ role: "admin" });
+    for (const admin of superAdmins) {
+      await notifyUser({
+        recipientId: admin._id,
+        type: "EVENT_UPDATE",
+        title: "Event Update Pending",
+        message: `Event "${event.title}" was updated and is now pending review.`,
+        link: "/superadmin?tab=approvals"
+      });
+    }
+
+    // Log action
+    await logAdminAction({
+      action: "EVENT_UPDATE_REQUEST",
+      performedBy: req.userId,
+      targetId: id,
+      targetType: "Event",
+      ipAddress: req.ip,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Update submitted for review. The event is now paused.",
+      data: { event }
+    });
+  }
+
+  // If draft, apply directly
   event = await Event.findByIdAndUpdate(
     id,
     sanitizedUpdate,
@@ -474,44 +721,6 @@ export const updateEvent = catchAsync(async (req, res, next) => {
     { path: "college", select: "name code" },
     { path: "createdBy", select: "firstName lastName email" },
   ]);
-
-  // If critical change occurred, notify all registered students
-  if (criticalChange) {
-    try {
-      const registrations = await Registration.find({ event: id, status: "approved" }).populate("user", "email firstName");
-      const notificationPromises = registrations.map(async (reg) => {
-        await notifyUser({
-          recipientId: reg.user._id,
-          type: "EVENT_MODIFIED",
-          title: "Event Details Updated",
-          message: `Important: The details for "${event.title}" have been updated. Please review the updated schedule.`,
-          link: "/student"
-        });
-
-        try {
-          const tpl = EmailTemplates.eventModified(event.title, event.title);
-          await sendEmail({ email: reg.user.email, ...tpl });
-        } catch (e) { console.error("Update email failed", e); }
-      });
-      await Promise.allSettled(notificationPromises);
-    } catch (err) {
-      console.error("Failed to notify students of event update:", err);
-    }
-
-    // Also notify SuperAdmin of critical edits if it's not them
-    if (req.userRole !== 'admin') {
-      const superAdmins = await User.find({ role: "admin" }).select("email");
-      superAdmins.forEach(async (admin) => {
-        await notifyUser({
-          recipientId: admin._id,
-          type: "ADMIN_ANNOUNCEMENT",
-          title: `Event Edit: ${event.title}`,
-          message: `College Admin ${req.user.firstName} modified critical details of event "${event.title}".`,
-          link: `/admin`,
-        });
-      });
-    }
-  }
 
   // Log action
   await logAdminAction({
@@ -618,6 +827,66 @@ export const getMyEvents = catchAsync(async (req, res, next) => {
       events,
     },
   });
+});
+
+export const pauseEvent = catchAsync(async (req, res, next) => {
+  const { id } = req.params;
+  const event = await Event.findById(id);
+  if (!event) return next(new AppError("Event not found", 404));
+
+  if (req.userRole !== "admin" && event.createdBy.toString() !== req.userId.toString()) {
+    return next(new AppError("Access denied. You can only pause your own events.", 403));
+  }
+
+  if (event.status === "paused") {
+    return next(new AppError("Event is already paused.", 400));
+  }
+
+  event.status = "paused";
+  event.isActive = false;
+  await event.save();
+
+  await logAdminAction({
+    action: "EVENT_UPDATE",
+    performedBy: req.userId,
+    targetId: event._id,
+    targetType: "Event",
+    details: { change: "PAUSED" },
+    ipAddress: req.ip,
+  });
+
+  res.status(200).json({ success: true, message: "Event paused.", data: { event } });
+});
+
+export const resumeEvent = catchAsync(async (req, res, next) => {
+  const { id } = req.params;
+  const event = await Event.findById(id);
+  if (!event) return next(new AppError("Event not found", 404));
+
+  if (req.userRole !== "admin" && event.createdBy.toString() !== req.userId.toString()) {
+    return next(new AppError("Access denied. You can only resume your own events.", 403));
+  }
+
+  if (event.status !== "paused") {
+    return next(new AppError("Event is not paused.", 400));
+  }
+
+  // Keep status enum-safe and let UI derive temporal state from dates.
+  event.status = "approved";
+
+  event.isActive = true;
+  await event.save();
+
+  await logAdminAction({
+    action: "EVENT_UPDATE",
+    performedBy: req.userId,
+    targetId: event._id,
+    targetType: "Event",
+    details: { change: "RESUMED" },
+    ipAddress: req.ip,
+  });
+
+  res.status(200).json({ success: true, message: "Event resumed.", data: { event } });
 });
 
 // Get all pending events (SuperAdmin only)

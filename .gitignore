@@ -5,6 +5,8 @@ npm-debug.log
 # Environment files
 .env
 .env.local
+frontend/.env
+frontend/.env.local
 backend/.env
 backend/.env.local
 
@@ -18,5 +20,26 @@ Thumbs.db
 
 # Docker
 mongo-data
+
 # Environment variables
 .env.*
+
+# Ignore all text files
+*.txt
+!requirements.txt
+
+# VS Code
+.vscode/
+
+# Frontend build artifacts
+frontend/dist/
+
+# Internal docs memory files
+docs/ARCHITECTURE.md
+docs/DECISIONS.md
+docs/ISSUES_LOG.md
+docs/PROJECT_CONTEXT.md
+docs/REVENUE_MAP.md
+docs/ROLES_LOG.md
+docs/TODO.md
+docs/UX_VISION.md
