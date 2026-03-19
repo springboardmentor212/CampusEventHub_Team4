@@ -9,14 +9,6 @@ const API = axios.create({
   timeout: 15000,
 });
 
-// Since we are moving to Cookies, we don't strictly need the Authorization header interceptor
-// but we'll keep it for backward compatibility if the server still accepts Bearer tokens
-API.interceptors.request.use((req) => {
-  const token = localStorage.getItem("token");
-  if (token) {
-    req.headers.Authorization = `Bearer ${token}`;
-  }
-  return req;
-});
+// Cookie-only auth path: browser sends HttpOnly token cookie via withCredentials.
 
 export default API;
