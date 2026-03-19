@@ -252,11 +252,11 @@ router.delete("/:id", authenticate, isSuperAdmin, async (req, res) => {
 });
 
 // Get users by college (college admin or system admin)
-router.get("/:id/users", authenticate, sameCollegeOrAdmin, async (req, res) => {
+router.get("/:collegeId/users", authenticate, sameCollegeOrAdmin, async (req, res) => {
   try {
     const { page = 1, limit = 10, role, search } = req.query;
 
-    const query = { college: req.params.id };
+    const query = { college: req.params.collegeId };
     if (role) query.role = role;
     if (search) {
       query.$or = [

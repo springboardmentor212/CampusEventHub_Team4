@@ -124,6 +124,19 @@ export const EmailTemplates = {
     )
   }),
 
+  studentPendingAdminReady: (firstName) => ({
+    subject: "You're on the list - CampusEventHub",
+    html: baseTemplate(
+      "You're on the list",
+      `<p>Hi ${firstName},</p>
+       <p>Your account has been created and we'll keep your place in line.</p>
+       <p>We'll let you know when your college admin is ready to approve student accounts.</p>
+       <div class="action-row">
+         <a href="${getBaseUrl()}/register" class="btn">Open CampusEventHub</a>
+       </div>`
+    ),
+  }),
+
   resendVerification: (firstName, verifyUrl) => ({
     subject: "Confirm your email — CampusEventHub",
     html: baseTemplate(

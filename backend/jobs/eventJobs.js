@@ -5,6 +5,18 @@ import sendEmail, { EmailTemplates } from "../utils/emailService.js";
 import { notifyUser } from "../utils/notificationService.js";
 import { promoteNextWaitlistedRegistration } from "../controllers/registrationController.js";
 
+const logJob = (level, message, meta = {}) => {
+  const payload = {
+    timestamp: new Date().toISOString(),
+    module: "eventJobs",
+    level,
+    message,
+    ...meta,
+  };
+  const writer = level === "error" ? console.error : console.info;
+  writer(JSON.stringify(payload));
+};
+
 /**
  * Job 1: Cleanup expired waitlist confirmations
  * Runs every 30 minutes.
@@ -25,7 +37,11 @@ export const cleanupExpiredWaitlistConfirmations = async () => {
     // Promote the next person
     await promoteNextWaitlistedRegistration(eventId);
     
-    console.log(`[JOB] Cleaned up expired waitlist confirmation for User ${reg.user} on Event ${eventId}`);
+    logJob("info", "Expired waitlist confirmation cleaned", {
+      userId: String(reg.user),
+      eventId: String(eventId),
+      registrationId: String(reg._id),
+    });
   }
 };
 
@@ -51,7 +67,14 @@ export const sendEventReminders = async () => {
     for (const reg of registrations) {
       if (!reg.user) continue;
       const tpl = EmailTemplates.eventReminder(reg.user.firstName, event.title, "24 hours", event.startDate, event.location);
-      await sendEmail({ email: reg.user.email, ...tpl }).catch(e => console.error(e));
+      await sendEmail({ email: reg.user.email, ...tpl }).catch((error) =>
+        logJob("error", "Failed to send 24h reminder email", {
+          eventId: String(event._id),
+          userId: String(reg.user?._id),
+          email: reg.user?.email,
+          error: error.message,
+        })
+      );
       
       await notifyUser({
         recipientId: reg.user._id,
@@ -79,7 +102,14 @@ export const sendEventReminders = async () => {
     for (const reg of registrations) {
       if (!reg.user) continue;
       const tpl = EmailTemplates.eventReminder(reg.user.firstName, event.title, "1 hour", event.startDate, event.location);
-      await sendEmail({ email: reg.user.email, ...tpl }).catch(e => console.error(e));
+      await sendEmail({ email: reg.user.email, ...tpl }).catch((error) =>
+        logJob("error", "Failed to send 1h reminder email", {
+          eventId: String(event._id),
+          userId: String(reg.user?._id),
+          email: reg.user?.email,
+          error: error.message,
+        })
+      );
       
       await notifyUser({
         recipientId: reg.user._id,
@@ -120,7 +150,11 @@ export const processNoShows = async () => {
     event.noShowProcessed = true;
     await event.save();
     
-    console.log(`[JOB] Processed ${result.modifiedCount} no-shows for Event ${event.title}`);
+    logJob("info", "No-show processing completed", {
+      eventId: String(event._id),
+      eventTitle: event.title,
+      modifiedCount: result.modifiedCount,
+    });
   }
 };
 
@@ -128,21 +162,21 @@ export const processNoShows = async () => {
 export const initJobs = () => {
   // Every 30 minutes: Clean waitlist
   cron.schedule("*/30 * * * *", () => {
-    console.log("[CRON] Running Waitlist Cleanup...");
+    logJob("info", "Running waitlist cleanup schedule");
     cleanupExpiredWaitlistConfirmations();
   });
 
   // Every hour: Send reminders
   cron.schedule("0 * * * *", () => {
-    console.log("[CRON] Running Event Reminders...");
+    logJob("info", "Running event reminder schedule");
     sendEventReminders();
   });
 
   // Every day at 01:00 AM: Process No-Shows
   cron.schedule("0 1 * * *", () => {
-    console.log("[CRON] Running No-Show Processing...");
+    logJob("info", "Running no-show schedule");
     processNoShows();
   });
 
-  console.log("Event Cron Jobs Initialized.");
+  logJob("info", "Event cron jobs initialized");
 };

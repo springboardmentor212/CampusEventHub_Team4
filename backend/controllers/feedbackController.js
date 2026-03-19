@@ -70,6 +70,20 @@ export const submitFeedback = catchAsync(async (req, res, next) => {
     return next(new AppError("Event not found", 404));
   }
 
+  // Feedback is allowed only after event completion and within 30 days of event end.
+  if (event.endDate) {
+    const now = new Date();
+    const eventEndDate = new Date(event.endDate);
+    if (now < eventEndDate) {
+      return next(new AppError("Feedback can only be submitted after the event ends", 400));
+    }
+
+    const feedbackWindowEnd = new Date(eventEndDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+    if (now > feedbackWindowEnd) {
+      return next(new AppError("Feedback submission window has closed (30 days after event end)", 400));
+    }
+  }
+
   const registration = await Registration.findOne({
     event: eventId,
     user: req.userId,

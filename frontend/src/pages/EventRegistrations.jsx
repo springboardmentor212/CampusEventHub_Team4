@@ -1,9 +1,16 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout";
-import API from "../api/axios";
 import toast from "react-hot-toast";
 import { ArrowLeft, FileDown } from "lucide-react";
+import { fetchEventById } from "../services/eventService";
+import {
+    approveRegistration,
+    exportEventRegistrations,
+    fetchEventRegistrations,
+    markRegistrationAttendance,
+    rejectRegistration,
+} from "../services/registrationService";
 
 const EventRegistrations = () => {
     const { id } = useParams();
@@ -21,8 +28,8 @@ const EventRegistrations = () => {
             setLoading(true);
             setError("");
             const [regRes, eventRes] = await Promise.all([
-                API.get(`/registrations/event/${id}`),
-                API.get(`/events/${id}`),
+                fetchEventRegistrations(id),
+                fetchEventById(id),
             ]);
             setRegistrations(regRes.data?.data?.registrations || []);
             setEvent(eventRes.data?.data?.event || null);
@@ -41,9 +48,9 @@ const EventRegistrations = () => {
     const handleUpdateStatus = async (regId, status) => {
         try {
             const endpoint = status === "approved"
-                ? `/registrations/${regId}/approve`
-                : `/registrations/${regId}/reject`;
-            await API.patch(endpoint);
+                ? approveRegistration(regId)
+                : rejectRegistration(regId);
+            await endpoint;
             toast.success(`Registration ${status}.`);
             fetchData();
         } catch (err) {
@@ -53,7 +60,7 @@ const EventRegistrations = () => {
 
     const handleMarkAttendance = async (regId, status) => {
         try {
-            await API.patch(`/registrations/${regId}/attendance`, { status });
+            await markRegistrationAttendance(regId, { status });
             toast.success(`Attendance set to ${status}.`);
             fetchData();
         } catch (err) {
@@ -63,7 +70,7 @@ const EventRegistrations = () => {
 
     const handleExport = async () => {
         try {
-            const res = await API.get(`/registrations/event/${id}/export`);
+            const res = await exportEventRegistrations(id);
             const rows = res.data?.data?.registrations || [];
             if (!rows.length) {
                 toast.error("No registrations to export.");

@@ -1,10 +1,10 @@
 import { useState } from "react";
 import DashboardLayout from "../components/DashboardLayout";
-import API from "../api/axios";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 import FormInput from "../components/FormInput";
 import ImageUpload from "../components/ImageUpload";
+import { createEvent } from "../services/eventService";
 import {
     MapPin,
     Type,
@@ -137,7 +137,7 @@ const CreateEvent = () => {
         }
 
         try {
-            const res = await API.post("/events/create", {
+            const res = await createEvent({
                 ...form,
                 category: resolvedCategory,
                 customCategory: resolvedCustomCategory,

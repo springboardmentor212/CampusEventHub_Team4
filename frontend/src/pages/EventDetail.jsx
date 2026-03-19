@@ -4,6 +4,12 @@ import DashboardLayout from "../components/DashboardLayout";
 import API from "../api/axios";
 import toast from "react-hot-toast";
 import useAuth from "../hooks/useAuth";
+import { fetchEventById } from "../services/eventService";
+import {
+  cancelRegistration as cancelRegistrationRequest,
+  fetchMyRegistrations,
+  registerForEvent,
+} from "../services/registrationService";
 
 const EventDetailSkeleton = () => (
   <DashboardLayout>
@@ -55,7 +61,7 @@ const EventDetail = () => {
   const isCollegeAdmin = user?.role === "college_admin";
 
   const loadEvent = async () => {
-    const eventRes = await API.get(`/events/${id}`);
+    const eventRes = await fetchEventById(id);
     setEvent(eventRes.data?.data?.event || null);
   };
 
@@ -63,7 +69,7 @@ const EventDetail = () => {
     const calls = [API.get(`/feedback/event/${id}`), API.get(`/comments/event/${id}`)];
 
     if (isStudent) {
-      calls.push(API.get("/registrations/my"));
+      calls.push(fetchMyRegistrations());
       calls.push(API.get("/feedback/my"));
     }
 
@@ -99,7 +105,7 @@ const EventDetail = () => {
       await loadEvent();
       await loadRegistrationAndFeedback();
     } catch (err) {
-      toast.error("Unable to load event details.");
+      toast.error("We couldn't open this event right now.");
       navigate("/campus-feed");
     } finally {
       setLoading(false);
@@ -114,7 +120,7 @@ const EventDetail = () => {
       const flat = commentsRes.data?.data?.comments || [];
       setComments(Array.isArray(threaded) ? threaded : flat);
     } catch (err) {
-      toast.error("Failed to refresh comments.");
+      toast.error("We couldn't refresh the conversation just yet.");
     } finally {
       setCommentsLoading(false);
     }
@@ -169,11 +175,11 @@ const EventDetail = () => {
   const handleRegister = async () => {
     try {
       setSubmitting(true);
-      await API.post(`/registrations/register/${id}`);
-      toast.success(eventFull ? "Added to waitlist." : "Registration confirmed.");
+      await registerForEvent(id);
+      toast.success(eventFull ? "You're on the waitlist now." : "Your spot is confirmed.");
       await refresh();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to register.");
+      toast.error(err.response?.data?.message || "We couldn't save your registration.");
     } finally {
       setSubmitting(false);
     }
@@ -184,18 +190,18 @@ const EventDetail = () => {
     const isWaitlist = myRegistration.status === "waitlisted";
     const confirmed = window.confirm(
       isWaitlist
-        ? "Are you sure you want to withdraw from the waitlist?" 
-        : "Are you sure you want to cancel your registration?"
+        ? "Leave the waitlist for this event?"
+        : "Cancel your registration for this event?"
     );
     if (!confirmed) return;
 
     try {
       setSubmitting(true);
-      await API.delete(`/registrations/${myRegistration._id}`);
-      toast.success(isWaitlist ? "Withdrawn from waitlist." : "Registration cancelled.");
+      await cancelRegistrationRequest(myRegistration._id);
+      toast.success(isWaitlist ? "You've left the waitlist." : "Your registration has been cancelled.");
       await refresh();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to cancel.");
+      toast.error(err.response?.data?.message || "We couldn't update your registration.");
     } finally {
       setSubmitting(false);
     }
@@ -210,11 +216,11 @@ const EventDetail = () => {
         rating: feedbackForm.rating,
         comment: feedbackForm.comment,
       });
-      toast.success("Feedback submitted.");
+      toast.success("Thanks for sharing your feedback.");
       setFeedbackForm({ rating: 5, comment: "" });
       await refresh();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to submit feedback.");
+      toast.error(err.response?.data?.message || "We couldn't send your feedback.");
     } finally {
       setSubmitting(false);
     }
@@ -227,9 +233,9 @@ const EventDetail = () => {
       await API.post("/comments", { eventId: id, message: commentText.trim() });
       setCommentText("");
       await refreshCommentsOnly();
-      toast.success("Comment posted.");
+      toast.success("Your comment is live.");
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to post comment.");
+      toast.error(err.response?.data?.message || "We couldn't post your comment.");
     } finally {
       setSubmitting(false);
      }
@@ -247,9 +253,9 @@ const EventDetail = () => {
         setReplyText("");
         setReplyingTo(null);
         await refreshCommentsOnly();
-        toast.success("Reply posted.");
+        toast.success("Your reply is live.");
       } catch (err) {
-        toast.error(err.response?.data?.message || "Failed to post reply.");
+        toast.error(err.response?.data?.message || "We couldn't post your reply.");
       } finally {
         setSubmitting(false);
       }
@@ -265,9 +271,9 @@ const EventDetail = () => {
         setOfficialReplyText("");
         setReplyingTo(null);
         await refreshCommentsOnly();
-        toast.success("Official reply posted.");
+        toast.success("The official reply is live.");
       } catch (err) {
-        toast.error(err.response?.data?.message || "Failed to post official reply.");
+        toast.error(err.response?.data?.message || "We couldn't post the official reply.");
       } finally {
         setSubmitting(false);
       }
@@ -278,7 +284,7 @@ const EventDetail = () => {
         await API.patch(`/comments/${commentId}/like`);
         await refreshCommentsOnly();
       } catch (err) {
-        toast.error(err.response?.data?.message || "Failed to update like.");
+        toast.error(err.response?.data?.message || "We couldn't update your reaction.");
       }
     };
 
@@ -287,7 +293,7 @@ const EventDetail = () => {
         await API.patch(`/comments/${commentId}/pin`);
         await refreshCommentsOnly();
       } catch (err) {
-        toast.error(err.response?.data?.message || "Failed to pin comment.");
+        toast.error(err.response?.data?.message || "We couldn't update that comment.");
       }
     };
 
@@ -296,9 +302,9 @@ const EventDetail = () => {
       setSubmitting(true);
        await API.delete(`/comments/${commentId}`);
        await refresh();
-       toast.success("Comment deleted.");
+       toast.success("The comment has been removed.");
      } catch (err) {
-       toast.error(err.response?.data?.message || "Failed to delete comment.");
+       toast.error(err.response?.data?.message || "We couldn't remove that comment.");
     } finally {
       setSubmitting(false);
      }
@@ -330,8 +336,8 @@ const EventDetail = () => {
      <DashboardLayout>
        <div className="max-w-6xl mx-auto space-y-7">
          <div className="flex items-center justify-between">
-           <button onClick={() => navigate(-1)} className="text-xs font-semibold tracking-widest text-slate-500 hover:text-indigo-600 transition-colors">Back</button>
-           <Link to="/campus-feed" className="text-xs font-semibold tracking-widest text-indigo-600 hover:text-indigo-800 transition-colors">Campus Feed</Link>
+           <button onClick={() => navigate(-1)} className="text-xs font-semibold tracking-widest text-slate-500 hover:text-indigo-600 transition-colors">Go back</button>
+           <Link to="/campus-feed" className="text-xs font-semibold tracking-widest text-indigo-600 hover:text-indigo-800 transition-colors">Browse events</Link>
          </div>
 
          {/* Event Status Banners */}
@@ -341,8 +347,8 @@ const EventDetail = () => {
                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
              </div>
              <div>
-               <p className="text-sm font-black text-rose-900 uppercase tracking-tight">Event Cancelled</p>
-               <p className="text-xs text-rose-700 font-medium">This event has been cancelled by the organizer and is no longer active.</p>
+                <p className="text-sm font-black text-rose-900 uppercase tracking-tight">Event cancelled</p>
+                <p className="text-xs text-rose-700 font-medium">The organizer has cancelled this event, so registrations and updates are closed.</p>
              </div>
            </div>
          )}
@@ -353,8 +359,8 @@ const EventDetail = () => {
                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
              </div>
              <div>
-               <p className="text-sm font-black text-amber-900 uppercase tracking-tight">Updates Pending</p>
-               <p className="text-xs text-amber-700 font-medium">{event.pauseReason || "This event is temporarily paused while administrative changes are being reviewed."}</p>
+                <p className="text-sm font-black text-amber-900 uppercase tracking-tight">Updates under review</p>
+                <p className="text-xs text-amber-700 font-medium">{event.pauseReason || "This event is temporarily paused while updates are being reviewed."}</p>
              </div>
            </div>
          )}
@@ -365,8 +371,8 @@ const EventDetail = () => {
                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"/></svg>
              </div>
              <div>
-               <p className="text-sm font-black text-indigo-900 uppercase tracking-tight">Event Completed</p>
-               <p className="text-xs text-indigo-700 font-medium">This event has concluded. Thank you to everyone who participated!</p>
+                <p className="text-sm font-black text-indigo-900 uppercase tracking-tight">Event complete</p>
+                <p className="text-xs text-indigo-700 font-medium">This event has wrapped up. Thanks for being part of it.</p>
              </div>
            </div>
          )}
@@ -384,18 +390,18 @@ const EventDetail = () => {
                    event.status === 'approved' ? 'bg-emerald-100 text-emerald-700' : 
                    event.status === 'pending_approval' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
                  }`}>
-                   {event.status.replace('_', ' ')}
+                    {event.status === "pending_approval" ? "under review" : event.status.replace('_', ' ')}
                  </span>
                </div>
                <p className="text-slate-600 leading-relaxed">{event.description}</p>
                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
                  <div className="space-y-3">
-                   <p className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-indigo-400"></span><span className="font-bold text-slate-800">Category:</span> {event.category === "other" ? (event.customCategory || "other") : event.category}</p>
-                   <p className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-indigo-400"></span><span className="font-bold text-slate-800">College:</span> {event.college?.name}</p>
+                    <p className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-indigo-400"></span><span className="font-bold text-slate-800">Category:</span> {event.category === "other" ? (event.customCategory || "Other") : event.category}</p>
+                    <p className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-indigo-400"></span><span className="font-bold text-slate-800">Hosted by:</span> {event.college?.name}</p>
                    <p className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-indigo-400"></span><span className="font-bold text-slate-800">Location:</span> {event.location}</p>
                  </div>
                  <div className="space-y-3">
-                   <p className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-indigo-400"></span><span className="font-bold text-slate-800">Spots:</span> {spotsRemaining} / {event.maxParticipants || 'Unlimited'}</p>
+                    <p className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-indigo-400"></span><span className="font-bold text-slate-800">Seats left:</span> {spotsRemaining} / {event.maxParticipants || 'Unlimited'}</p>
                    <p className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-indigo-400"></span><span className="font-bold text-slate-800">Start:</span> {new Date(event.startDate).toLocaleString()}</p>
                    <p className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-indigo-400"></span><span className="font-bold text-slate-800">End:</span> {new Date(event.endDate).toLocaleString()}</p>
                  </div>
@@ -403,19 +409,19 @@ const EventDetail = () => {
              </div>
 
              <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4 shadow-sm">
-               <h2 className="text-xl font-extrabold text-slate-900">Discussion</h2>
+               <h2 className="text-xl font-extrabold text-slate-900">Conversation</h2>
                {canPostComment && (
                  <div className="flex gap-2">
                    <input
                      value={commentText}
                      onChange={(e) => setCommentText(e.target.value)}
-                     placeholder="Write a comment..."
+                     placeholder="Add a thought or question"
                      className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
                    />
-                   <button onClick={handlePostComment} disabled={submitting} className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-semibold tracking-widest hover:bg-slate-800 transition-all disabled:opacity-50">Post</button>
+                   <button onClick={handlePostComment} disabled={submitting} className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-semibold tracking-widest hover:bg-slate-800 transition-all disabled:opacity-50">Share comment</button>
                  </div>
                )}
-               {!canPostComment && <p className="text-sm text-slate-500 italic">Only approved students can participate in discussions.</p>}
+               {!canPostComment && <p className="text-sm text-slate-500 italic">Approved students can join the conversation once their access is confirmed.</p>}
 
                <div className="space-y-4 mt-6">
                  {commentsLoading && (
@@ -437,7 +443,7 @@ const EventDetail = () => {
 
                  {!commentsLoading && comments.length === 0 && (
                    <div className="text-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-300">
-                     <p className="text-sm text-slate-400">No conversations yet. Be the first to speak!</p>
+                      <p className="text-sm text-slate-400">The conversation has not started yet. You can be the first to add something useful.</p>
                    </div>
                  )}
 
@@ -451,7 +457,7 @@ const EventDetail = () => {
                          <div>
                            <p className="text-sm font-bold text-slate-900 flex items-center gap-2">
                              {comment.userId?.firstName} {comment.userId?.lastName}
-                             {comment.isPinned && <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 uppercase tracking-widest">Pinned</span>}
+                             {comment.isPinned && <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 uppercase tracking-widest">Highlighted</span>}
                              {comment.isOfficialReply && <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 uppercase tracking-widest">Official</span>}
                            </p>
                            <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">{comment.userId?.college?.name || ""} | {new Date(comment.createdAt).toLocaleDateString()}</p>
@@ -460,7 +466,7 @@ const EventDetail = () => {
                        <div className="flex items-center gap-2">
                          {canManagePinnedComments && (
                            <button onClick={() => handleTogglePin(comment._id)} className="text-[10px] font-bold uppercase tracking-widest text-amber-600 hover:text-amber-700">
-                             {comment.isPinned ? "Unpin" : "Pin"}
+                              {comment.isPinned ? "Remove highlight" : "Highlight"}
                            </button>
                          )}
                          {canDeleteComment(comment) && (
@@ -474,16 +480,16 @@ const EventDetail = () => {
 
                      <div className="pl-11 mt-3 flex items-center gap-4">
                        <button onClick={() => handleToggleLike(comment._id)} className={`text-xs font-semibold ${isLikedByMe(comment) ? "text-indigo-700" : "text-slate-500"}`}>
-                         {isLikedByMe(comment) ? "Liked" : "Like"} ({comment.likesCount || comment.likedBy?.length || 0})
+                         {isLikedByMe(comment) ? "You liked this" : "Like"} ({comment.likesCount || comment.likedBy?.length || 0})
                        </button>
                        {canPostComment && (
                          <button onClick={() => setReplyingTo(replyingTo === comment._id ? null : comment._id)} className="text-xs font-semibold text-slate-500 hover:text-slate-700">
-                           Reply
+                           Write reply
                          </button>
                        )}
                        {canOfficialReply && (
                          <button onClick={() => setReplyingTo(replyingTo === `official-${comment._id}` ? null : `official-${comment._id}`)} className="text-xs font-semibold text-indigo-600 hover:text-indigo-800">
-                           Official Reply
+                           Post official reply
                          </button>
                        )}
                      </div>
@@ -493,10 +499,10 @@ const EventDetail = () => {
                          <input
                            value={replyText}
                            onChange={(e) => setReplyText(e.target.value)}
-                           placeholder="Write your reply..."
+                            placeholder="Write a thoughtful reply"
                            className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-xs"
                          />
-                         <button onClick={() => handleReply(comment._id)} disabled={submitting} className="px-3 py-2 rounded-lg bg-slate-900 text-white text-xs font-bold">Send</button>
+                         <button onClick={() => handleReply(comment._id)} disabled={submitting} className="px-3 py-2 rounded-lg bg-slate-900 text-white text-xs font-bold">Share reply</button>
                        </div>
                      )}
 
@@ -505,10 +511,10 @@ const EventDetail = () => {
                          <input
                            value={officialReplyText}
                            onChange={(e) => setOfficialReplyText(e.target.value)}
-                           placeholder="Post official admin response..."
+                            placeholder="Write an official response"
                            className="flex-1 px-3 py-2 rounded-lg border border-indigo-200 text-xs"
                          />
-                         <button onClick={() => handleOfficialReply(comment._id)} disabled={submitting} className="px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-bold">Post</button>
+                         <button onClick={() => handleOfficialReply(comment._id)} disabled={submitting} className="px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-bold">Publish reply</button>
                        </div>
                      )}
 
@@ -519,7 +525,7 @@ const EventDetail = () => {
                            className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 mb-2 flex items-center gap-1"
                          >
                            {collapsedReplies[comment._id] ? "▶" : "▼"}{" "}
-                           {collapsedReplies[comment._id] ? "Show" : "Hide"} {(comment.replies || []).length} {(comment.replies || []).length === 1 ? "reply" : "replies"}
+                            {collapsedReplies[comment._id] ? "Show" : "Hide"} {(comment.replies || []).length} {(comment.replies || []).length === 1 ? "reply" : "replies"}
                          </button>
                          {!collapsedReplies[comment._id] && (comment.replies || []).map((reply) => (
                            <div key={reply._id} className="p-3 rounded-lg border border-slate-100 bg-slate-50">
@@ -543,17 +549,17 @@ const EventDetail = () => {
                <h2 className="text-lg font-extrabold text-slate-900 border-b border-slate-50 pb-2">Registration</h2>
                {isStudent && myRegistration && (
                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
-                   <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">My Status</p>
+                   <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Your status</p>
                    <span className={`text-xs font-semibold tracking-widest ${
                      myRegistration.status === 'approved' ? 'text-emerald-600' : 
                      myRegistration.status === 'waitlisted' ? 'text-amber-600' : 'text-indigo-600'
-                   }`}>{myRegistration.status}</span>
+                   }`}>{myRegistration.status === "approved" ? "Confirmed" : myRegistration.status === "waitlisted" ? "Waitlisted" : myRegistration.status === "no_show" ? "Missed" : myRegistration.status}</span>
                  </div>
                )}
 
                {isStudent && myRegistration?.status === "approved" && canCancelRegistration && (
                  <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
-                   Cancellation is allowed only until 24 hours before event start.
+                   You can leave this event until 24 hours before it begins.
                  </p>
                )}
                
@@ -561,7 +567,7 @@ const EventDetail = () => {
                  <button onClick={handleRegister} disabled={submitting} className={`w-full px-4 py-4 rounded-xl text-white text-xs font-black uppercase tracking-widest shadow-lg shadow-indigo-100 hover:translate-y-[-2px] active:translate-y-0 transition-all ${
                    eventFull ? 'bg-amber-600 hover:bg-amber-700' : 'bg-indigo-600 hover:bg-indigo-700'
                  }`}>
-                   {eventFull ? "Join Waitlist" : "Register Now"}
+                    {eventFull ? "Join the waitlist" : "Reserve your spot"}
                  </button>
                )}
 
@@ -575,16 +581,16 @@ const EventDetail = () => {
                        : "border-rose-200 text-rose-500 hover:bg-rose-50"
                    }`}
                  >
-                   {myRegistration?.status === "waitlisted" ? "Withdraw from Waitlist" : "Cancel Registration"}
+                    {myRegistration?.status === "waitlisted" ? "Leave the waitlist" : "Cancel registration"}
                  </button>
                )}
 
                {isStudent && myRegistration?.status === "waitlisted" && (
                  <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
-                   You are on the waitlist. If a seat opens, you will be auto-promoted and notified in-app.
+                    You're on the waitlist. If a seat opens, you'll be moved in automatically and updated here.
                  </p>
                )}
-               {!isStudent && <p className="text-sm text-slate-500 bg-slate-50 p-4 rounded-xl border border-dashed border-slate-200">Registration is open for students. Please login to register.</p>}
+               {!isStudent && <p className="text-sm text-slate-500 bg-slate-50 p-4 rounded-xl border border-dashed border-slate-200">Students can register for this event after signing in.</p>}
              </div>
 
              <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4 shadow-sm">
@@ -592,7 +598,7 @@ const EventDetail = () => {
                {canSubmitFeedback ? (
                  <form onSubmit={handleSubmitFeedback} className="space-y-4">
                    <div>
-                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Your Rating</label>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Your rating</label>
                      <div className="flex gap-2">
                        {[1, 2, 3, 4, 5].map((value) => (
                          <button
@@ -611,28 +617,28 @@ const EventDetail = () => {
                      </div>
                    </div>
                    <div>
-                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Comments</label>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">Your feedback</label>
                      <textarea
                        value={feedbackForm.comment}
                        onChange={(e) => setFeedbackForm((prev) => ({ ...prev, comment: e.target.value }))}
                        rows={4}
                        className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all"
-                       placeholder="How was the event?"
+                        placeholder="What stood out, and what could have been better?"
                        required
                      />
                    </div>
-                   <button type="submit" disabled={submitting} className="w-full px-4 py-3 rounded-xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg shadow-slate-200">Submit Feedback</button>
+                    <button type="submit" disabled={submitting} className="w-full px-4 py-3 rounded-xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg shadow-slate-200">Share feedback</button>
                  </form>
                ) : (
                  <div className="text-center py-4">
                    <p className="text-[11px] text-slate-400 font-medium leading-relaxed uppercase tracking-wide">
-                     Feedback opens after the event ends for participants.
+                      Feedback opens after the event ends for students who attended.
                    </p>
                  </div>
                )}
 
                <div className="space-y-3 mt-4">
-                 {eventFeedback.length === 0 && <p className="text-sm text-slate-500">No testimonials yet.</p>}
+                  {eventFeedback.length === 0 && <p className="text-sm text-slate-500">Feedback from attendees will appear here after the event.</p>}
                  {eventFeedback.map((feedback) => (
                    <div key={feedback._id} className="p-4 rounded-xl border border-slate-100 bg-slate-50/50">
                      <div className="flex justify-between items-center mb-2">

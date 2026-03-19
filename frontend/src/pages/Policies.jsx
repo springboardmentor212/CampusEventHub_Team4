@@ -1,86 +1,82 @@
 import { Link } from "react-router-dom";
+import { ArrowLeft, ShieldCheck } from "lucide-react";
+
+const sections = [
+  {
+    title: "What we collect",
+    body: [
+      "We keep the information needed to run CampusEventHub properly: your email, your college, and your registration and attendance history.",
+      "We may also store the details connected to your account role, approval status, and event activity so the platform can show the right information to the right people.",
+    ],
+  },
+  {
+    title: "How we use it",
+    body: [
+      "We use this information to run the platform, send event notifications and reminders, and help admins manage their college without working from guesswork.",
+      "That includes things like approvals, registration tracking, attendance, account verification, and event updates that need to reach the right students quickly.",
+    ],
+  },
+  {
+    title: "What we never do",
+    body: [
+      "We do not sell your data.",
+      "We do not share it with advertisers, and we do not use it for anything outside the platform itself.",
+    ],
+  },
+];
 
 const Policies = () => {
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <div className="max-w-4xl mx-auto px-6 py-10 md:py-14">
-        <div className="mb-8">
-          <Link
-            to="/register"
-            className="text-sm font-semibold text-indigo-600 hover:text-indigo-700"
-          >
-            Back to Register
-          </Link>
-          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mt-3">
-            CampusEventHub Policies
-          </h1>
-          <p className="text-sm text-slate-500 mt-2">
-            Effective date: March 16, 2026
+    <div className="min-h-screen bg-slate-50 px-6 py-10 text-slate-900 md:px-8">
+      <div className="mx-auto max-w-3xl">
+        <Link
+          to="/"
+          className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition-colors hover:text-indigo-600"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to home
+        </Link>
+
+        <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm md:p-10">
+          <div className="mb-8">
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5">
+              <ShieldCheck className="h-4 w-4 text-indigo-600" />
+              <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+                Policies
+              </span>
+            </div>
+
+            <h1 className="text-3xl font-semibold tracking-tight text-slate-950">
+              How CampusEventHub works for you
+            </h1>
+            <p className="mt-3 text-sm leading-6 text-slate-600">
+              This is the short version of how we handle your information on the platform, without turning it into a wall of legal text.
+            </p>
+          </div>
+
+          <div className="space-y-6">
+            {sections.map((section) => (
+              <section
+                key={section.title}
+                className="rounded-2xl border border-slate-200 bg-slate-50 p-6"
+              >
+                <h2 className="text-lg font-semibold tracking-tight text-slate-950">
+                  {section.title}
+                </h2>
+                <div className="mt-3 space-y-3">
+                  {section.body.map((paragraph) => (
+                    <p key={paragraph} className="text-sm leading-6 text-slate-600">
+                      {paragraph}
+                    </p>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+
+          <p className="mt-8 text-sm leading-6 text-slate-600">
+            Questions? Reach your college admin or the platform team.
           </p>
-        </div>
-
-        <div className="space-y-6 bg-white border border-slate-200 rounded-xl p-6 md:p-8">
-          <section>
-            <h2 className="text-xl font-bold">1. Platform Purpose</h2>
-            <p className="text-slate-600 mt-2 leading-relaxed">
-              CampusEventHub helps colleges, students, and admins create, manage,
-              and participate in campus events. Accounts are intended for valid
-              educational-community use only.
-            </p>
-          </section>
-
-          <section>
-            <h2 className="text-xl font-bold">2. Account Responsibility</h2>
-            <p className="text-slate-600 mt-2 leading-relaxed">
-              You are responsible for the accuracy of profile data, protecting your
-              login credentials, and all activity performed through your account.
-            </p>
-          </section>
-
-          <section>
-            <h2 className="text-xl font-bold">3. Verification and Approval</h2>
-            <p className="text-slate-600 mt-2 leading-relaxed">
-              New accounts may require email verification and administrator approval
-              before full access is enabled. We may reject or suspend accounts that
-              violate campus rules or misuse the platform.
-            </p>
-          </section>
-
-          <section>
-            <h2 className="text-xl font-bold">4. Event Content Standards</h2>
-            <p className="text-slate-600 mt-2 leading-relaxed">
-              Event listings must be accurate, non-misleading, and appropriate for
-              a campus environment. Content that is fraudulent, abusive, or harmful
-              can be removed by administrators.
-            </p>
-          </section>
-
-          <section>
-            <h2 className="text-xl font-bold">5. Registrations and Attendance</h2>
-            <p className="text-slate-600 mt-2 leading-relaxed">
-              Registration status, waitlists, approval decisions, and attendance are
-              managed according to organizer and admin workflows configured inside
-              the platform.
-            </p>
-          </section>
-
-          <section>
-            <h2 className="text-xl font-bold">6. Security and Abuse</h2>
-            <p className="text-slate-600 mt-2 leading-relaxed">
-              Attempts to bypass permissions, scrape private data, spam users, or
-              disrupt service are prohibited and may result in immediate access
-              removal.
-            </p>
-          </section>
-
-          <section>
-            <h2 className="text-xl font-bold">7. Changes to Policies</h2>
-            <p className="text-slate-600 mt-2 leading-relaxed">
-              Policies may be updated to improve safety, compliance, and service
-              operation. Continued use after updates means you accept the revised
-              terms.
-            </p>
-          </section>
         </div>
       </div>
     </div>

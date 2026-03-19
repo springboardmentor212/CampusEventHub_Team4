@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import { initJobs } from "./jobs/eventJobs.js";
+import { seedSuperAdmin } from "./nodeSeed.js";
 import app from "./app.js";
 
 const PORT = process.env.PORT || 5000;
@@ -25,8 +26,13 @@ if (process.env.NODE_ENV !== "test") {
   if (MONGO_URI) {
     mongoose
       .connect(MONGO_URI)
-      .then(() => {
+      .then(async () => {
         console.log("MongoDB connected successfully");
+        await seedSuperAdmin();
+        initJobs();
+        app.listen(PORT, () => {
+          console.log(`Server running on port ${PORT}`);
+        });
       })
       .catch((err) => {
         console.error("MongoDB connection error:", err.message);
@@ -35,12 +41,6 @@ if (process.env.NODE_ENV !== "test") {
   } else {
     console.error("error: MONGO_URI is not defined");
   }
-
-  initJobs();
-
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
 }
 
 export default app;

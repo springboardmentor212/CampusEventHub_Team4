@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import DashboardLayout from "../components/DashboardLayout";
-import API from "../api/axios";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
+import { cancelEvent, deleteEvent, fetchMyEvents, pauseEvent, resumeEvent } from "../services/eventService";
+import { exportEventRegistrations } from "../services/registrationService";
 import {
     Edit2,
     Trash2,
@@ -30,7 +31,7 @@ const ManageEvents = () => {
     const fetchMyEvents = async () => {
         try {
             setLoading(true);
-            const res = await API.get("/events/my/events");
+            const res = await fetchMyEvents();
             setEvents(res.data.data.events);
         } catch (err) {
             toast.error("Failed to load your events");
@@ -46,7 +47,7 @@ const ManageEvents = () => {
     const handleDelete = async (id) => {
         if (!window.confirm("Permanently delete this event? This will remove all registration records.")) return;
         try {
-            await API.delete(`/events/${id}`);
+            await deleteEvent(id);
             toast.success("Event purged from system");
             setEvents(events.filter(e => e._id !== id));
         } catch (err) {
@@ -57,7 +58,7 @@ const ManageEvents = () => {
     const handleCancelEvent = async (id) => {
         if (!window.confirm("Cancel this event? Registrants will be automatically notified via email.")) return;
         try {
-            await API.patch(`/events/${id}/cancel`);
+            await cancelEvent(id);
             toast.success("Event cancelled and notifications sent");
             fetchMyEvents();
         } catch (err) {
@@ -67,7 +68,7 @@ const ManageEvents = () => {
 
     const handlePauseEvent = async (id) => {
         try {
-            await API.patch(`/events/${id}/pause`);
+            await pauseEvent(id);
             toast.success("Event paused");
             fetchMyEvents();
         } catch (err) {
@@ -77,7 +78,7 @@ const ManageEvents = () => {
 
     const handleResumeEvent = async (id) => {
         try {
-            await API.patch(`/events/${id}/resume`);
+            await resumeEvent(id);
             toast.success("Event resumed");
             fetchMyEvents();
         } catch (err) {
@@ -87,7 +88,7 @@ const ManageEvents = () => {
 
     const handleExportCSV = async (eventId, title) => {
         try {
-            const res = await API.get(`/registrations/event/${eventId}/export?format=csv`, {
+            const res = await exportEventRegistrations(eventId, {
                 responseType: 'blob'
             });
             const url = window.URL.createObjectURL(new Blob([res.data]));

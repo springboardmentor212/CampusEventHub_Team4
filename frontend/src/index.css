@@ -149,6 +149,30 @@ label {
   @apply bg-white border border-slate-200 rounded-xl p-8 transition-colors duration-150 hover:border-slate-300;
 }
 
+@utility admin-panel {
+  @apply rounded-2xl border border-slate-200 bg-white;
+  box-shadow: var(--shadow-sm);
+}
+
+@utility admin-panel-muted {
+  @apply rounded-2xl border border-slate-200 bg-slate-50/70;
+}
+
+@utility admin-kicker {
+  @apply text-[11px] font-semibold text-slate-500;
+  letter-spacing: 0.01em;
+}
+
+@utility admin-section-title {
+  @apply text-xl font-bold text-slate-900;
+  letter-spacing: -0.01em;
+}
+
+@utility admin-metric-value {
+  @apply text-3xl font-bold text-slate-900;
+  letter-spacing: -0.03em;
+}
+
 /* Greta Dashboard Pack Tokens */
 @utility greta-card {
   @apply bg-white border border-slate-200 rounded-xl p-6 transition-colors duration-150;
