@@ -1,184 +1,141 @@
 # CampusEventHub
 
-Inter-college event management platform built with MERN stack.
-Students discover and register for events across colleges.
-College admins manage events and students.
-Superadmin governs the platform.
-
----
+CampusEventHub is a MERN stack inter-college event management platform for publishing, approving, discovering, and managing campus events across multiple colleges.
 
 ## What It Does
 
-- Students browse and register for events from their college
-  and other colleges on the platform
-- College admins create events, manage registrations,
-  and approve student accounts
-- Superadmin approves college admins, reviews events before
-  they go live, and monitors platform health
-
----
-
-## Three Roles
-
-| Role | DB Value | Route | Responsibility |
-|------|----------|-------|----------------|
-| Superadmin | `admin` | `/superadmin` | Platform governance, approvals, analytics |
-| College Admin | `college_admin` | `/admin` | Events, registrations, student management |
-| Student | `student` | `/campus-feed` | Browse events, register, feedback |
-
-Superadmin is seeded directly — no UI signup.
-College admins and students sign up via `/register`.
-
----
+- Helps students discover events, register for them, and track their participation from one dashboard.
+- Gives college admins a structured way to create events, manage registrations, and review student activity for their own college.
+- Gives superadmins platform-level control over approvals, colleges, admins, and overall event operations.
 
 ## Tech Stack
 
 | Layer | Technology |
-|-------|------------|
-| Frontend | React, Vite, Tailwind CSS, Recharts |
-| Backend | Node.js, Express.js |
+| --- | --- |
+| Frontend | React, Vite, Tailwind CSS |
+| Backend | Node.js, Express |
 | Database | MongoDB, Mongoose |
-| Auth | JWT tokens |
-| Email | Nodemailer (Gmail SMTP) |
+| Authentication | JWT-based auth with HttpOnly cookies |
+| Infra / Tooling | GitHub Actions, Nodemailer, Cloudinary |
 
----
+## Roles
 
-## Repository Structure
+- **Student**: Discovers events, registers, tracks status, and submits feedback after attending.
+- **College Admin**: Creates and manages events for a college, reviews students, and monitors participation.
+- **Superadmin**: Oversees the full platform, including college approvals, admin approvals, and event governance.
 
+## Local Setup
+
+### Prerequisites
+
+Make sure you have the following installed:
+
+- Node.js 20 or later
+- npm
+- MongoDB (local instance or hosted connection string)
+- Git
+
+### Clone The Repository
+
+```bash
+git clone https://github.com/springboardmentor212/CampusEventHub_Team4
+cd CampusEventHub
 ```
-CampusEventHub_Team4/
-├── frontend/          React + Vite app
-├── backend/           Express API + MongoDB
-│   ├── controllers/
-│   ├── models/
-│   ├── routes/
-│   ├── middleware/
-│   ├── utils/
-│   └── jobs/          Scheduled jobs (reminders, no-show)
-└── docs/              Technical documentation
+
+### Environment Setup
+
+Create local environment files based on the example values below:
+
+- `backend/.env`
+- `frontend/.env`
+
+### Install Dependencies
+
+Install backend dependencies:
+
+```bash
+cd backend
+npm install
 ```
 
----
+Install frontend dependencies:
+
+```bash
+cd ../frontend
+npm install
+```
+
+### Run The Backend
+
+From the `backend` folder:
+
+```bash
+npm run dev
+```
+
+### Run The Frontend
+
+From the `frontend` folder:
+
+```bash
+npm run dev
+```
+
+By default, the frontend runs on Vite and the backend runs on the configured Node/Express port from your backend environment file.
 
 ## Environment Variables
 
-Create `backend/.env`:
+### Backend
 
-```
-PORT=5000
+Create `backend/.env` with placeholder values like these:
+
+```env
 MONGO_URI=mongodb://localhost:27017/campuseventhub
-JWT_SECRET=your_random_secret_here
-JWT_EXPIRES_IN=7d
+PORT=5000
+NODE_ENV=development
+JWT_SECRET=replace_with_a_secure_secret
 FRONTEND_URL=http://localhost:5173
-EMAIL_HOST=smtp.gmail.com
+EMAIL_HOST=smtp.example.com
 EMAIL_PORT=587
-EMAIL_USER=your_gmail@gmail.com
-EMAIL_PASS=your_gmail_app_password
-EMAIL_FROM=CampusEventHub <your_gmail@gmail.com>
+EMAIL_USER=your_email@example.com
+EMAIL_PASS=your_email_password
+EMAIL_FROM=your_email@example.com
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_cloudinary_api_key
+CLOUDINARY_API_SECRET=your_cloudinary_api_secret
+APP_NAME=CampusEventHub
+APP_VERSION=1.0.0
 ```
 
-Create `frontend/.env`:
+### Frontend
 
-```
-VITE_API_URL=http://localhost:5000/api
-```
+Create `frontend/.env` with:
 
-For Gmail: enable 2FA on your Google account,
-then generate an App Password and use that as EMAIL_PASS.
-Without this, email features fail silently but the
-app still works.
-
----
-
-## Local Development
-
-```bash
-# 1. Clone the repo
-git clone [repo url]
-cd CampusEventHub_Team4
-
-# 2. Install dependencies
-cd backend && npm install
-cd ../frontend && npm install
-
-# 3. Set up environment files (see above)
-
-# 4. Seed the database
-cd backend && node seed.js
-
-# 5. Start backend
-npm run dev
-
-# 6. In a new terminal, start frontend
-cd frontend && npm run dev
+```env
+VITE_API_URL=http://localhost:5555/api
 ```
 
-Frontend: http://localhost:5173
-Backend:  http://localhost:5000
-Health:   http://localhost:5000/api/health
+## API Overview
 
----
+API documentation is available here:
 
-## Seed Credentials (local dev only)
+[docs/API_DOCUMENTATION.md](docs/API_DOCUMENTATION.md)
 
-After running seed.js:
+## Database Schema
 
-```
-Superadmin:    [read email from seed.js output] / pass123
-College Admin: [read email from seed.js output] / pass123
-```
+Database schema documentation is available here:
 
-Note: These credentials are for local development only.
-Run `node seed.js` and copy the printed credentials.
+[docs/database-schema.md](docs/database-schema.md)
 
----
+## Contributing
 
-## Branch Strategy
+This project is part of an internship program. For questions or collaboration reach out to the developers below.
 
-```
-main    — protected, production only
-dev     — integration branch, merge here before demo
-name/feature-branch — your work
-```
+## Developers
 
-Current active branch: `uday/role-security-flow-fix`
-If contributing to Milestone 3 or 4, branch off this
-and raise PR back to it. See CONTRIBUTING.md.
+- **Uday** ([@udaycodespace](https://github.com/udaycodespace)) — Frontend lead, Backend, Figma design, Architecture
+- **Gayatri** ([@Gayatri-3168](https://github.com/Gayatri-3168)) — Backend
 
-Commit style:
-```
-feat(auth): add role-aware login redirect
-fix(registrations): correct waitlist position calculation
-docs(readme): update setup instructions
-chore(config): update env variable names
-```
+## License
 
----
-
-## Documentation
-
-| File | Purpose |
-|------|---------|
-| [docs/SETUP.md](docs/SETUP.md) | Detailed local setup guide |
-| [docs/ROLE_GUIDE.md](docs/ROLE_GUIDE.md) | Role definitions and flows |
-| [docs/database-schema.md](docs/database-schema.md) | All models and fields |
-| [docs/API_DOCUMENTATION.md](docs/API_DOCUMENTATION.md) | All API endpoints |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute |
-
-Note: The `docs/` folder reflects the latest implementation.
-When in doubt, go by the code.
-
----
-
-## Security
-
-- Never commit `.env` files
-- Backend requires: MONGO_URI, JWT_SECRET, FRONTEND_URL
-- Email features require valid Gmail App Password
-- Superadmin credentials must be changed before production
-
----
-
-## Team
-
-[List team member names and GitHub handles here]
+This project is licensed under the [MIT License](LICENSE).

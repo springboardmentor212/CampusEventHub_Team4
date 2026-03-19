@@ -1,165 +1,116 @@
-# Role Guide — CampusEventHub
+# Role Guide
 
-## The Three Actors
+CampusEventHub has three active roles in production: `student`, `college_admin`, and `admin` (superadmin). Each role has a different permission boundary and a different path through the product.
 
-### Superadmin
-- DB role value: `admin`
-- Route: `/superadmin`
-- Created by: seeded directly, no UI signup
-- Not associated with any college
+## 1. Student
 
-**Can:**
-- Approve or reject college admin applications with reason
-- Approve or reject events before they go live
-- Create, edit, deactivate colleges
-- View all platform stats (read only)
-- View all events (read only, no edit/delete)
+Students are the primary end users of the platform.
 
-**Cannot:**
-- Create, edit, or delete events
-- Register for events
-- Access college admin pages
+### What students can do
 
----
+- register an account
+- verify their email
+- remain pending until approved by a college admin
+- browse approved events
+- register for events
+- join waitlists when events are full
+- cancel eligible registrations before cutoff
+- track event status from the dashboard
+- comment on events where access rules allow
+- submit feedback after attendance, subject to platform rules
 
-### College Admin
-- DB role value: `college_admin`
-- Route: `/admin`
-- Created by: self-signup via /register
-- Requires superadmin approval before any event management
+### Approval flow
 
-**Can:**
-- Create, edit, update, delete own college events
-- Events go to superadmin pending queue before going live
-- Approve or reject student applications from own college
-- Manage registrations for own events
-- View own college stats and feedback
-- Manually create student accounts for own college
+1. Student signs up.
+2. Student verifies email.
+3. Account enters pending state.
+4. A college admin approves the account.
+5. Student signs in and starts using the platform.
 
-**Cannot:**
-- See or touch other colleges events, students, or stats
-- Edit college profiles (superadmin only)
-- Create events that go live without superadmin approval
+### Special case: no active college admin
 
----
+If a student's college does not currently have an active admin:
 
-### Student
-- DB role value: `student`
-- Route: `/campus-feed`
-- Created by: self-signup via /register
-- Requires college admin approval before dashboard access
+- the student can still register
+- the account remains pending
+- the frontend shows a warm inline message instead of failing silently
+- the backend sends a soft email explaining that approval can continue once a college admin is available
 
-**Can:**
-- Browse approved events (own college and other colleges)
-- Register for any visible event
-- Join waitlist when event is full
-- Unregister before event starts (buffer: 24h before)
-- Submit feedback after attending (30 day window)
-- View and post comments on events
+## 2. College Admin
 
-**Cannot:**
-- Call any admin management APIs
-- Create or edit events
-- Sign up if their college has no active admin yet
+College admins manage one college or community tenant.
 
----
+### What college admins can do
 
-## Approval Chain
+- register and verify their email
+- wait for superadmin approval
+- create events
+- edit events
+- submit events for approval
+- pause, resume, or cancel events they manage
+- view registrations for their events
+- export event registrations
+- mark attendance
+- review pending students for their college
+- view feedback for their tenant
+- access the college admin dashboard
 
-```
-College Admin:  Register → Email verify → Superadmin approves → Can login
-Student:        Register → Email verify → College Admin approves → Can login
-```
+### Approval flow
 
-Neither can log in until the full chain is complete.
+1. College admin signs up.
+2. College admin verifies email.
+3. Account enters pending state.
+4. Superadmin approves the account.
+5. College admin signs in and manages their tenant.
 
----
+## 3. Superadmin
+
+Superadmins operate at the full-platform level.
+
+### What superadmins can do
+
+- create and manage colleges
+- approve or reject college admins
+- approve or reject events
+- view all users and colleges
+- inspect registrations across the platform
+- access platform analytics and signals
+- moderate event operations through admin-level dashboards
 
 ## Event Lifecycle
 
-```
-Admin creates event
-  → isApproved: false, isVisible: false
-  → Superadmin notified
+The current event lifecycle is designed to prevent unreviewed content from going live accidentally.
 
-Superadmin approves
-  → isApproved: true, isVisible: true
-  → Admin notified, students can now see and register
+1. A college admin creates an event.
+2. The event enters a pending approval flow.
+3. A superadmin approves or rejects the event.
+4. Once approved, students can discover and register for it.
+5. If the event is full, students can be waitlisted.
+6. If seats open, waitlist promotion happens automatically.
+7. Attendance can be marked after the event.
+8. Feedback becomes relevant only for attended participants.
 
-Admin edits live event
-  → Changes stored in pendingUpdate (live data unchanged)
-  → Event shows "Update Under Review" to students
-  → Superadmin notified
+## Registration Rules
 
-Superadmin approves edit
-  → Changes applied to live event
-  → All registered students notified of what changed
+- The canonical registration endpoint is `POST /api/registrations/register/:eventId`.
+- Students can only manage their own registrations.
+- Waitlist movement is automatic.
+- Event-specific cancellation rules are enforced in the backend.
+- Feedback depends on attendance and event timing rules.
 
-Superadmin rejects edit
-  → pendingUpdate discarded
-  → Event reverts to lastApprovedData
-  → Admin notified with reason, students not affected
+## Dashboard Access
 
-Admin deletes live event
-  → All registered students notified
-  → All registrations removed
-  → Superadmin notified
-```
+| Role | Main Dashboard |
+| --- | --- |
+| `student` | student dashboard |
+| `college_admin` | college admin dashboard |
+| `admin` | superadmin dashboard |
 
----
+## Current Product Direction
 
-## Registration Flow
-
-```
-Student registers
-  → Event has spots: status "pending"
-  → Event is full: status "waitlisted" with position shown
-
-Admin approves registration
-  → Student notified by email and in-app
-  → Reminders sent 24h and 1h before event
-
-Admin rejects registration
-  → Student notified with reason
-  → Slot freed, next waitlisted student notified
-
-Student cancels
-  → Allowed only before 24h buffer before event start
-  → If waitlisted: just deleted, no slot freed
-  → If pending/approved: slot freed, next waitlisted notified
-
-Waitlist spot opens
-  → First waitlisted student gets 24h confirmation window
-  → If confirms: moves to pending for admin approval
-  → If ignores: moves to next person, stays on waitlist
-
-After event ends
-  → Approved but not attended: auto-marked no_show
-  → Attended students can submit feedback within 30 days
-```
+CampusEventHub is now positioned as a multi-tenant event and community management platform with an immediate club-first use case. The first real-world deployment target is GGSA Google Student Club, with room to expand later to additional student clubs, departments, and similar communities.
 
 ---
-
-## Email Notifications Sent
-
-| Trigger | Recipient |
-|---------|-----------|
-| Admin signs up | Admin gets "under review" email |
-| Admin email verified | Superadmin notified |
-| Admin approved | Admin gets approval email with login link |
-| Admin rejected | Admin gets rejection reason email |
-| Student signs up and verifies | College admin notified |
-| Student approved | Student gets approval email |
-| Student rejected | Student gets rejection reason email |
-| Event submitted | Superadmin notified |
-| Event approved | College admin notified |
-| Event rejected | College admin gets reason email |
-| Event edited | Superadmin notified |
-| Event update approved | All registered students notified of changes |
-| Event deleted | All registered students notified |
-| Registration approved | Student gets confirmation email |
-| Registration rejected | Student gets reason email |
-| Waitlist spot opens | Waitlisted student gets 24h window email |
-| 24h before event | All approved registrants notified |
-| 1h before event | All approved registrants notified |
-| Event ends, no attendance | No-show students get feedback request |
+Last updated: 2026-03-19
+Maintained by: @udaycodespace
+---
