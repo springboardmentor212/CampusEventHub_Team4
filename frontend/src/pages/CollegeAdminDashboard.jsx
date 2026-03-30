@@ -58,6 +58,22 @@ const CollegeAdminDashboard = () => {
   const [analytics, setAnalytics] = useState(null);
   const [registrations, setRegistrations] = useState([]);
   const [pendingStudents, setPendingStudents] = useState([]);
+  const [allStudents, setAllStudents] = useState([]);
+  const [studentsLoading, setStudentsLoading] = useState(false);
+  const [studentSearch, setStudentSearch] = useState("");
+  const [studentStatusFilter, setStudentStatusFilter] = useState("all");
+    // Fetch all students for this college
+    const fetchAllStudents = async () => {
+      try {
+        setStudentsLoading(true);
+        const res = await API.get("/auth/college/all-students");
+        setAllStudents(res.data?.data?.users || []);
+      } catch (err) {
+        setAllStudents([]);
+      } finally {
+        setStudentsLoading(false);
+      }
+    };
   const [pendingStudentsLoading, setPendingStudentsLoading] = useState(false);
   const [feedbackRows, setFeedbackRows] = useState([]);
   const [feedbackSummaries, setFeedbackSummaries] = useState([]);
@@ -83,6 +99,7 @@ const CollegeAdminDashboard = () => {
   useEffect(() => {
     fetchDashboardData();
     fetchPendingStudents();
+    fetchAllStudents();
     fetchFeedback();
   }, []);
 
@@ -153,6 +170,7 @@ const CollegeAdminDashboard = () => {
       await API.patch(`/auth/admin/approve-user/${studentId}`);
       toast.success("Student approved");
       fetchPendingStudents();
+      fetchAllStudents();
     } catch (err) {
       toast.error("Failed to approve student");
     }
@@ -170,6 +188,7 @@ const CollegeAdminDashboard = () => {
         await API.delete(`/auth/admin/reject-user/${rejectionModal.id}`, { data: { reason: rejectionReason } });
         toast.success("Student application rejected");
         fetchPendingStudents();
+        fetchAllStudents();
       } else {
         await rejectRegistration(rejectionModal.id, { reason: rejectionReason });
         toast.success("Registration rejected");
@@ -183,6 +202,14 @@ const CollegeAdminDashboard = () => {
       setRejectionLoading(false);
     }
   };
+  // Filtered students for all-students view
+  const filteredAllStudents = allStudents.filter((student) => {
+    const haystack = `${student.firstName || ""} ${student.lastName || ""} ${student.email || ""}`.toLowerCase();
+    const status = student.accountStatus;
+    const matchesSearch = haystack.includes(studentSearch.toLowerCase());
+    const matchesStatus = studentStatusFilter === "all" || status === studentStatusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   const fetchDashboardData = async () => {
     try {
@@ -711,24 +738,25 @@ const CollegeAdminDashboard = () => {
         )}
 
         {activeTab === 'approvals' && (
-          <div className="space-y-6">
-            <section className="admin-panel overflow-hidden">
-              <div className="px-6 py-5 border-b border-slate-200 bg-slate-50/70 flex justify-between items-center">
+          <div className="space-y-10">
+            {/* Pending Students Section (as before, but visually distinct) */}
+            <section className="admin-panel overflow-hidden border-2 border-amber-200 bg-amber-50/20">
+              <div className="px-6 py-5 border-b border-amber-100 bg-amber-50/40 flex justify-between items-center">
                 <div className="flex flex-col">
-                  <h3 className="font-bold text-slate-900 flex items-center gap-3 text-lg">
-                    <Shield className="w-5 h-5 text-indigo-600" />
-                    Student Applications
+                  <h3 className="font-bold text-amber-900 flex items-center gap-3 text-lg">
+                    <Shield className="w-5 h-5 text-amber-600" />
+                    Pending Student Applications
                   </h3>
-                  <p className="text-sm text-slate-600 font-medium mt-1">Students waiting to join your college</p>
+                  <p className="text-sm text-amber-700 font-medium mt-1">Students waiting to join your college</p>
                 </div>
-                <button onClick={fetchPendingStudents} className="px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:border-indigo-300 hover:text-indigo-700 transition-all text-xs font-semibold">
+                <button onClick={fetchPendingStudents} className="px-3 py-2 bg-white border border-amber-200 text-amber-700 rounded-lg hover:border-amber-300 hover:text-amber-900 transition-all text-xs font-semibold">
                   Refresh
                 </button>
               </div>
               <div className="p-6 space-y-3">
                 {pendingStudentsLoading ? (
                   <div className="py-10 flex justify-center">
-                    <div className="w-8 h-8 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin" />
+                    <div className="w-8 h-8 border-4 border-amber-100 border-t-amber-600 rounded-full animate-spin" />
                   </div>
                 ) : pendingStudents.length === 0 ? (
                   <EmptyState
@@ -738,16 +766,16 @@ const CollegeAdminDashboard = () => {
                   />
                 ) : (
                   pendingStudents.map((student) => (
-                    <div key={student._id} className="rounded-xl border border-slate-200 bg-white px-4 py-4">
+                    <div key={student._id} className="rounded-xl border border-amber-200 bg-white px-4 py-4">
                       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                         <div className="flex items-start gap-3 min-w-0">
-                          <div className="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold text-xs shrink-0">
+                          <div className="w-10 h-10 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center font-bold text-xs shrink-0">
                             {student.firstName?.[0] || "?"}{student.lastName?.[0] || ""}
                           </div>
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
                               <p className="text-sm font-semibold text-slate-900 truncate">{student.firstName} {student.lastName}</p>
-                              <button onClick={() => handleViewStudent(student)} className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-indigo-600">
+                              <button onClick={() => handleViewStudent(student)} className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-amber-600">
                                 <Info className="w-3.5 h-3.5" />
                               </button>
                             </div>
@@ -769,6 +797,101 @@ const CollegeAdminDashboard = () => {
                           <button onClick={() => handlePendingStudentAction(student._id, "reject")} className="px-3 py-2 border border-rose-200 text-rose-700 text-xs font-semibold rounded-lg hover:bg-rose-50 transition-colors">
                             Reject
                           </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
+
+            {/* All Students Section */}
+            <section className="admin-panel overflow-hidden">
+              <div className="px-6 py-5 border-b border-slate-200 bg-slate-50/70 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+                <div className="flex flex-col">
+                  <h3 className="font-bold text-slate-900 flex items-center gap-3 text-lg">
+                    <Users className="w-5 h-5 text-indigo-600" />
+                    All Students
+                  </h3>
+                  <p className="text-sm text-slate-600 font-medium mt-1">View all students in your college and their approval status</p>
+                </div>
+                <div className="flex flex-col md:flex-row gap-2 items-end md:items-center">
+                  <input
+                    type="text"
+                    value={studentSearch}
+                    onChange={e => setStudentSearch(e.target.value)}
+                    placeholder="Search by name or email..."
+                    className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-indigo-100"
+                  />
+                  <select
+                    value={studentStatusFilter}
+                    onChange={e => setStudentStatusFilter(e.target.value)}
+                    className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-indigo-100"
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="pending_approval">Pending</option>
+                    <option value="active">Approved</option>
+                    <option value="rejected">Rejected</option>
+                  </select>
+                </div>
+              </div>
+              <div className="p-6 space-y-3">
+                {studentsLoading ? (
+                  <div className="py-10 flex justify-center">
+                    <div className="w-8 h-8 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin" />
+                  </div>
+                ) : filteredAllStudents.length === 0 ? (
+                  <EmptyState
+                    icon={Users}
+                    title="No students found"
+                    description="No students match your search or filter."
+                  />
+                ) : (
+                  filteredAllStudents.map((student) => (
+                    <div key={student._id} className="rounded-xl border border-slate-200 bg-white px-4 py-4 mb-2">
+                      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                        <div className="flex items-start gap-3 min-w-0">
+                          <div className="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold text-xs shrink-0">
+                            {student.firstName?.[0] || "?"}{student.lastName?.[0] || ""}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-semibold text-slate-900 truncate">{student.firstName} {student.lastName}</p>
+                              <button onClick={() => handleViewStudent(student)} className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-indigo-600">
+                                <Info className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                            <p className="text-xs text-slate-500 truncate">{student.email}</p>
+                            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                              <span>ID: {student.officialId || student.staffId || "-"}</span>
+                              <span className="text-slate-300">|</span>
+                              <span>Phone: {student.phone || "-"}</span>
+                              <span className="text-slate-300">|</span>
+                              <span>Joined {timeAgo(student.createdAt)}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 lg:justify-end">
+                          {student.accountStatus === "pending_approval" && (
+                            <span className="inline-flex rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">Pending</span>
+                          )}
+                          {student.accountStatus === "active" && (
+                            <span className="inline-flex rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">Approved</span>
+                          )}
+                          {student.accountStatus === "rejected" && (
+                            <span className="inline-flex rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700">Rejected</span>
+                          )}
+                          {/* Only show actions for pending students */}
+                          {student.accountStatus === "pending_approval" && (
+                            <>
+                              <button onClick={() => handlePendingStudentAction(student._id, "approve")} className="px-3 py-2 bg-slate-900 text-white text-xs font-semibold rounded-lg hover:bg-slate-800 transition-colors">
+                                Approve
+                              </button>
+                              <button onClick={() => handlePendingStudentAction(student._id, "reject")} className="px-3 py-2 border border-rose-200 text-rose-700 text-xs font-semibold rounded-lg hover:bg-rose-50 transition-colors">
+                                Reject
+                              </button>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>

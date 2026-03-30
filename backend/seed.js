@@ -4,6 +4,9 @@ import { College } from "./models/College.js";
 import { Event } from "./models/Event.js";
 import { Registration } from "./models/Registration.js";
 import dotenv from "dotenv";
+import { Notification } from "./models/Notification.js";
+import { Feedback } from "./models/Feedback.js";
+import { Comment } from "./models/Comment.js";
 
 dotenv.config({ path: ".env.local" });
 dotenv.config();
@@ -20,8 +23,11 @@ const seedData = async () => {
       College.deleteMany({}),
       Event.deleteMany({}),
       Registration.deleteMany({}),
+      Notification.deleteMany({}),
+      Feedback.deleteMany({}),
+      Comment.deleteMany({}),
     ]);
-    console.log("Cleared existing data");
+    console.log("Cleared existing data (users, colleges, events, registrations, notifications, feedback, comments)");
 
     // ─── Super Admin Only ──────────────────────────────────────────────────────
     const admin = await User.create({

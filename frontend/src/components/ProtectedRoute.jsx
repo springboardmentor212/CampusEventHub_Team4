@@ -6,6 +6,12 @@ const ProtectedRoute = ({ children, role }) => {
   const { user, loading } = useAuth();
   const location = useLocation();
 
+  // DEBUG: Log user role and normalized role for troubleshooting
+  if (user) {
+    // eslint-disable-next-line no-console
+    console.log('[ProtectedRoute] user.role:', user.role, 'normalized:', normalizeRole(user.role));
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-700">

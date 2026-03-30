@@ -51,8 +51,8 @@ export const createEvent = catchAsync(async (req, res, next) => {
     customCategory: category === "other" ? (customCategory || "") : "",
     college: collegeId,
     createdBy: req.userId,
-    isApproved: req.userRole === "admin" || (req.userRole === "college_admin" && req.user.isApproved),
-    status: (req.userRole === "admin" || (req.userRole === "college_admin" && req.user.isApproved)) ? "approved" : "pending_approval",
+    isApproved: false, // Always require superadmin approval
+    status: "pending_approval", // Always pending until approved
     currentParticipants: 0, // Always start at 0
   });
 
@@ -99,7 +99,7 @@ export const createEvent = catchAsync(async (req, res, next) => {
 
   res.status(201).json({
     success: true,
-    message: event.isApproved ? "Event created and live!" : "Event submitted for approval.",
+    message: "Event submitted for approval.",
     isDuplicate: !!duplicate,
     data: { event },
   });
@@ -166,6 +166,7 @@ export const approveEvent = catchAsync(async (req, res, next) => {
   // Initial approval logic
   event.isApproved = true;
   event.isVisible = true;
+  event.isActive = true;
   event.status = "approved";
   event.lastApprovedData = event.toObject();
   await event.save();
@@ -496,6 +497,7 @@ export const getEvents = catchAsync(async (req, res, next) => {
 
   // Build filter object
   const { scope } = req.query;
+  // Remove any user-specific creation date logic: all students see all live events regardless of when they or the event were created
   const filter = { isActive: true, isApproved: true, isVisible: true };
 
   if (req.user && req.userRole === "admin") {
@@ -507,23 +509,20 @@ export const getEvents = catchAsync(async (req, res, next) => {
     // Public/Unauthenticated: Only "all_colleges" events
     filter.audience = "all_colleges";
   } else if (req.userRole === "student") {
-    // Student: Handle audience and scope
+    // Student: See all live events for their college and all_colleges, regardless of when the event or user was created
     const userCollegeId = req.user.college;
-
     if (scope === "my_college") {
       filter.college = userCollegeId;
     } else if (scope === "other_colleges") {
       filter.college = { $ne: userCollegeId };
-      filter.audience = "all_colleges"; // Only see other colleges' events if they are for all colleges
+      filter.audience = "all_colleges";
     } else {
-      // Default view: Show events from their college OR "all_colleges" events
       filter.$or = [
         { audience: "all_colleges" },
         { audience: "my_college", college: userCollegeId }
       ];
     }
   } else if (req.userRole === "college_admin") {
-    // College Admin hitting /api/events: return only own college events per Task 6/14
     filter.college = req.user.college;
   }
 

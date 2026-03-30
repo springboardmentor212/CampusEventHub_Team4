@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import DashboardLayout from "../components/DashboardLayout";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
-import { cancelEvent, deleteEvent, fetchMyEvents, pauseEvent, resumeEvent } from "../services/eventService";
+import { cancelEvent, deleteEvent, fetchMyEvents as fetchMyEventsAPI, pauseEvent, resumeEvent } from "../services/eventService";
 import { exportEventRegistrations } from "../services/registrationService";
 import {
     Edit2,
@@ -28,20 +28,22 @@ const ManageEvents = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const navigate = useNavigate();
 
-    const fetchMyEvents = async () => {
+
+    const loadMyEvents = async () => {
+        setLoading(true);
         try {
-            setLoading(true);
-            const res = await fetchMyEvents();
-            setEvents(res.data.data.events);
+            const res = await fetchMyEventsAPI();
+            setEvents(res.data.data.events || []);
         } catch (err) {
-            toast.error("Failed to load your events");
+            toast.error("Failed to load your events from the server.");
         } finally {
             setLoading(false);
         }
     };
 
+
     useEffect(() => {
-        fetchMyEvents();
+        loadMyEvents();
     }, []);
 
     const handleDelete = async (id) => {
@@ -60,7 +62,7 @@ const ManageEvents = () => {
         try {
             await cancelEvent(id);
             toast.success("Event cancelled and notifications sent");
-            fetchMyEvents();
+            loadMyEvents();
         } catch (err) {
             toast.error("Failed to cancel event");
         }
@@ -70,7 +72,7 @@ const ManageEvents = () => {
         try {
             await pauseEvent(id);
             toast.success("Event paused");
-            fetchMyEvents();
+            loadMyEvents();
         } catch (err) {
             toast.error(err.response?.data?.message || "Failed to pause event");
         }
@@ -80,7 +82,7 @@ const ManageEvents = () => {
         try {
             await resumeEvent(id);
             toast.success("Event resumed");
-            fetchMyEvents();
+            loadMyEvents();
         } catch (err) {
             toast.error(err.response?.data?.message || "Failed to resume event");
         }
@@ -197,17 +199,20 @@ const ManageEvents = () => {
                                                 </td>
                                                 <td className="px-6 py-5">
                                                     <div className="flex flex-col items-start gap-1">
-                                                      <span className={`text-[9px] font-black px-2 py-1 rounded-md uppercase tracking-widest ${isCancelled ? 'bg-rose-100 text-rose-700' :
+                                                      <span className={`text-[9px] font-black px-2 py-1 rounded-md uppercase tracking-widest ${
+                                                          isCancelled ? 'bg-rose-100 text-rose-700' :
                                                           event.hasPendingUpdate ? 'bg-indigo-100 text-indigo-700 border border-indigo-200' :
                                                           isPaused ? 'bg-amber-100 text-amber-700' :
-                                                          !event.isApproved ? 'bg-amber-100 text-amber-700' :
-                                                              isPast ? 'bg-slate-200 text-slate-600' : 'bg-emerald-100 text-emerald-700'
-                                                          }`}>
+                                                          event.status === 'pending_approval' || !event.isApproved ? 'bg-amber-100 text-amber-700' :
+                                                          event.status === 'rejected' ? 'bg-rose-100 text-rose-700' :
+                                                          isPast ? 'bg-slate-200 text-slate-600' : 'bg-emerald-100 text-emerald-700'
+                                                      }`}>
                                                           {isCancelled ? 'Cancelled' :
                                                               event.hasPendingUpdate ? 'Pending Review' :
                                                               isPaused ? 'Paused' :
-                                                              !event.isApproved ? 'Awaiting Approval' :
-                                                                  isPast ? 'Completed' : 'Live & Active'}
+                                                              event.status === 'pending_approval' || !event.isApproved ? 'Awaiting Approval' :
+                                                              event.status === 'rejected' ? 'Rejected' :
+                                                              isPast ? 'Completed' : 'Live & Active'}
                                                       </span>
                                                       {event.hasPendingUpdate && (
                                                           <span className="text-[8px] font-black text-indigo-400 uppercase tracking-tight flex items-center gap-1">

@@ -222,7 +222,7 @@ const CreateEvent = () => {
                     </div>
                 </header>
 
-                <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-8" autoComplete="off">
                     {/* Left Column: Visual & Configuration */}
                     <div className="lg:col-span-2 space-y-8">
                         {/* 1. Visual Identity */}
@@ -239,7 +239,8 @@ const CreateEvent = () => {
 
                             <ImageUpload
                                 label="Event Banner"
-                                onUpload={(url) => setForm({ ...form, bannerImage: url })}
+                                onUpload={(url) => setForm(f => ({ ...f, bannerImage: url }))}
+                                defaultValue={form.bannerImage}
                             />
                         </section>
 

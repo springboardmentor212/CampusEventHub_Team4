@@ -92,7 +92,6 @@ const DashboardLayout = ({ children, suppressAdminNav = false, pendingRegistrati
         ];
 
         const collegeAdminQuickLinks = [
-            { label: 'Campus Feed Preview', path: '/campus-feed', icon: Home },
             { label: 'Create Event', path: '/create-event', icon: PlusCircle },
         ];
 

@@ -1,3 +1,15 @@
+// Get all students for a college (for college admin)
+export const getAllStudentsForCollege = catchAsync(async (req, res, next) => {
+    // Only for college_admins
+    if (!req.user || req.user.role !== "college_admin" || !req.user.college) {
+        return next(new AppError("Unauthorized", 403));
+    }
+    const users = await User.find({
+        role: "student",
+        college: req.user.college
+    }).select("firstName lastName email isApproved isVerified accountStatus rejectionReason officialId phone createdAt");
+    res.status(200).json({ success: true, data: { users } });
+});
 import crypto from "crypto";
 import { User } from "../models/User.js";
 import { College } from "../models/College.js";
@@ -65,7 +77,9 @@ export const register = catchAsync(async (req, res, next) => {
     // 3. Student-specific validation
     let resolvedCollegeId = collegeId;
     if (assignedRole === "student") {
-        if (!collegeId) return next(new AppError("Please select a college.", 400));
+        if (!collegeId && !customCollegeName?.trim()) {
+            return next(new AppError("Ask your college admin to sign up as an admin first, or enter your college name if not listed.", 400));
+        }
     }
 
     // 4. Create User
@@ -93,11 +107,32 @@ export const register = catchAsync(async (req, res, next) => {
 
     await newUser.save();
 
-    // 5. Send Verification Email
+    // 5. Email logic: Waitlist scenario (student, custom college)
     const baseUrl = process.env.FRONTEND_URL?.split(",")[0] || "http://localhost:5173";
     const verifyUrl = `${baseUrl}/verify-email/${token}`;
     const reportLink = `${baseUrl}/not-me?email=${encodeURIComponent(newUser.email)}`;
 
+    if (assignedRole === "student" && (!collegeId && customCollegeName?.trim())) {
+        // Waitlist: do NOT send verification email, send waitlist info mail instead
+        try {
+            const tpl = {
+                subject: "You're on the waitlist — CampusEventHub",
+                html: EmailTemplates.studentPendingAdminReady(firstName).html
+            };
+            await sendEmail({ email: newUser.email, ...tpl });
+        } catch (e) {
+            logAuth("error", "Waitlist email failed", {
+                email: newUser.email,
+                error: e.message,
+            });
+        }
+        return res.status(201).json({
+            success: true,
+            message: "You are on the waitlist. Ask a college official to sign up as an admin for your college."
+        });
+    }
+
+    // Default: send verification email
     try {
         const tpl = EmailTemplates.onboarding(firstName, verifyUrl, reportLink);
         await sendEmail({ email: newUser.email, ...tpl });
@@ -238,6 +273,16 @@ export const verifyEmail = catchAsync(async (req, res, next) => {
         const collegeAdmins = await User.find({ role: "college_admin", college: user.college, isApproved: true });
         for (const ca of collegeAdmins) {
             await sendInAppNotification(ca._id, "New Student Signup", `Student ${user.firstName} is waiting for review.`, "USER_SIGNUP");
+        }
+        // Send pending approval email to student
+        try {
+            const tpl = EmailTemplates.studentPendingAdminApproval(user.firstName);
+            await sendEmail({ email: user.email, ...tpl });
+        } catch (e) {
+            logAuth("error", "Pending approval email to student failed", {
+                email: user.email,
+                error: e.message,
+            });
         }
     }
 

@@ -16,7 +16,9 @@ import {
     getAllColleges,
     createStudent,
     reportNotMe,
+    getAllStudentsForCollege
 } from "../controllers/authController.js";
+// ...existing code...
 import { requestPasswordReset, resetPassword, changePassword } from "../controllers/passwordController.js";
 import { authenticate, isSuperAdmin, isApprovedCollegeAdmin, isSuperAdminOrCollegeAdmin } from "../middleware/auth.js";
 import validateRequest, {
@@ -27,7 +29,10 @@ import validateRequest, {
     changePasswordSchema,
 } from "../middleware/validateMiddleware.js";
 
+
 const router = express.Router();
+// College Admin: Get all students for their college
+router.get("/college/all-students", authenticate, isApprovedCollegeAdmin, getAllStudentsForCollege);
 
 // Public auth routes
 router.post("/register", validateRequest(registerSchema), register);

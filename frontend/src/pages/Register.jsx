@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import FormInput from "../components/FormInput";
 import {
   User,
+  Triangle,
   Mail,
   ShieldCheck,
   MailCheck,
@@ -32,15 +33,46 @@ const Register = () => {
     confirmPassword: "",
     collegeId: "",
     customCollegeName: "",
-    role: "student",
+    role: "",
     officialId: "",
     academicClass: "",
     section: "",
   });
 
+  // Default details for student and admin
+  const defaultStudent = {
+    username: "uday.s",
+    fullName: "SOMAPURAM UDAY",
+    email: "229x1a2856@gmail.com",
+    phone: "8522836109",
+    password: "pass123",
+    confirmPassword: "pass123",
+    collegeId: "",
+    customCollegeName: "GPREC",
+    role: "student",
+    officialId: "229x1a2856",
+    academicClass: "BTECH IV YEAR",
+    section: "CSTA",
+  };
+  const defaultAdmin = {
+    username: "uday.ss",
+    fullName: "SOMAPURAM UDAYY",
+    email: "229x1a2856@gmail.com",
+    phone: "8522836108",
+    password: "pass123",
+    confirmPassword: "pass123",
+    collegeId: "",
+    customCollegeName: "GPREC",
+    role: "college_admin",
+    officialId: "S01",
+    academicClass: "",
+    section: "",
+  };
+
   const [colleges, setColleges] = useState([]);
   const [loadingColleges, setLoadingColleges] = useState(true);
   const [registeredEmail, setRegisteredEmail] = useState(null);
+  const [waitlisted, setWaitlisted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [fieldErrors, setFieldErrors] = useState({});
@@ -133,13 +165,12 @@ const Register = () => {
       return;
     }
 
-    if (!form.collegeId) {
-      setCollegeError("Please choose your college to continue");
-      return;
-    }
-
-    if (form.collegeId === "custom" && !form.customCollegeName.trim()) {
-      toast.error("Tell us your college name so we can finish setting up your account.");
+    // Allow student to proceed if custom college name is provided (no admin/college exists)
+    if (
+      (!form.collegeId && !form.customCollegeName.trim()) ||
+      (form.collegeId === "custom" && !form.customCollegeName.trim())
+    ) {
+      setCollegeError("Please select a college, or if your college is not listed, ask a college official to sign up as an admin first.");
       return;
     }
 
@@ -163,7 +194,7 @@ const Register = () => {
       section: form.section,
     };
 
-    if (form.collegeId === "custom") {
+    if (form.collegeId === "custom" || (!form.collegeId && form.customCollegeName.trim())) {
       payload.customCollegeName = form.customCollegeName;
     } else {
       payload.collegeId = form.collegeId;
@@ -171,6 +202,15 @@ const Register = () => {
 
     try {
       await API.post("/auth/register", payload);
+      if (
+        form.role === "student" &&
+        form.collegeId === "custom" &&
+        form.customCollegeName.trim()
+      ) {
+        setWaitlisted(true);
+        toast.dismiss(loadingToast);
+        return;
+      }
       toast.success("Your account has been created. Check your inbox for the next step.", { id: loadingToast });
       setRegisteredEmail(form.email);
     } catch (err) {
@@ -196,6 +236,18 @@ const Register = () => {
       setIsSubmitting(false);
     }
   };
+
+  if (waitlisted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 px-6 py-10 text-slate-900 md:px-8">
+        <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm md:p-10">
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-950 mb-4">You're on the waitlist</h1>
+          <p className="mb-6 text-base text-slate-700">Your account is in waitlist. Please ask a college official to sign up as an admin for your college. Once an admin joins, your account can be reviewed and approved.</p>
+          <Link to="/login" className="inline-flex h-12 w-full items-center justify-center rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-indigo-700">Back to sign in</Link>
+        </div>
+      </div>
+    );
+  }
 
   if (registeredEmail) {
     const isCollegeAdmin = form.role === "college_admin";
@@ -276,259 +328,282 @@ const Register = () => {
   }
 
   const isStudent = form.role === "student";
+  const isAdmin = form.role === "college_admin";
 
   return (
-    <div className="min-h-screen bg-slate-50 px-6 py-10 text-slate-900 md:px-8">
-      <div className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-xl items-center justify-center">
-        <div className="w-full rounded-3xl border border-slate-200 bg-white p-8 shadow-sm md:p-10">
-          <div className="mb-8">
-            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5">
-              {isStudent ? <GraduationCap className="h-4 w-4 text-indigo-600" /> : <Building2 className="h-4 w-4 text-indigo-600" />}
-              <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
-                {isStudent ? "Student registration" : "College admin registration"}
-              </span>
+    <div className="min-h-screen bg-slate-50 px-6 py-10 text-slate-900 md:px-8 flex items-center justify-center relative">
+      {/* Top left: Student default (circle) */}
+      <button
+        type="button"
+        className="absolute top-6 left-6 z-50 flex items-center justify-center h-10 w-10 rounded-full bg-indigo-100 border border-indigo-200 cursor-pointer shadow hover:bg-indigo-200"
+        title="Fill with student credentials"
+        onClick={() => setForm(defaultStudent)}
+      >
+        <User className="h-6 w-6 text-indigo-600" />
+      </button>
+      {/* Top right: Admin default (triangle) */}
+      <button
+        type="button"
+        className="absolute top-6 right-6 z-50 flex items-center justify-center h-10 w-10 rounded-full bg-emerald-100 border border-emerald-200 cursor-pointer shadow hover:bg-emerald-200"
+        title="Fill with admin credentials"
+        onClick={() => setForm(defaultAdmin)}
+      >
+        <Triangle className="h-6 w-6 text-emerald-600" />
+      </button>
+      <div className="w-full max-w-xl rounded-3xl border border-slate-200 bg-white p-8 shadow-sm md:p-10">
+        {/* Universal Heading and Subheading */}
+        <div className="mb-8 text-center">
+          <h1 className="text-3xl font-semibold tracking-tight text-slate-950">Create your account</h1>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            Join CampusEventHub to discover events, manage participation, and stay connected.
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {/* Account type at the top */}
+          <FormInput
+            label="Account type"
+            icon={ChevronDown}
+            required
+            value={form.role}
+            onChange={(e) => setForm({
+              ...form,
+              role: e.target.value,
+              officialId: "",
+              academicClass: "",
+              section: ""
+            })}
+            suffix={<ChevronDown className="h-4 w-4 text-slate-400" />}
+          >
+            <option value="" disabled>Select account type</option>
+            <option value="student">Student</option>
+            <option value="college_admin">College Admin</option>
+          </FormInput>
+
+          {/* Common Fields */}
+          <FormInput
+            label="Username"
+            icon={User}
+            required
+            placeholder="Choose a username"
+            value={form.username}
+            error={fieldErrors.username}
+            onChange={(e) => setForm({ ...form, username: e.target.value })}
+            autoComplete="username"
+          />
+
+          <FormInput
+            label="Full name"
+            icon={User}
+            required
+            placeholder="First and last name"
+            value={form.fullName}
+            onChange={(e) => setForm({ ...form, fullName: e.target.value })}
+            autoComplete="name"
+          />
+
+          <FormInput
+            label="College email"
+            icon={Mail}
+            required
+            type="email"
+            placeholder="name@college.edu"
+            value={form.email}
+            error={fieldErrors.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+            autoComplete="email"
+          />
+
+          <FormInput
+            label="Phone number"
+            icon={User}
+            placeholder="Enter your phone number"
+            value={form.phone}
+            error={fieldErrors.phone}
+            onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            autoComplete="tel"
+          />
+
+          {/* College selection */}
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-slate-700">
+              College <span className="text-rose-500">*</span>
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder={loadingColleges ? "Loading colleges..." : "Search for your college"}
+                value={collegeSearchTerm}
+                onChange={(e) => {
+                  setCollegeSearchTerm(e.target.value);
+                  setShowCollegeDropdown(true);
+                  if (form.collegeId) setForm({ ...form, collegeId: "" });
+                  setCollegeError("");
+                  setCollegeSupportMessage("");
+                  setCheckingCollegeAdmin(false);
+                }}
+                onFocus={() => setShowCollegeDropdown(true)}
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-indigo-400"
+              />
+
+              {showCollegeDropdown && (
+                <div className="absolute z-10 mt-2 max-h-60 w-full overflow-auto rounded-2xl border border-slate-200 bg-white shadow-lg">
+                  {filteredColleges.map((college) => (
+                    <div
+                      key={college._id}
+                      className="cursor-pointer px-4 py-3 text-sm text-slate-700 hover:bg-slate-50"
+                      onMouseDown={() => handleCollegeSelect(college)}
+                    >
+                      {college.name}
+                    </div>
+                  ))}
+                  <div
+                    className="cursor-pointer border-t border-slate-100 px-4 py-3 text-sm font-semibold text-indigo-600 hover:bg-slate-50"
+                    onMouseDown={() => handleCollegeSelect("custom")}
+                  >
+                    My college is not listed
+                  </div>
+                </div>
+              )}
             </div>
 
-            <h1 className="text-3xl font-semibold tracking-tight text-slate-950">
-              {isStudent ? "Create your student account" : "Set up your college admin account"}
-            </h1>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              {isStudent
-                ? "Join CampusEventHub to discover events, register faster, and stay in the loop."
-                : "Create your account to publish events, manage approvals, and keep your campus informed."}
-            </p>
+            {collegeError && (
+              <p className="mt-2 text-sm text-rose-600">{collegeError}</p>
+            )}
+
+            {collegeSupportMessage && (
+              <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                <div className="flex gap-3">
+                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                  <p className="text-sm leading-6 text-amber-800">{collegeSupportMessage}</p>
+                </div>
+              </div>
+            )}
+
+            {checkingCollegeAdmin && (
+              <p className="mt-2 text-sm text-slate-500">
+                Checking whether your college admin is ready to approve accounts...
+              </p>
+            )}
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          {form.collegeId === "custom" && (
             <FormInput
-              label="Username"
-              icon={User}
+              label="College name"
+              icon={Building2}
               required
-              placeholder="Choose a username"
-              value={form.username}
-              error={fieldErrors.username}
-              onChange={(e) => setForm({ ...form, username: e.target.value })}
-              autoComplete="username"
+              placeholder="Type your college name"
+              value={form.customCollegeName}
+              onChange={(e) => setForm({ ...form, customCollegeName: e.target.value })}
             />
+          )}
 
+          {/* Dynamic Fields: only show after account type is selected */}
+          {form.role === "student" && (
+            <>
+              <FormInput
+                label="Student ID"
+                icon={ShieldCheck}
+                required
+                placeholder="Enter your student ID"
+                value={form.officialId}
+                error={fieldErrors.officialId}
+                onChange={(e) => setForm({ ...form, officialId: e.target.value })}
+              />
+              <FormInput
+                label="Academic class"
+                icon={GraduationCap}
+                placeholder="For example: B.Tech III Year"
+                value={form.academicClass}
+                required
+                onChange={(e) => setForm({ ...form, academicClass: e.target.value })}
+              />
+              <FormInput
+                label="Section"
+                icon={ShieldCheck}
+                placeholder="For example: CSE-A"
+                value={form.section}
+                onChange={(e) => setForm({ ...form, section: e.target.value })}
+              />
+            </>
+          )}
+          {form.role === "college_admin" && (
             <FormInput
-              label="Full name"
-              icon={User}
-              required
-              placeholder="First and last name"
-              value={form.fullName}
-              onChange={(e) => setForm({ ...form, fullName: e.target.value })}
-              autoComplete="name"
-            />
-
-            <FormInput
-              label="College email"
-              icon={Mail}
-              required
-              type="email"
-              placeholder="name@college.edu"
-              value={form.email}
-              error={fieldErrors.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-              autoComplete="email"
-            />
-
-            <FormInput
-              label="Phone number"
-              icon={User}
-              placeholder="Enter your phone number"
-              value={form.phone}
-              error={fieldErrors.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              autoComplete="tel"
-            />
-
-            <FormInput
-              label={isStudent ? "Student ID" : "Staff ID"}
+              label="Staff ID"
               icon={ShieldCheck}
               required
-              placeholder={isStudent ? "Enter your student ID" : "Enter your staff ID"}
+              placeholder="Enter your staff ID"
               value={form.officialId}
               error={fieldErrors.officialId}
               onChange={(e) => setForm({ ...form, officialId: e.target.value })}
             />
+          )}
 
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-700">
-                College <span className="text-rose-500">*</span>
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  required
-                  placeholder={loadingColleges ? "Loading colleges..." : "Search for your college"}
-                  value={collegeSearchTerm}
-                  onChange={(e) => {
-                    setCollegeSearchTerm(e.target.value);
-                    setShowCollegeDropdown(true);
-                    if (form.collegeId) setForm({ ...form, collegeId: "" });
-                    setCollegeError("");
-                    setCollegeSupportMessage("");
-                    setCheckingCollegeAdmin(false);
-                  }}
-                  onFocus={() => setShowCollegeDropdown(true)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-indigo-400"
-                />
-
-                {showCollegeDropdown && (
-                  <div className="absolute z-10 mt-2 max-h-60 w-full overflow-auto rounded-2xl border border-slate-200 bg-white shadow-lg">
-                    {filteredColleges.map((college) => (
-                      <div
-                        key={college._id}
-                        className="cursor-pointer px-4 py-3 text-sm text-slate-700 hover:bg-slate-50"
-                        onMouseDown={() => handleCollegeSelect(college)}
-                      >
-                        {college.name}
-                      </div>
-                    ))}
-                    <div
-                      className="cursor-pointer border-t border-slate-100 px-4 py-3 text-sm font-semibold text-indigo-600 hover:bg-slate-50"
-                      onMouseDown={() => handleCollegeSelect("custom")}
-                    >
-                      My college is not listed
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {collegeError && (
-                <p className="mt-2 text-sm text-rose-600">{collegeError}</p>
-              )}
-
-              {collegeSupportMessage && (
-                <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-                  <div className="flex gap-3">
-                    <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
-                    <p className="text-sm leading-6 text-amber-800">{collegeSupportMessage}</p>
-                  </div>
-                </div>
-              )}
-
-              {checkingCollegeAdmin && (
-                <p className="mt-2 text-sm text-slate-500">
-                  Checking whether your college admin is ready to approve accounts...
-                </p>
-              )}
-            </div>
-
-            {form.collegeId === "custom" && (
-              <FormInput
-                label="College name"
-                icon={Building2}
-                required
-                placeholder="Type your college name"
-                value={form.customCollegeName}
-                onChange={(e) => setForm({ ...form, customCollegeName: e.target.value })}
-              />
-            )}
-
+          {/* Password fields */}
+          <div className="grid grid-cols-1 gap-5 border-t border-slate-200 pt-5 md:grid-cols-2">
             <FormInput
-              label="Account type"
-              icon={ChevronDown}
+              label="Password"
+              icon={Lock}
               required
-              value={form.role}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  role: e.target.value,
-                  academicClass: e.target.value === "student" ? form.academicClass : "",
-                  section: e.target.value === "student" ? form.section : "",
-                })
-              }
-              suffix={<ChevronDown className="h-4 w-4 text-slate-400" />}
-            >
-              <option value="student">Student</option>
-              <option value="college_admin">College Admin</option>
-            </FormInput>
+              type="password"
+              placeholder="Create a password"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              autoComplete="new-password"
+            />
+            <FormInput
+              label="Confirm password"
+              icon={Lock}
+              required
+              type="password"
+              placeholder="Repeat your password"
+              value={form.confirmPassword}
+              onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+              autoComplete="new-password"
+            />
+          </div>
 
-            {isStudent && (
+          {/* CTA Section */}
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-300"
+          >
+            {isSubmitting ? (
               <>
-                <FormInput
-                  label="Academic class"
-                  icon={GraduationCap}
-                  placeholder="For example: B.Tech III Year"
-                  value={form.academicClass}
-                  required
-                  onChange={(e) => setForm({ ...form, academicClass: e.target.value })}
-                />
-                <FormInput
-                  label="Section"
-                  icon={ShieldCheck}
-                  placeholder="For example: CSE-A"
-                  value={form.section}
-                  onChange={(e) => setForm({ ...form, section: e.target.value })}
-                />
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Creating your account
+              </>
+            ) : (
+              <>
+                Create account
+                <ArrowRight className="h-4 w-4" />
               </>
             )}
+          </button>
 
-            <div className="grid grid-cols-1 gap-5 border-t border-slate-200 pt-5 md:grid-cols-2">
-              <FormInput
-                label="Password"
-                icon={Lock}
-                required
-                type="password"
-                placeholder="Create a password"
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-                autoComplete="new-password"
-              />
-              <FormInput
-                label="Confirm password"
-                icon={Lock}
-                required
-                type="password"
-                placeholder="Repeat your password"
-                value={form.confirmPassword}
-                onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
-                autoComplete="new-password"
-              />
-            </div>
+          <div className="border-t border-slate-200 pt-5 text-center">
+            <p className="text-sm text-slate-600">
+              Already have an account?{" "}
+              <Link to="/login" className="font-semibold text-indigo-600 transition-colors hover:text-indigo-700">
+                Sign in
+              </Link>
+            </p>
+          </div>
+        </form>
 
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-300"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Creating your account
-                </>
-              ) : (
-                <>
-                  Create account
-                  <ArrowRight className="h-4 w-4" />
-                </>
-              )}
-            </button>
-
-            <div className="border-t border-slate-200 pt-5 text-center">
-              <p className="text-sm text-slate-600">
-                Already have an account?{" "}
-                <Link to="/login" className="font-semibold text-indigo-600 transition-colors hover:text-indigo-700">
-                  Sign in
-                </Link>
-              </p>
-            </div>
-          </form>
-
-          <p className="mt-6 text-center text-xs leading-6 text-slate-500">
-            By creating an account, you agree to our{" "}
-            <Link to="/policies" className="font-medium text-indigo-600 hover:text-indigo-700">
-              Policies
-            </Link>{" "}
-            and{" "}
-            <Link to="/privacy-terms" className="font-medium text-indigo-600 hover:text-indigo-700">
-              Privacy Terms
-            </Link>
-            .
-          </p>
-        </div>
+        {/* Footer */}
+        <p className="mt-6 text-center text-xs leading-6 text-slate-500">
+          By creating an account, you agree to our{" "}
+          <Link to="/policies" className="font-medium text-indigo-600 hover:text-indigo-700">
+            Policies
+          </Link>{" "}
+          and{" "}
+          <Link to="/privacy-terms" className="font-medium text-indigo-600 hover:text-indigo-700">
+            Privacy Terms
+          </Link>
+          .
+        </p>
       </div>
     </div>
   );

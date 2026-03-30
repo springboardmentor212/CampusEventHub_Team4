@@ -46,6 +46,12 @@ const StudentDashboard = ({ view = "alias" }) => {
   const { user } = useAuth();
   const location = useLocation();
 
+  // Prevent superadmin from seeing student dashboard
+  if (user && (user.role === 'admin' || String(user.role).toLowerCase().includes('admin'))) {
+    window.location.replace('/superadmin');
+    return null;
+  }
+
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
   const [registrations, setRegistrations] = useState([]);

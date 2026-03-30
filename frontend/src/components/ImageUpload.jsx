@@ -18,22 +18,29 @@ const ImageUpload = ({ label, onUpload, defaultValue = null }) => {
             return;
         }
 
-        const formData = new FormData();
-        formData.append("image", file);
-
         setUploading(true);
         const loadingToast = toast.loading("Uploading image...");
 
         try {
+            const formData = new FormData();
+            formData.append("image", file);
             const res = await API.post("/media/image", formData, {
                 headers: { "Content-Type": "multipart/form-data" }
             });
             const url = res.data.data.url;
             setPreview(url);
+            // Use callback to avoid race conditions with parent state
             onUpload(url);
             toast.success("Image uploaded!", { id: loadingToast });
         } catch (err) {
-            const msg = err.response?.data?.message || "Upload failed. Verify server protocol/connection.";
+            let msg = "Upload failed. Verify server protocol/connection.";
+            if (err.response?.data?.message) {
+                msg = err.response.data.message;
+            } else if (err.code === 'ERR_NETWORK') {
+                msg = "Network error: Backend may be down or CORS misconfigured.";
+            } else if (err.request && !err.response) {
+                msg = "No response from server. Check backend URL and CORS.";
+            }
             toast.error(msg, { id: loadingToast });
         } finally {
             setUploading(false);
@@ -102,6 +109,7 @@ const ImageUpload = ({ label, onUpload, defaultValue = null }) => {
                     onChange={handleFileChange}
                     className="hidden"
                     accept="image/*"
+                    tabIndex={-1}
                 />
             </div>
         </div>

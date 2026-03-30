@@ -204,7 +204,7 @@ const LandingPage = () => {
                 />
               </div>
               <div className="absolute -bottom-4 -left-2 rounded-full bg-amber-500 px-4 py-2 text-sm font-semibold text-gray-900">
-                Spring Tech Symposium starts in 2 hours
+                
               </div>
             </div>
           </div>

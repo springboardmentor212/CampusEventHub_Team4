@@ -16,6 +16,7 @@ import ManageEvents from "./pages/ManageEvents";
 import EventRegistrations from "./pages/EventRegistrations";
 import EventDetail from "./pages/EventDetail";
 import EmailVerification from "./pages/EmailVerification";
+import VerifyEmail from "./pages/VerifyEmail";
 import DeleteAccount from "./pages/DeleteAccount";
 import ResendVerification from "./pages/ResendVerification";
 import Policies from "./pages/Policies";
@@ -37,7 +38,7 @@ function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} />
-          <Route path="/verify-email/:token" element={<EmailVerification />} />
+          <Route path="/verify-email/:token" element={<VerifyEmail />} />
           <Route path="/delete-account/:token" element={<DeleteAccount />} />
           <Route path="/resend-verification" element={<ResendVerification />} />
           <Route path="/policies" element={<Policies />} />
