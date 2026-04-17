@@ -1,40 +1,56 @@
-## Design Requirement (Figma)
+## 🎨 Design Requirement (Figma)
 
-Figma is used for designing and planning the UI/UX before starting development.  
-It is mandatory to complete the design phase before moving into each milestone.
+<p align="left">
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/figma/figma-original.svg" width="22"/> 
+  <strong>Figma is the source of truth for UI/UX.</strong>
+</p>
 
-Once the Figma design is ready, development will proceed based on the approved design.  
-All designs are reviewed by the Springboard mentor, and updates may be made based on feedback.
-
----
-
-## Milestones
-
-### Milestone 1: Authentication & User Management  
-Figma: https://www.figma.com/design/5GKGBR5XY6OspVUIeqM5W3/TEAM-4?node-id=0-1&p=f  
-Completed by: @udaycodespace  
+- Every milestone must have a completed Figma design before development begins  
+- Implementation strictly follows the approved design  
+- Designs are reviewed by the Springboard mentor  
+- Iterations are expected based on review feedback  
 
 ---
 
-### Milestone 2: Event Listing & Registration  
-Figma: Link to be provided by @revan  
-Note: Only Figma design is completed for this milestone.  
+## 🚀 Milestones
+
+### 🔐 Milestone 1: Authentication & User Management  
+<p>
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/figma/figma-original.svg" width="18"/> 
+  <a href="https://www.figma.com/design/5GKGBR5XY6OspVUIeqM5W3/TEAM-4?node-id=0-1&p=f">View Design</a>
+</p>
+Completed by: **@udaycodespace**
 
 ---
 
-### Milestone 3: Event Management Dashboard  
-Figma: https://www.figma.com/design/s5XdxLWZcHFrkTGiGpAhm8/UDAY?node-id=0-1&t=PXQ5duxoxPMHnSdG-1  
-Completed by: @udaycodespace  
+### 📅 Milestone 2: Event Listing & Registration  
+<p>
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/figma/figma-original.svg" width="18"/> 
+  <a href="https://www.figma.com/proto/Fh2pUVk98y48OHGQs6HkTc/Untitled?node-id=42-2&starting-point-node-id=6%3A176&t=i2eAWnYdnF3TzRnl-1">View Prototype</a>
+</p>
+Completed by: **@revan-konda**
 
 ---
 
-### Milestone 4: Community Feedback & Interaction  
-Figma: https://www.figma.com/design/iL29eYExIk518SKPGYQyyO/Untitled?node-id=0-1&p=f&t=FNnu5mBHpyYCIJnL-0  
-Completed by: @udaycodespace  
+### 📊 Milestone 3: Event Management Dashboard  
+<p>
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/figma/figma-original.svg" width="18"/> 
+  <a href="https://www.figma.com/design/s5XdxLWZcHFrkTGiGpAhm8/UDAY?node-id=0-1&t=PXQ5duxoxPMHnSdG-1">View Design</a>
+</p>
+Completed by: **@udaycodespace**
 
 ---
 
-## Note
+### 💬 Milestone 4: Community Feedback & Interaction  
+<p>
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/figma/figma-original.svg" width="18"/> 
+  <a href="https://www.figma.com/design/iL29eYExIk518SKPGYQyyO/Untitled?node-id=0-1&p=f&t=FNnu5mBHpyYCIJnL-0">View Design</a>
+</p>
+Completed by: **@udaycodespace**
 
-These Figma designs act as the base reference.  
-UI/UX may evolve after review and further iterations.
+---
+
+## 📝 Note
+
+> These designs act as the baseline for implementation.  
+> UI/UX may evolve after mentor review and further iterations.
