@@ -19,7 +19,7 @@
   <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/figma/figma-original.svg" width="18"/> 
   <a href="https://www.figma.com/design/5GKGBR5XY6OspVUIeqM5W3/TEAM-4?node-id=0-1&p=f">View Design</a>
 </p>
-Completed by: **@udaycodespace**
+Completed by: [@udaycodespace](https://github.com/udaycodespace)
 
 ---
 
@@ -28,7 +28,7 @@ Completed by: **@udaycodespace**
   <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/figma/figma-original.svg" width="18"/> 
   <a href="https://www.figma.com/proto/Fh2pUVk98y48OHGQs6HkTc/Untitled?node-id=42-2&starting-point-node-id=6%3A176&t=i2eAWnYdnF3TzRnl-1">View Prototype</a>
 </p>
-Completed by: **@revan-konda**
+Completed by: [@revan-konda](https://github.com/Konda-coder)
 
 ---
 
@@ -37,7 +37,7 @@ Completed by: **@revan-konda**
   <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/figma/figma-original.svg" width="18"/> 
   <a href="https://www.figma.com/design/s5XdxLWZcHFrkTGiGpAhm8/UDAY?node-id=0-1&t=PXQ5duxoxPMHnSdG-1">View Design</a>
 </p>
-Completed by: **@udaycodespace**
+Completed by: [@udaycodespace](https://github.com/udaycodespace)
 
 ---
 
@@ -46,7 +46,7 @@ Completed by: **@udaycodespace**
   <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/figma/figma-original.svg" width="18"/> 
   <a href="https://www.figma.com/design/iL29eYExIk518SKPGYQyyO/Untitled?node-id=0-1&p=f&t=FNnu5mBHpyYCIJnL-0">View Design</a>
 </p>
-Completed by: **@udaycodespace**
+Completed by: [@udaycodespace](https://github.com/udaycodespace)
 
 ---
 
