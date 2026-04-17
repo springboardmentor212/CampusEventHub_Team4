@@ -1,0 +1,276 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --color-primary: #4f46e5;
+  /* Indigo */
+  --color-accent: #6366f1;
+  /* Lighter Indigo */
+  --color-bg: #ffffff;
+  --color-surface: #f9fafb;
+  --color-border: #e2e8f0;
+}
+
+@layer base {
+  body {
+    @apply text-slate-800 antialiased overflow-x-hidden m-0 p-0;
+    font-family: var(--font-sans);
+    min-height: 100vh;
+    background: #ffffff;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-bold tracking-tight leading-tight text-slate-900;
+  }
+}
+
+/* Professional SaaS Tokens */
+:root {
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+}
+
+/* Light Mode Utilities */
+@utility glass-card {
+  @apply bg-white border border-slate-200 rounded-lg transition-colors duration-150;
+  box-shadow: var(--shadow-sm);
+
+  &:hover {
+    @apply border-slate-300;
+  }
+}
+
+@utility hero-btn {
+  @apply bg-slate-900 text-white font-semibold px-5 py-2.5 rounded-lg transition-colors duration-150 flex items-center justify-center gap-2 border-none;
+
+  &:hover {
+    @apply bg-slate-800;
+  }
+}
+
+@utility secondary-hero-btn {
+  @apply bg-white text-slate-700 font-semibold px-5 py-2.5 rounded-lg border border-slate-300 transition-colors duration-150 flex items-center justify-center gap-2;
+
+  &:hover {
+    @apply bg-slate-50;
+  }
+}
+
+@utility inline-badge {
+  @apply px-2.5 py-1 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200 inline-flex items-center gap-1.5;
+}
+
+@utility editorial-header {
+  @apply text-4xl md:text-5xl font-black tracking-tight text-slate-900;
+}
+
+@utility bento-item {
+  @apply bg-white border border-slate-200 rounded-lg p-6 transition-colors duration-150;
+  box-shadow: var(--shadow-sm);
+
+  &:hover {
+    @apply border-slate-300;
+  }
+}
+
+/* Refined Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s ease-out forwards;
+}
+
+/* Minimal Form Styling */
+input,
+select,
+textarea {
+  @apply bg-white border border-slate-300 text-slate-900 placeholder-slate-400 rounded-lg px-4 py-2.5 outline-none transition-colors duration-150;
+
+  &:focus {
+    @apply border-slate-700 ring-2 ring-slate-200;
+  }
+}
+
+label {
+  @apply text-xs font-semibold text-slate-600 mb-1.5 block;
+}
+
+/* Professional Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-slate-50;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-300 rounded-full border-2 border-slate-50 hover:bg-slate-400 transition-colors;
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@utility metallic-btn {
+  @apply bg-slate-900 text-white font-semibold px-5 py-2 rounded-lg border border-slate-800 transition-colors duration-150 flex items-center justify-center gap-2;
+
+  &:hover {
+    @apply bg-slate-800;
+  }
+}
+
+@utility stats-label {
+  @apply text-[11px] font-semibold text-slate-500 leading-none;
+}
+
+@utility stats-value {
+  @apply text-2xl font-black text-slate-900 leading-tight;
+}
+
+@utility premium-card {
+  @apply bg-white border border-slate-200 rounded-xl p-8 transition-colors duration-150 hover:border-slate-300;
+}
+
+@utility admin-panel {
+  @apply rounded-2xl border border-slate-200 bg-white;
+  box-shadow: var(--shadow-sm);
+}
+
+@utility admin-panel-muted {
+  @apply rounded-2xl border border-slate-200 bg-slate-50/70;
+}
+
+@utility admin-kicker {
+  @apply text-[11px] font-semibold text-slate-500;
+  letter-spacing: 0.01em;
+}
+
+@utility admin-section-title {
+  @apply text-xl font-bold text-slate-900;
+  letter-spacing: -0.01em;
+}
+
+@utility admin-metric-value {
+  @apply text-3xl font-bold text-slate-900;
+  letter-spacing: -0.03em;
+}
+
+/* Greta Dashboard Pack Tokens */
+@utility greta-card {
+  @apply bg-white border border-slate-200 rounded-xl p-6 transition-colors duration-150;
+  box-shadow: var(--shadow-sm);
+}
+
+@utility greta-card-hover {
+  @apply hover:border-slate-300;
+}
+
+@utility accent-marketing {
+  @apply text-emerald-600 bg-emerald-50 border-emerald-100;
+}
+
+@utility accent-financial {
+  @apply text-amber-600 bg-amber-50 border-amber-100;
+}
+
+@utility accent-operations {
+  @apply text-indigo-600 bg-indigo-50 border-indigo-100;
+}
+
+@utility accent-support {
+  @apply text-purple-600 bg-purple-50 border-purple-100;
+}
+
+@utility accent-sales {
+  @apply text-rose-600 bg-rose-50 border-rose-100;
+}
+
+@utility accent-executive {
+  @apply text-slate-800 bg-slate-100 border-slate-200;
+}
+
+@utility stats-grid {
+  @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6;
+}
+
+@utility metric-card {
+  @apply greta-card flex flex-col justify-between h-32 relative overflow-hidden;
+}
+
+@utility metric-value {
+  @apply text-3xl font-black text-slate-900 tracking-tight;
+}
+
+@utility metric-label {
+  @apply text-[11px] font-semibold text-slate-500;
+}
+
+/* Dashboard-wide normalization layer for legacy utility-heavy pages */
+.app-shell .uppercase {
+  text-transform: none !important;
+}
+
+.app-shell .tracking-widest,
+.app-shell .tracking-\[0\.2em\] {
+  letter-spacing: 0.01em !important;
+}
+
+.app-shell .rounded-3xl,
+.app-shell .rounded-2xl,
+.app-shell .rounded-\[2\.5rem\],
+.app-shell .rounded-\[2rem\] {
+  border-radius: 10px !important;
+}
+
+.app-shell button.rounded-full,
+.app-shell span.rounded-full {
+  border-radius: 8px !important;
+}
+
+.app-shell .shadow-xl,
+.app-shell .shadow-2xl {
+  box-shadow: var(--shadow-sm) !important;
+}
+
+/* Micro consistency pass: heading rhythm, compact badges, and dense labels */
+.app-shell h1 {
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  margin-bottom: 0.15rem;
+}
+
+.app-shell h2,
+.app-shell h3 {
+  line-height: 1.3;
+  letter-spacing: -0.005em;
+}
+
+.app-shell [class*="text-[9px]"],
+.app-shell [class*="text-[10px]"] {
+  font-size: 11px !important;
+  letter-spacing: 0.01em !important;
+}
+
+.app-shell span[class*="rounded-full"],
+.app-shell span[class*="rounded-lg"] {
+  padding-top: 0.2rem;
+  padding-bottom: 0.2rem;
+}
